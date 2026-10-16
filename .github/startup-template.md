@@ -1,50 +1,35 @@
 # Startup N: <Name>
 
-**One-liner:** <what it does, for whom, in one sentence>
-
-## The Idea
-2-3 paragraphs: the problem, the old way, your new way.
-
 ## Criteria Checklist
 
 ### 1. Solves one problem extremely well
-- The single problem: ...
-- What is deliberately out of scope: ...
-- How "extremely well" is measured (metric): ...
+- The single problem: <1-2 sentences>
 
 ### 2. Target customers / direct access
-- Who they are: ...
-- How you know them or can reach them (job, community, existing contacts, forums): ...
-- First 5 customers you could talk to this week: ...
+- Who they are: <1-2 sentences>
+- How you know them or can reach them (job, community, existing contacts, forums): <1-2 sentences>
 
 ### 3. Familiar infrastructure
-- Stack: cloud, compute, DB, queue, CI/CD, observability
-- What you already know vs. what you'd learn fast (and how): ...
+- What infrastructure is familiar: <1-2 sentences>
 
 ### 4. Reimagines the problem space
-- Status quo: ...
-- Reimagined approach: ...
-- Why it's 10x better, not 10% better: ...
+- Status quo: <1-2 sentences>
+- Reimagined approach: <1-2 sentences>
 
 ### 5. LLM is core (not a sidebar chatbot)
-- What the LLM generates/transforms that is the product itself: ...
-- Why the product can't exist without it: ...
+- What the LLM generates/transforms that is the product itself: <1-2 sentences>
+- Why the product can't exist without it: <1-2 sentences>
 
 ### 6. Validation guardrail
-- Artifact(s) the LLM produces: ...
+- Artifact(s) the LLM produces: <1-2 sentences>
 - Validator(s): JSON Schema / Pydantic, linters, compilers, rule engines, tests, policy checks
 - Rule: nothing reaches the user unless it passes. Show the gate in the flow.
 
 ### 7. Self-correction loop
 - On failure, the validator's error messages are sent back to the LLM with the original prompt
 - Max retries: N, then fallback behavior (fail safely, never ship unvalidated output)
-- Flow diagram (Mermaid below)
 
 ### 8. Deployability
-- Deployment target: ...
-- IaC / CI/CD: ...
-- Secrets, monitoring, cost estimate: ...
-- Confirmation you can deploy it end to end: ...
-
-## Architecture Diagram
-(Mermaid diagram showing LLM → Validator → pass/fail → retry → user)
+- Deployment target: <1-2 sentences>
+- IaC / CI/CD: <1-2 sentences>
+- Confirmation you can deploy it end to end: <1-2 sentences>
