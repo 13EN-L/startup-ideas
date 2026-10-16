@@ -1,37 +1,35 @@
-Startup 1: Motion
+# Startup 1: Motion
 
-Items marked (YC page) come from https://www.ycombinator.com/companies/motion. Items marked (inferred) are assumptions, because the page says nothing about Motion's internals. Sections 6-8 are a proposed design for a build in this space, not facts about Motion.
+## Criteria Checklist
 
-Criteria Checklist
-1. Solves one problem extremely well
-The single problem: Teams spend about 58% of their day coordinating work instead of doing it. Motion automatically plans who works on what, and when, from their projects, deadlines, priorities and calendars. (YC page)
-2. Target customers / direct access
-Who they are: Teams and knowledge workers who juggle many tasks, meetings and deadlines and need to know "who's doing what and when." The YC page tags it B2B SaaS productivity. (YC page)
-How you know them or can reach them (job, community, existing contacts, forums): Motion's founder is a quant trader turned founder, and the company says it ran thousands of user interviews. For you, reach would be through ops and PM communities, productivity subreddits, and teams you've worked on. (YC page, partly inferred)
-3. Familiar infrastructure
-What infrastructure is familiar: Calendar and task APIs (Google/Outlook), a web SaaS app, a relational database and a scheduling/optimization backend. These are mainstream, well-documented building blocks. (inferred)
-4. Reimagines the problem space
-Status quo: Task apps are passive lists. Users dump everything in and manually prioritize, schedule and re-plan when things slip. (YC page)
-Reimagined approach: Motion treats scheduling as an automated planning problem. It sets each person's daily schedule from duration, priority, deadline and dependencies, and re-plans automatically when things change. It now also lets teams build AI Employees inside the same work platform. (YC page)
-5. LLM is core (not a sidebar chatbot)
-What the LLM generates/transforms that is the product itself: Motion's original core was a scheduling algorithm, and its current positioning is an AI-native suite with AI Employees. A defensible LLM-core version would turn messy inputs (emails, meeting notes, chat) into structured tasks with durations, priorities, dependencies and deadlines, which feed the planner. (YC page for positioning, rest inferred)
-Why the product can't exist without it: Without an LLM, users must enter all that structure by hand, which is the manual overhead the product is meant to remove. (inferred)
-6. Validation guardrail
-Artifact(s) the LLM produces: A JSON task/plan object (title, duration, priority, deadline, dependencies, assignee, proposed time blocks). (proposed)
-Validator(s): Pydantic/JSON Schema for structure, plus rule-engine checks:
-No double-booked calendar slots.
-Work stays inside available hours.
-Deadlines are met.
-Dependencies are acyclic and ordered.
-Assignee exists and has capacity.
-Rule: nothing reaches the user's calendar unless it passes.
-input -> LLM -> schema check -> constraint check -> PASS: write to calendar
-                                      |
-                                    FAIL: errors -> back to LLM (step 7)
-7. Self-correction loop
-On failure, the validator's error messages are sent back to the LLM with the original prompt. For example: "Task 3 overlaps the 2pm meeting; dependency B->A is circular."
-Max retries: 3. Fallback: fail safely by showing the task as unscheduled in a "needs review" queue with the validation errors, and never write unvalidated output to a calendar.
-8. Deployability
-Deployment target: A containerized web API plus worker on AWS (ECS/Fargate or Lambda) or a similar managed platform, with managed Postgres and a queue for re-planning jobs. (proposed)
-IaC / CI/CD: Terraform or CDK for infrastructure, and GitHub Actions to run tests and validators, build the image and deploy on merge. (proposed)
-Confirmation you can deploy it end to end: TODO (yours to confirm). Before committing to this idea, deploy a minimal slice (one endpoint that takes text, validates and returns a schedule) through the full pipeline.
+### 1. Solves one problem extremely well
+- The single problem: Knowledge workers and teams lose hours manually deciding what to work on, scheduling it, and re-planning when things change. Motion takes tasks, deadlines, priorities and dependencies and automatically builds and continuously updates each person's calendar plan.
+
+### 2. Target customers / direct access
+- Who they are: Individuals and teams of any size, especially service businesses (IT providers, agencies, law firms, consultancies, construction) and functional teams (startups, sales, executives). Motion claims over 1 million users.
+- How you know them or can reach them (job, community, existing contacts, forums): Reach them through ops/PM and productivity communities, ADHD and time-management forums (a common theme in Motion's reviews), and owner-operators of small service businesses. Add your own job and contact network here.
+
+### 3. Familiar infrastructure
+- What infrastructure is familiar: Google/Outlook/iCloud calendars, Gmail/Outlook email, Zoom/Meet/Teams, Slack, HubSpot and Salesforce, exposed through a public REST API and web, desktop and mobile apps. All are mainstream, well-documented integrations.
+
+### 4. Reimagines the problem space
+- Status quo: Task managers, project trackers, calendars, note-takers and docs are separate tools that need manual updating, chasing and re-planning.
+- Reimagined approach: One AI-native workspace where a scheduling engine plans everyone's day from the full project context and re-optimizes automatically when anything changes.
+
+### 5. LLM is core (not a sidebar chatbot)
+- What the LLM generates/transforms that is the product itself: It turns project descriptions, docs, emails and meeting transcripts into structured projects and tasks (deadlines, assignees, stages) that feed the planner, and turns meetings into summaries and action items.
+- Why the product can't exist without it: Without the LLM, users must hand-enter all of that structure, which is exactly the overhead the planner is meant to remove.
+
+### 6. Validation guardrail
+- Artifact(s) the LLM produces: A structured JSON plan (projects, tasks, durations, priorities, deadlines, dependencies, assignees).
+- Validator(s): Pydantic/JSON Schema for structure, plus a rule engine for calendar conflicts, working hours, dependency cycles, deadline feasibility and assignee capacity.
+- Rule: nothing reaches the user unless it passes. Flow: input → LLM → schema check → constraint check → PASS: write to planner/calendar | FAIL: errors → step 7.
+
+### 7. Self-correction loop
+- On failure, the validator's error messages are sent back to the LLM with the original prompt
+- Max retries: 3, then fail safely by saving the tasks as unscheduled in a "needs review" queue with the errors shown, never writing unvalidated output to a calendar.
+
+### 8. Deployability
+- Deployment target: A containerized API and worker on AWS (ECS/Fargate) with managed Postgres and a job queue for re-planning.
+- IaC / CI/CD: Terraform for infrastructure, and GitHub Actions to run tests and validators, build the image and deploy on merge.
+- Confirmation you can deploy it end to end: Not yet confirmed; deploy one minimal slice (text in, validated schedule out) through the full pipeline to verify.
