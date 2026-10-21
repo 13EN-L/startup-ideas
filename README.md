@@ -2,7 +2,7 @@
 
 **An AI productivity tracker and motivator for students.** You tell it what you want to get done, study as you normally would, and an LLM judges whether your activity actually matched that task. Verified on-task time grows plants in a virtual garden.
 
-> Status: 3-week MVP in progress. Browser extension (Chrome/Edge on Windows and Mac) + Python backend + LLM.
+> Status: 6-week MVP in progress. Browser extension (Chrome/Edge on Windows and Mac) + Python backend + LLM.
 
 ---
 
