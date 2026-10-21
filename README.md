@@ -110,7 +110,7 @@ docs/        Criteria checklist and design notes
 ## Tech stack
 Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · Docker · Render · GitHub Actions · hosted LLM API with vision
 
-## Timeline (3 weeks)
+## Timeline (6 weeks)
 
 | Week | Goal |
 |---|---|
