@@ -107,6 +107,23 @@ eval/        Labeled test blocks and photos for measuring accuracy
 docs/        Criteria checklist and design notes
 ```
 
+### Local computer-usage backend
+
+The repository also includes a Windows-local bridge in [`backend/`](backend/).
+It manages a configured ActivityWatch process, reads browser, foreground-window,
+and idle events, and exposes privacy-filtered time-range data to the Chrome
+extension at `http://127.0.0.1:8765/usage`. See
+[`backend/README.md`](backend/README.md) for installation, optional bearer
+authentication, Windows startup instructions, and the request/response schema.
+ActivityWatch remains the local source of truth; the bridge does not upload
+usage data or persist a second copy.
+
+For Windows distribution, `backend/build_release.py` downloads and verifies
+the pinned ActivityWatch v0.14.1 binary, freezes the Python service into
+`FocusGardenLocalBackend.exe`, and creates a distributable zip. The build is
+also available through
+[`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml).
+
 ## Tech stack
 Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · Docker · Render · GitHub Actions · hosted LLM API with vision
 

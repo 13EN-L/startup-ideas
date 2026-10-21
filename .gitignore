@@ -1,0 +1,9 @@
+backend/.venv/
+backend/build/
+backend/dist/
+backend/release/
+backend/FocusGardenLocalBackend-windows-x86_64.zip
+backend/*.spec
+backend/*.egg-info/
+__pycache__/
+*.py[cod]
