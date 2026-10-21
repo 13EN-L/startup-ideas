@@ -118,6 +118,12 @@ authentication, Windows startup instructions, and the request/response schema.
 ActivityWatch remains the local source of truth; the bridge does not upload
 usage data or persist a second copy.
 
+For Windows distribution, `backend/build_release.py` downloads and verifies
+the pinned ActivityWatch v0.14.1 binary, freezes the Python service into
+`FocusGardenLocalBackend.exe`, and creates a distributable zip. The build is
+also available through
+[`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml).
+
 ## Tech stack
 Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · Docker · Render · GitHub Actions · hosted LLM API with vision
 

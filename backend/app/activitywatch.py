@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -89,9 +90,16 @@ class ActivityWatchManager:
             return shlex.split(self.start_command, posix=os.name != "nt")
         if self.executable:
             return [self.executable]
-        bundled = Path(__file__).resolve().parents[2] / "activitywatch" / "activitywatch.exe"
-        if bundled.is_file():
-            return [str(bundled)]
+        for root in (
+            Path(__file__).resolve().parents[2],
+            Path(getattr(__import__("sys"), "_MEIPASS", "")),
+            Path(__import__("sys").executable).resolve().parent,
+        ):
+            directory = root / "activitywatch"
+            for name in ("activitywatch.exe", "aw-qt.exe"):
+                bundled = directory / name
+                if bundled.is_file():
+                    return [str(bundled)]
         return None
 
     def buckets(self) -> list[dict[str, Any]]:
