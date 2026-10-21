@@ -1,0 +1,15 @@
+{
+  "start": "2026-10-21T14:00:00Z",
+  "end": "2026-10-21T15:00:00Z",
+  "blocks": [
+    {"id": "b1", "start": "2026-10-21T14:00:00Z", "seconds": 1500, "kind": "web",
+     "app": "Google Chrome", "site": "docs.google.com", "title": "Chem PS4 - Google Docs"},
+    {"id": "b2", "start": "2026-10-21T14:25:00Z", "seconds": 420, "kind": "web",
+     "app": "Google Chrome", "site": "youtube.com", "title": "Lecture 7: Equilibrium - YouTube"},
+    {"id": "b3", "start": "2026-10-21T14:32:00Z", "seconds": 300, "kind": "idle"},
+    {"id": "b4", "start": "2026-10-21T14:37:00Z", "seconds": 480, "kind": "app",
+     "app": "Discord", "title": "#general"},
+    {"id": "b5", "start": "2026-10-21T14:45:00Z", "seconds": 900, "kind": "web",
+     "app": "Google Chrome", "site": "google.com", "title": "le chatelier principle - Google Search"}
+  ]
+}
