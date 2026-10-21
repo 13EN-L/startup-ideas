@@ -1,0 +1,8 @@
+fastapi<1,>=0.115
+httpx<1,>=0.27
+pydantic<3,>=2.7
+uvicorn[standard]<1,>=0.30
+
+[test]
+pytest<9,>=8
+pytest-cov<6,>=5

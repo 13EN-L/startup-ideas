@@ -107,6 +107,17 @@ eval/        Labeled test blocks and photos for measuring accuracy
 docs/        Criteria checklist and design notes
 ```
 
+### Local computer-usage backend
+
+The repository also includes a Windows-local bridge in [`backend/`](backend/).
+It manages a configured ActivityWatch process, reads browser, foreground-window,
+and idle events, and exposes privacy-filtered time-range data to the Chrome
+extension at `http://127.0.0.1:8765/usage`. See
+[`backend/README.md`](backend/README.md) for installation, optional bearer
+authentication, Windows startup instructions, and the request/response schema.
+ActivityWatch remains the local source of truth; the bridge does not upload
+usage data or persist a second copy.
+
 ## Tech stack
 Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · Docker · Render · GitHub Actions · hosted LLM API with vision
 
