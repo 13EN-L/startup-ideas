@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * Part 2 background service worker. Webpages can't reach it, and the Claude key
+ * Part 2 background service worker. Webpages can't reach it, and the Google API key
  * never reaches the extension (it lives on the backend).
  *
  * Messages from the UI (chrome.runtime.sendMessage), each answered with {ok, data|error}:
@@ -18,6 +18,7 @@ import { getActive, getHistory, saveSession, setActive } from "./storage.js";
 
 const CODE_WORDS = ["maple", "otter", "comet", "pebble", "lantern", "cedar", "harbor",
   "violet", "summit", "willow", "ember", "canyon", "meadow", "falcon", "glacier", "orchid"];
+const MAX_PAPER_PHOTO_ATTEMPTS = 2;
 
 function randomCodeWord() {
   const [n] = crypto.getRandomValues(new Uint32Array(1));
@@ -44,15 +45,28 @@ async function handle(msg) {
     case "startPaperSession": {
       if (await getActive()) throw new Error("a session is already running");
       const codeWord = randomCodeWord();
-      await setActive({ kind: "paper", task: msg.task, start: new Date().toISOString(), codeWord });
+      await setActive({ kind: "paper", task: msg.task, start: new Date().toISOString(),
+                        codeWord, photoAttempts: 0 });
       return { codeWord };
     }
     case "endPaperSession": {
       const active = await requireActive("paper");
       const end = new Date().toISOString();
       const minutes = (Date.parse(end) - Date.parse(active.start)) / 60000;
-      const result = await checkPhoto({ task: active.task, code_word: active.codeWord, minutes,
-                                        image_base64: msg.imageBase64, media_type: msg.mediaType });
+      let result;
+      try {
+        result = await checkPhoto({ task: active.task, code_word: active.codeWord, minutes,
+                                    image_base64: msg.imageBase64, media_type: msg.mediaType });
+      } catch (error) {
+        result = { verified: false, credited_minutes: 0,
+                   reason: `photo check unavailable: ${String(error.message || error)}` };
+      }
+      const attempts = (active.photoAttempts || 0) + 1;
+      if (!result.verified && attempts < MAX_PAPER_PHOTO_ATTEMPTS) {
+        await setActive({ ...active, photoAttempts: attempts });
+        return { completed: false, retryable: true,
+                 attemptsRemaining: MAX_PAPER_PHOTO_ATTEMPTS - attempts, result };
+      }
       return finish(active, end, result, plantFor("paper", result.credited_minutes));
     }
     case "getActive":

@@ -62,7 +62,9 @@ Double-click:
 FocusGardenLocalBackend.exe
 ```
 
-Leave the console window open while testing. The backend listens on:
+The executable is a system-tray application, so it does not open a terminal.
+Look for the FocusGarden leaf icon in the Windows notification area. Right-
+click it to open the health page or quit the application. The backend listens on:
 
 ```text
 http://127.0.0.1:8765
@@ -72,15 +74,15 @@ The bundled ActivityWatch process is launched automatically while the backend
 starts. The backend waits for ActivityWatch to become ready before reporting
 successful recorder health.
 
-To test command-line startup instead, open PowerShell in the application
-folder and run:
+For visible development logs in source mode, run the launcher from PowerShell
+with `--console`:
 
 ```powershell
-.\FocusGardenLocalBackend.exe --help
-.\FocusGardenLocalBackend.exe --port 8765
+uv run --no-sync python -m app.launcher --console --port 8765
 ```
 
-The `--help` command should list `--host`, `--port`, and `--token`.
+The packaged release normally runs without a terminal. Use the source-mode
+launcher with `--console` when you need visible logs during development.
 
 ### 3. Optional: configure extension authentication
 
@@ -97,6 +99,18 @@ The Chrome extension must then send:
 ```http
 X-Flora-Secret: local-extension-token
 ```
+
+If you want LLM labeling or paper-photo checks, start it with your Google AI
+Studio API key:
+
+```powershell
+.\FocusGardenLocalBackend.exe `
+  --token "local-extension-token" `
+  --google-api-key "your-google-api-key"
+```
+
+The key is for Google's Gemini 3.8 Flash model. Keep it in the local
+program; do not put it in the extension or commit it to Git.
 
 ## Option 2: Run from source
 
@@ -362,7 +376,7 @@ containing fabricated or empty usage data.
 ### Before the demo
 
 1. Extract the packaged release.
-2. Start `FocusGardenLocalBackend.exe`.
+2. Start `FocusGardenLocalBackend.exe` and confirm the tray icon appears.
 3. Confirm `http://127.0.0.1:8765/health` returns `reachable: true`.
 4. Confirm ActivityWatch is recording at `http://127.0.0.1:5600`.
 5. Keep PowerShell, a browser, and the API endpoint available.
@@ -467,7 +481,44 @@ This checkout contains the extension background modules but does not contain a
 separately, load its manifest directory with Chrome's **Developer mode** →
 **Load unpacked** before running this step.
 
-#### 8. Show the interactive API documentation
+#### 8. Demo a paper session and photo check
+
+With the extension loaded and the backend running with
+`--google-api-key`:
+
+1. Start a paper session for a task, such as `finish chemistry problem set 4`.
+2. Write the returned code word at the top of a page.
+3. Write several notes related to the task.
+4. Wait long enough to create a meaningful session duration.
+5. Photograph the page so the code word and notes are readable.
+6. End the paper session and submit the JPEG, PNG, or WebP image.
+
+The service worker sends `POST /photo-check` with `task`, `code_word`,
+`minutes`, `image_base64`, and `media_type`. A successful response resembles:
+
+```json
+{
+  "verified": true,
+  "credited_minutes": 10.0,
+  "reason": "code word and task notes found"
+}
+```
+
+Use a wrong code word, a page without notes, or an unrelated page to
+demonstrate the rejection response. It should report `verified: false` and
+award 0% of the session minutes. Only an ambiguous image with a matching code
+word, visible notes, and task-related content can receive 50%. The extension
+allows two attempts: after the first failed attempt it returns
+`attemptsRemaining: 1` and keeps the paper session active. A missing Google API
+key produces HTTP 503 because the real Gemini reader is unavailable, and the
+extension does not finalize the session until the retry limit is reached.
+
+For a direct PowerShell request, follow the base64 example in
+[`backend/README.md`](README.md#use-paper-session-photo-checks). The automated
+photo tests use fake readers and do not consume Google API credits; a real
+photo test requires a Google AI Studio API key.
+
+#### 9. Show the interactive API documentation
 
 Open:
 

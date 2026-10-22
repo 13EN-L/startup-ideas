@@ -3,7 +3,7 @@
 This file defines how the three parts pass data to each other. If a format changes, update this file, [`docs/examples/`](examples/) and `backend/app/contracts.py` in the same PR. `backend/tests/test_activity_contract.py` fails if the example stops matching.
 
 ```
-Local packaged backend --GET /activity--> Part 2 (service worker) --POST /label--> same backend --> Claude
+Local packaged backend --GET /activity--> Part 2 (service worker) --POST /label--> same backend --> Gemini 3.8 Flash
 Part 3 (UI) <--chrome.runtime messages--> Part 2 (service worker)
 ```
 
@@ -80,12 +80,12 @@ When a result is saved, the service worker also broadcasts `{type: "sessionSaved
 
 - **`label`:** one of `on_task`, `off_task`, `break` or `unclear`. Blocks listed in `needs_review` are `unclear` and are meant for the review screen.
 - **`source`:** explains where a label came from:
-  - `llm`: Claude's label;
+  - `llm`: Gemini's label;
   - `rule`: idle time;
   - `override`: the user's allowlist or blocklist;
-  - `low_confidence`: Claude wasn't sure (its reason is kept);
-  - `unlabeled`: Claude failed validation after 2 retries.
-- **Paper sessions:** `result` is `{verified, credited_minutes, reason}`. A verified photo gets full minutes; otherwise the session gets 50%.
+  - `low_confidence`: Gemini wasn't sure (its reason is kept);
+  - `unlabeled`: Gemini failed validation after 2 retries.
+- **Paper sessions:** `result` is `{verified, credited_minutes, reason}`. A verified photo gets full minutes. An ambiguous but plausible photo can get 50%; clear failures get 0%.
 - **`plant`:** comes from `extension/background/plantRules.js`. **This is a placeholder for Part 3 to replace.**
 
 ## 3. Part 2 → local backend

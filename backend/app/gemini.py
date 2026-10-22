@@ -1,13 +1,15 @@
-"""Claude adapters: the only code that talks to the LLM. Tests replace these with fakes."""
+"""Gemini adapters: the only code that talks to the LLM."""
+import base64
 import json
 import os
-from typing import List, Optional
+from typing import Any, List, Optional
 
-import anthropic
+from google import genai
+from google.genai import types
 
 from app.contracts import ActivityBlock
 
-DEFAULT_MODEL = "claude-haiku-5-5"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 LABEL_SYSTEM = """You judge whether a student's computer activity fits the task they set for themselves.
 
@@ -63,7 +65,6 @@ PHOTO_SCHEMA = {
 
 
 def block_line(block: ActivityBlock) -> str:
-    """One compact line per block keeps the prompt small. URLs never reach this point."""
     where = block.site or f"app:{block.app}"
     return f"{block.id} | {round(block.seconds / 60, 1)}m | {where} | {block.title or ''}"
 
@@ -72,51 +73,53 @@ def feedback_text(feedback: List[str]) -> str:
     if not feedback:
         return ""
     return "\n\nYour previous answer was rejected. Fix these problems:\n" + "\n".join(
-        f"- {f}" for f in feedback)
+        f"- {f}" for f in feedback
+    )
 
 
-class ClaudeClient:
-    def __init__(self, client: Optional[anthropic.Anthropic] = None, model: Optional[str] = None,
-                 effort: Optional[str] = None):
-        self.client = client or anthropic.Anthropic()
-        self.model = model or os.environ.get("FLORA_MODEL", DEFAULT_MODEL)
-        self.effort = effort or os.environ.get("FLORA_EFFORT", "medium")
-
-    def _json(self, system: str, content, schema: dict) -> dict:
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=16000,
-            system=system,
-            messages=[{"role": "user", "content": content}],
-            output_config={"effort": self.effort,
-                           "format": {"type": "json_schema", "schema": schema}},
+class GeminiClient:
+    def __init__(self, client: Optional[genai.Client] = None, model: Optional[str] = None):
+        self.client = client or genai.Client(
+            api_key=os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
         )
-        if response.stop_reason == "refusal":
-            raise RuntimeError(f"Claude declined the request: {response.stop_details}")
-        text = next((b.text for b in response.content if b.type == "text"), None)
-        if text is None:
-            raise RuntimeError(f"no text in response (stop_reason={response.stop_reason})")
-        # Invalid JSON surfaces as a schema error in the caller's retry loop.
+        self.model = model or os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
+
+    def _json(self, system: str, content: Any, schema: dict) -> dict:
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=content,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                response_mime_type="application/json",
+                response_schema=schema,
+            ),
+        )
+        text = response.text
+        if not text:
+            raise RuntimeError("Gemini returned no text")
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             return {"invalid_json": text}
 
 
-class ClaudeLabeler(ClaudeClient):
+class GeminiLabeler(GeminiClient):
     def label_blocks(self, task: str, blocks: List[ActivityBlock], feedback: List[str]) -> dict:
-        prompt = (f"Task: {task}\n\nBlocks:\n" + "\n".join(block_line(b) for b in blocks)
-                  + feedback_text(feedback))
+        prompt = (
+            f"Task: {task}\n\nBlocks:\n"
+            + "\n".join(block_line(b) for b in blocks)
+            + feedback_text(feedback)
+        )
         return self._json(LABEL_SYSTEM, prompt, LABELS_SCHEMA)
 
 
-class ClaudePhotoReader(ClaudeClient):
-    def read_photo(self, task: str, image_base64: str, media_type: str,
-                   feedback: List[str]) -> dict:
+class GeminiPhotoReader(GeminiClient):
+    def read_photo(
+        self, task: str, image_base64: str, media_type: str, feedback: List[str]
+    ) -> dict:
         content = [
-            {"type": "image",
-             "source": {"type": "base64", "media_type": media_type, "data": image_base64}},
-            {"type": "text", "text": f"Task: {task}" + feedback_text(feedback)},
+            types.Part.from_bytes(data=base64.b64decode(image_base64), mime_type=media_type),
+            types.Part.from_text(text=f"Task: {task}" + feedback_text(feedback)),
         ]
         raw = self._json(PHOTO_SYSTEM, content, PHOTO_SCHEMA)
         if raw.get("code_word_seen") == "":

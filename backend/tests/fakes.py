@@ -1,4 +1,4 @@
-"""Stand-ins for Claude, the only external system the backend talks to."""
+"""Stand-ins for Gemini, the only external system the backend talks to."""
 
 
 class FakeLabeler:
@@ -14,7 +14,7 @@ class FakeLabeler:
 
 
 class BrokenLabeler:
-    """Behaves like Claude being unreachable."""
+    """Behaves like Gemini being unreachable."""
 
     def label_blocks(self, task, blocks, feedback):
         raise ConnectionError("LLM unavailable")
@@ -33,7 +33,7 @@ class FakePhotoReader:
 
 
 class BrokenPhotoReader:
-    """Behaves like Claude being unreachable."""
+    """Behaves like Gemini being unreachable."""
 
     def read_photo(self, task, image_base64, media_type, feedback):
         raise ConnectionError("LLM unavailable")

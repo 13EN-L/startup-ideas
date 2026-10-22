@@ -2,10 +2,10 @@ README.md
 pyproject.toml
 app/__init__.py
 app/activitywatch.py
-app/claude.py
 app/config.py
 app/contracts.py
 app/formatting.py
+app/gemini.py
 app/labeling.py
 app/launcher.py
 app/main.py

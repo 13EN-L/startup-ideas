@@ -2,7 +2,7 @@
 import logging
 import os
 
-from app.claude import ClaudeLabeler, ClaudePhotoReader
+from app.gemini import GeminiLabeler, GeminiPhotoReader
 from app.activitywatch import ActivityWatchManager
 from app.config import settings
 from app.main import create_app
@@ -16,12 +16,12 @@ if not secret:
     )
 
 labeler = photo_reader = None
-if os.environ.get("ANTHROPIC_API_KEY"):
-    labeler = ClaudeLabeler()
-    photo_reader = ClaudePhotoReader()
+if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
+    labeler = GeminiLabeler()
+    photo_reader = GeminiPhotoReader()
 else:
     logging.warning(
-        "ANTHROPIC_API_KEY is not set; /label and /photo-check will return 503."
+        "GOOGLE_API_KEY is not set; /label and /photo-check will return 503."
     )
 
 app = create_app(

@@ -1,5 +1,5 @@
 // @ts-check
-/** Talks to the FastAPI backend, which holds the Claude key. Format: docs/contracts.md */
+/** Talks to the FastAPI backend, which holds the Google API key. Format: docs/contracts.md */
 import { getConfig } from "./config.js";
 
 /**

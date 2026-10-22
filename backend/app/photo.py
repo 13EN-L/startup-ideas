@@ -29,6 +29,21 @@ def failure_reason(verdict: LLMPhotoVerdict, request: PhotoCheckRequest) -> Opti
     return None
 
 
+def credit_for_failed_check(
+    verdict: Optional[LLMPhotoVerdict], request: PhotoCheckRequest
+) -> float:
+    """Give partial credit only when the image plausibly belongs to this session."""
+    if (
+        verdict is not None
+        and same_word(verdict.code_word_seen, request.code_word)
+        and verdict.notes_present
+        and verdict.matches_task
+        and verdict.confidence < MIN_CONFIDENCE
+    ):
+        return request.minutes * PARTIAL_CREDIT
+    return 0.0
+
+
 def ask_llm(request: PhotoCheckRequest, reader) -> Optional[LLMPhotoVerdict]:
     """Calls the LLM, feeding schema errors back up to MAX_RETRIES times. None if it never passes."""
     feedback: List[str] = []
@@ -36,7 +51,7 @@ def ask_llm(request: PhotoCheckRequest, reader) -> Optional[LLMPhotoVerdict]:
         try:
             raw = reader.read_photo(request.task, request.image_base64, request.media_type, feedback)
         except Exception:
-            # The SDK has already retried transient failures; fall back to partial credit.
+            # The caller must not receive credit when the model cannot check the image.
             log.exception("photo reader call failed")
             return None
         try:
@@ -52,5 +67,8 @@ def check_photo(request: PhotoCheckRequest, reader) -> PhotoCheckResponse:
     if reason is None:
         return PhotoCheckResponse(verified=True, credited_minutes=request.minutes,
                                   reason="code word and task notes found")
-    return PhotoCheckResponse(verified=False, credited_minutes=request.minutes * PARTIAL_CREDIT,
-                              reason=reason)
+    return PhotoCheckResponse(
+        verified=False,
+        credited_minutes=credit_for_failed_check(verdict, request),
+        reason=reason,
+    )

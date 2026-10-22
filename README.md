@@ -36,7 +36,7 @@ FocusGarden is both a productivity tracker and a motivator.
 3. **LLM judges the activity.** When the session ends, an LLM labels each block of activity as on-task, off-task, break or unclear, with a short reason. Productivity stats (on-task minutes, on-task %, longest focus streak) are computed by code from those labels.
 4. **The garden grows.** Verified on-task time grows plants in a virtual garden. Different kinds of productivity grow different plants (for example, computer work and paper work grow different species), and more on-task time grows them further.
 
-**Paper work counts too.** For offline study, the user starts a paper session and writes that session's code word at the top of their page. At the end, a photo of the page is checked by the LLM for the code word and task-related notes. Verified paper time gets full credit; unverified time gets partial credit.
+**Paper work counts too.** For offline study, the user starts a paper session and writes that session's code word at the top of their page. At the end, a photo of the page is checked by the LLM for the code word and task-related notes. Verified paper time gets full credit; only an ambiguous but plausible photo can receive partial credit, while clear failures receive no credit.
 
 **Nothing unvalidated reaches the garden.** Every LLM output is checked (schema, every block labeled exactly once, user allow/block lists, confidence thresholds, exact code-word match, stat sanity checks). On failure, the errors are sent back to the LLM for up to 2 retries; after that, uncertain blocks go to a review screen where the user decides.
 
@@ -129,7 +129,8 @@ from a release artifact and:
 1. Extract it, for example to `C:\FocusGarden`.
 2. Open `C:\FocusGarden\FocusGardenLocalBackend`.
 3. Run `FocusGardenLocalBackend.exe`.
-4. Leave it running while the extension is in use.
+4. Confirm that the FocusGarden leaf icon appears in the Windows system tray.
+   The packaged program runs without an open terminal.
 5. Open `http://127.0.0.1:8765/health` and confirm `"reachable": true`.
 
 The package includes ActivityWatch and starts it automatically. To start the
@@ -146,10 +147,10 @@ start the executable. For example:
 
 ```powershell
 .\FocusGardenLocalBackend.exe --token "local-extension-token" `
-  --anthropic-api-key "your-anthropic-key"
+  --google-api-key "your-google-api-key"
 ```
 
-Never commit the Anthropic key. The extension sends `X-Flora-Secret` to
+Never commit the Google API key. The backend uses it to call Gemini, and the extension sends `X-Flora-Secret` to
 `/activity`, `/label`, and `/photo-check`.
 
 This repository currently contains the extension background modules under
@@ -182,6 +183,30 @@ The second command should return an object with `start`, `end`, and `blocks`.
 Each block has `kind` (`web`, `app`, or `idle`), whole-second duration, and
 privacy-filtered site/title fields. The extension uses this exact response
 when ending a computer session. `/usage` remains available for diagnostics.
+
+### Demo a paper session and photo check
+
+The extension also supports paper study:
+
+1. Start a paper session with a task.
+2. Write the code word returned by the extension at the top of the page.
+3. Study and take a clear photo that includes the code word and relevant notes.
+4. End the paper session and submit the photo.
+
+The extension sends the image as base64 to the local backend's
+`POST /photo-check`. The backend sends it to Gemini 3.8 Flash, checks the code
+word, notes, task relevance, and confidence, then returns full credit when all
+checks pass. Start the executable with
+`--google-api-key` for this feature. See
+[`backend/README.md`](backend/README.md#use-paper-session-photo-checks) for
+the direct API test and request format.
+
+Only an ambiguous but plausible image can receive 50% credit: the code word
+must match, notes must be present and task-related, and Gemini's confidence
+must be below the verification threshold. Wrong code words, blank or unrelated
+pages, and model failures receive 0%. The extension allows at most two photo
+attempts per paper session; a failed first attempt remains active so the user
+can retake the photo.
 
 Run the automated backend and contract tests from the repository root:
 

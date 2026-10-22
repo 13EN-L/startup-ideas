@@ -104,6 +104,7 @@ def build() -> None:
                 "--noconfirm",
                 "--clean",
                 "--onedir",
+                "--windowed",
                 "--name",
                 "FocusGardenLocalBackend",
                 "--distpath",
@@ -117,7 +118,7 @@ def build() -> None:
                 "--hidden-import",
                 "app.server",
                 "--hidden-import",
-                "app.claude",
+                "app.gemini",
                 "--hidden-import",
                 "app.contracts",
                 "--hidden-import",
@@ -126,6 +127,8 @@ def build() -> None:
                 "app.photo",
                 "--hidden-import",
                 "app.stats",
+                "--hidden-import",
+                "pystray",
                 str(ROOT / "app" / "launcher.py"),
             ],
             cwd=ROOT,
@@ -140,8 +143,9 @@ def build() -> None:
             shutil.rmtree(DIST)
         shutil.copytree(packaged, DIST / "FocusGardenLocalBackend")
         (DIST / "README.txt").write_text(
-            "Run FocusGardenLocalBackend\\FocusGardenLocalBackend.exe.\\n"
-            "Optional: pass --token TOKEN for Chrome-extension authentication.\\n",
+            "Run FocusGardenLocalBackend\\FocusGardenLocalBackend.exe.\n"
+            "The app runs in the Windows system tray without a terminal.\n"
+            "Optional: pass --token TOKEN for Chrome-extension authentication.\n",
             encoding="utf-8",
         )
         archive = shutil.make_archive(

@@ -8,9 +8,11 @@ version = "0.1.0"
 description = "Windows-local ActivityWatch bridge for the FocusGarden Chrome extension"
 requires-python = ">=3.11"
 dependencies = [
-  "anthropic>=0.70,<1",
+  "google-genai>=1.0,<2",
   "fastapi>=0.115,<1",
   "httpx>=0.27,<1",
+  "pillow>=10,<13",
+  "pystray>=0.19,<1",
   "pydantic>=2.7,<3",
   "uvicorn[standard]>=0.30,<1",
 ]
