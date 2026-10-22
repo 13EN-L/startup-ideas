@@ -153,14 +153,10 @@ start the executable. For example:
 Never commit the Google API key. The backend uses it to call Gemini, and the extension sends `X-Flora-Secret` to
 `/activity`, `/label`, and `/photo-check`.
 
-This repository currently contains the extension background modules under
-[`extension/background/`](extension/background/), but it does not currently
-contain a Chrome `manifest.json` or a built popup/options UI. Therefore the
-local program can be installed and tested now, while loading the complete
-extension in `chrome://extensions` requires the extension manifest/UI task to
-be present. When that task is available, use Chrome's **Developer mode** →
-**Load unpacked** and select the directory containing `manifest.json`; then
-configure the shared secret in the extension settings.
+To load the extension, open `chrome://extensions`, turn on **Developer mode**,
+click **Load unpacked**, and select the [`extension/`](extension/) folder. Then
+click the extension's **Settings** link, enter the shared secret, and use
+**Test connection**.
 
 ### Test the complete local integration
 
@@ -224,6 +220,33 @@ the pinned ActivityWatch v0.14.1 binary, freezes the Python service into
 `FocusGardenLocalBackend.exe`, and creates a distributable zip. The build is
 also available through
 [`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml).
+
+## Run the local MVP on a Mac (for development)
+
+There's no packaged Mac build yet, so run the backend from source and install
+ActivityWatch yourself.
+
+1. **Install ActivityWatch** from [activitywatch.net](https://activitywatch.net/)
+   (or `brew install --cask activitywatch`), open it once, and allow the
+   **Accessibility** permission macOS asks for. Without it, window titles are blank.
+2. **Install the ActivityWatch web watcher** for Chrome ("ActivityWatch Web
+   Watcher" in the Chrome Web Store). Without it, blocks show the app name but
+   not the site.
+3. **Start the backend** (Python 3.11+):
+
+   ```sh
+   cd backend
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements-dev.txt
+   export GOOGLE_API_KEY=...   # Gemini key; never commit this
+   .venv/bin/uvicorn app.server:app --port 8765
+   ```
+
+   The backend starts ActivityWatch if it is installed in `/Applications` and not
+   already running. With no `FLORA_SHARED_SECRET` set, the extension's shared
+   secret can stay blank.
+4. **Load the extension** as described above, then open the popup, enter a task
+   and start a session.
 
 ## Tech stack
 Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · GitHub Actions · hosted LLM API with vision

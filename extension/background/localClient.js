@@ -1,5 +1,6 @@
 // @ts-check
 /** Talks to the unified local backend. Format: docs/contracts.md#activity-window */
+import { errorDetail } from "./backendClient.js";
 import { getConfig } from "./config.js";
 
 /**
@@ -19,6 +20,6 @@ export async function fetchActivity(start, end) {
   const res = await fetch(url, {
     headers: { "X-Flora-Secret": sharedSecret },
   });
-  if (!res.ok) throw new Error(`activity backend returned ${res.status}`);
+  if (!res.ok) throw new Error(`activity backend returned ${res.status}: ${await errorDetail(res)}`);
   return res.json();
 }

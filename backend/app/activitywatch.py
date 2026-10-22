@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
+import sys
 import time
 from threading import Lock
 from typing import Any
@@ -120,6 +121,10 @@ class ActivityWatchManager:
                 bundled = directory / name
                 if bundled.is_file():
                     return [str(bundled)]
+        if sys.platform == "darwin":
+            for apps in (Path("/Applications"), Path.home() / "Applications"):
+                if (apps / "ActivityWatch.app").is_dir():
+                    return ["open", "-g", str(apps / "ActivityWatch.app")]
         return None
 
     def buckets(self) -> list[dict[str, Any]]:

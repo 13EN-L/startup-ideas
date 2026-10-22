@@ -88,3 +88,56 @@ def test_health_exposes_startup_diagnostic():
 
     assert response.status_code == 200
     assert response.json()["detail"] == "ActivityWatch exited before becoming ready"
+
+
+class AllWatchersActivityWatch(ReadyActivityWatch):
+    """What a real ActivityWatch install returns: the window, browser and AFK
+    watchers all report at the same time, so their events overlap."""
+
+    EVENTS = {
+        "aw-watcher-window_laptop": [
+            {"timestamp": "2026-10-21T14:00:00Z", "duration": 600,
+             "data": {"app": "Google Chrome", "title": "Chem PS4 - Google Docs"}},
+            {"timestamp": "2026-10-21T14:10:00Z", "duration": 300,
+             "data": {"app": "Discord", "title": "#general"}},
+            {"timestamp": "2026-10-21T14:15:00Z", "duration": 300,
+             "data": {"app": "Google Chrome", "title": "Lecture 7 - YouTube"}},
+        ],
+        "aw-watcher-web-chrome": [
+            {"timestamp": "2026-10-21T14:00:00Z", "duration": 600,
+             "data": {"url": "https://docs.google.com/document/d/abc", "title": "Chem PS4 - Google Docs"}},
+            # The browser keeps reporting its active tab while Discord has focus.
+            {"timestamp": "2026-10-21T14:10:00Z", "duration": 600,
+             "data": {"url": "https://www.youtube.com/watch?v=x", "title": "Lecture 7 - YouTube"}},
+        ],
+        "aw-watcher-afk_laptop": [
+            {"timestamp": "2026-10-21T14:00:00Z", "duration": 1080, "data": {"status": "not-afk"}},
+            {"timestamp": "2026-10-21T14:18:00Z", "duration": 120, "data": {"status": "afk"}},
+        ],
+    }
+
+    def buckets(self):
+        return [{"id": bucket_id} for bucket_id in self.EVENTS]
+
+    def events(self, bucket_id, start, end):
+        return self.EVENTS[bucket_id]
+
+
+def test_activity_route_builds_one_timeline_from_all_watchers():
+    app = create_app(activitywatch_manager=AllWatchersActivityWatch())
+    response = TestClient(app).get(
+        "/activity",
+        params={"start": "2026-10-21T14:00:00Z", "end": "2026-10-21T15:00:00Z"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["blocks"] == [
+        {"id": "b1", "start": "2026-10-21T14:00:00Z", "seconds": 600, "kind": "web",
+         "app": "Google Chrome", "site": "docs.google.com", "title": "Chem PS4 - Google Docs"},
+        {"id": "b2", "start": "2026-10-21T14:10:00Z", "seconds": 300, "kind": "app",
+         "app": "Discord", "site": None, "title": "#general"},
+        {"id": "b3", "start": "2026-10-21T14:15:00Z", "seconds": 180, "kind": "web",
+         "app": "Google Chrome", "site": "www.youtube.com", "title": "Lecture 7 - YouTube"},
+        {"id": "b4", "start": "2026-10-21T14:18:00Z", "seconds": 120, "kind": "idle",
+         "app": "", "site": None, "title": None},
+    ]

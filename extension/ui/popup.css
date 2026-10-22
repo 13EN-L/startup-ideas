@@ -1,0 +1,149 @@
+/* Popup layout only. Colors, sizes and components come from theme.css. */
+
+body {
+  width: var(--popup-width);
+  padding: var(--space-4);
+  font-size: var(--text-sm);
+}
+/* Opened in a full tab (for photo upload): center a popup-width column. */
+body.in-tab {
+  width: auto;
+  max-width: var(--popup-width);
+  margin: var(--space-6) auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+.brand { font-weight: var(--weight-bold); font-size: var(--text-md); }
+
+.link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.center { text-align: center; }
+.small { font-size: var(--text-xs); margin: 0; }
+.full { width: 100%; margin-top: var(--space-4); }
+h1 { font-size: var(--text-lg); margin: 0; overflow-wrap: anywhere; }
+
+.section-title {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+.field { display: flex; flex-direction: column; gap: var(--space-1); font-weight: var(--weight-medium); }
+details[open] summary { margin-bottom: var(--space-2); }
+details .field + .field { margin-top: var(--space-2); }
+summary { cursor: pointer; font-size: var(--text-xs); }
+
+.error {
+  background: var(--color-off-task-soft);
+  color: var(--color-off-task);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
+/* Computer / Paper switch */
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin-bottom: var(--space-3);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+.tab {
+  flex: 1;
+  border: 0;
+  border-radius: var(--radius-pill);
+  padding: var(--space-2);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+.tab[aria-selected="true"] {
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.code-box {
+  background: var(--color-accent-soft);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  text-align: center;
+}
+
+.sprout {
+  font-size: var(--text-2xl);
+  animation: sway 1.2s var(--ease-standard) infinite alternate;
+}
+@keyframes sway { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+@media (prefers-reduced-motion: reduce) { .sprout { animation: none; } }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.stats .stat { font-size: var(--text-xl); }
+.plant { margin: 0; font-weight: var(--weight-medium); }
+
+/* The growing plant (ui/plant.js draws one GIF frame at a time) */
+.plant-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-primary-soft);
+  border-radius: var(--radius-lg);
+}
+.plant-canvas { width: 100%; max-width: 160px; height: auto; aspect-ratio: 1; }
+
+/* Session history and block lists */
+.history, .blocks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.history button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+}
+.history button:hover { border-color: var(--color-border-strong); }
+.history .task { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.block {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.block-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.block-title { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.block-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+.review-actions { display: flex; gap: var(--space-1); margin-top: var(--space-1); }
+.review-actions .btn { min-height: 30px; padding: 0 var(--space-3); font-size: var(--text-xs); }

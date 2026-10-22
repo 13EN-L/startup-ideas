@@ -53,7 +53,8 @@ Send these with `chrome.runtime.sendMessage(msg)`. Every reply is either `{ok: t
 | `{type: "startSession", task, allowlist?, blocklist?}` | `null` |
 | `{type: "endSession"}` | A saved session (see below). This can take a few seconds while the LLM runs. |
 | `{type: "startPaperSession", task}` | `{codeWord}`. Show this word to the user to write at the top of their page. |
-| `{type: "endPaperSession", imageBase64, mediaType}` | A saved session. `mediaType` is `image/jpeg`, `image/png` or `image/webp`. |
+| `{type: "endPaperSession", imageBase64, mediaType}` | A saved session. `mediaType` is `image/jpeg`, `image/png` or `image/webp`. If the first photo fails the check, the session keeps running and the reply is `{completed: false, retryable: true, attemptsRemaining, result}` instead, so the user can upload another photo. The second attempt always ends the session. |
+| `{type: "reviewBlock", sessionId, blockId, label}` | The updated session. `label` is `on_task`, `off_task` or `break`. The block's `source` becomes `user`, it leaves `needs_review`, and stats and plant are recomputed by code (`extension/background/stats.js`, which mirrors `backend/app/stats.py`). |
 | `{type: "getActive"}` | The running session, or `null`. |
 | `{type: "getHistory"}` | An array of saved sessions. |
 
@@ -67,7 +68,10 @@ When a result is saved, the service worker also broadcasts `{type: "sessionSaved
 {
   "id": "uuid", "kind": "computer", "task": "finish chem ps4",
   "start": "...", "end": "...",
-  "plant": {"species": "sunflower", "growth": 2},
+  "plant": {"name": "Sunflower", "gif": "plants/sunflower.gif", "minutesToFullGrowth": 60,
+            "minutes": 40, "progress": 0.67},
+  "blocks": [{"id": "b1", "start": "...", "seconds": 1500, "kind": "web", "app": "Google Chrome",
+              "site": "docs.google.com", "title": "Chem PS4 - Google Docs"}],
   "result": {
     "labels": [{"block_id": "b1", "seconds": 1500, "label": "on_task", "confidence": 0.93,
                 "reason": "chem problem set document", "source": "llm"}],
@@ -84,9 +88,11 @@ When a result is saved, the service worker also broadcasts `{type: "sessionSaved
   - `rule`: idle time;
   - `override`: the user's allowlist or blocklist;
   - `low_confidence`: Gemini wasn't sure (its reason is kept);
-  - `unlabeled`: Gemini failed validation after 2 retries.
+  - `unlabeled`: Gemini failed validation after 2 retries;
+  - `user`: the user decided on the review screen.
+- **`blocks`:** computer sessions keep the activity blocks from section 1, so the UI can show what each label refers to. They stay in the user's browser.
 - **Paper sessions:** `result` is `{verified, credited_minutes, reason}`. A verified photo gets full minutes. An ambiguous but plausible photo can get 50%; clear failures get 0%.
-- **`plant`:** comes from `extension/background/plantRules.js`. **This is a placeholder for Part 3 to replace.**
+- **`plant`:** picked at random from [`extension/plants/plants.json`](../extension/plants/README.md) when the session starts. `progress` (0 = seed, 1 = fully grown) is verified on-task minutes (or credited paper minutes) divided by `minutesToFullGrowth`, computed in `extension/background/plantRules.js`. The UI shows the matching frame of the plant's GIF.
 
 ## 3. Part 2 → local backend
 
