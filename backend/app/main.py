@@ -19,7 +19,7 @@ from .contracts import (
     PhotoCheckResponse,
 )
 from .formatting import bucket_source, normalize_event, to_activity_window
-from .labeling import label_session
+from .labeling import LLMUnavailableError, label_session
 from .models import ActivityWatchStatus, UsageEvent, UsageQuery, UsageResponse
 from .photo import check_photo
 
@@ -142,6 +142,16 @@ def create_app(
             detail=detail,
         )
 
+    @app.get("/gemini-status", dependencies=[Depends(require_secret)])
+    def gemini_status() -> dict[str, str]:
+        if app.state.labeler is None:
+            raise HTTPException(status_code=503, detail="Gemini is not configured")
+        try:
+            app.state.labeler.test_connection()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}") from exc
+        return {"status": "ok", "model": app.state.labeler.model}
+
     @app.get("/activity", response_model=ActivityWindow, dependencies=[Depends(require_secret)])
     def activity(
         start: datetime = Query(...),
@@ -170,7 +180,10 @@ def create_app(
         dependencies=[Depends(require_secret)],
     )
     def label(request: LabelRequest) -> LabelResponse:
-        return label_session(request, require_labeler())
+        try:
+            return label_session(request, require_labeler())
+        except LLMUnavailableError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     @app.post(
         "/photo-check",

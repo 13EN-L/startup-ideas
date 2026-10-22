@@ -13,6 +13,10 @@ MIN_CONFIDENCE = 0.6
 log = logging.getLogger(__name__)
 
 
+class LLMUnavailableError(RuntimeError):
+    """Raised when the configured LLM cannot be called."""
+
+
 def matches(block: ActivityBlock, entries: List[str]) -> bool:
     """An entry matches an app name, a site, or any subdomain of that site (case-insensitive)."""
     site = (block.site or "").lower()
@@ -68,10 +72,9 @@ def ask_llm(task: str, blocks: List[ActivityBlock], labeler) -> Dict[str, LLMLab
     for _ in range(1 + MAX_RETRIES):
         try:
             raw = labeler.label_blocks(task, blocks, feedback)
-        except Exception:
-            # The SDK has already retried transient failures; send everything to review.
+        except Exception as exc:
             log.exception("labeler call failed")
-            return {}
+            raise LLMUnavailableError(f"Gemini request failed: {exc}") from exc
         by_id, feedback = check_labels(raw, expected)
         if not feedback:
             break

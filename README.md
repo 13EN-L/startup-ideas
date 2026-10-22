@@ -132,6 +132,9 @@ from a release artifact and:
 4. Confirm that the FocusGarden leaf icon appears in the Windows system tray.
    The packaged program runs without an open terminal.
 5. Open `http://127.0.0.1:8765/health` and confirm `"reachable": true`.
+6. Right-click the tray icon, choose **Set Google API key**, and enter the
+   Google AI Studio key. It is saved locally and becomes active immediately;
+   the browser extension never receives the key.
 
 The package includes ActivityWatch and starts it automatically. To start the
 program when Windows logs in, create a shortcut to the executable in
@@ -164,6 +167,24 @@ start the executable. For example:
 
 Never commit the Google API key. The backend uses it to call Gemini, and the extension sends `X-Flora-Secret` to
 `/activity`, `/label`, and `/photo-check`.
+
+The tray application's **Set Google API key** menu is the recommended way to
+configure the key. The `--google-api-key` option remains available for
+automation and source-mode testing.
+
+To verify that the saved key can reach Gemini, restart the updated local
+program and run:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8765/gemini-status" `
+  -Method Get
+```
+
+Success returns `{"status":"ok","model":"gemini-3.8-flash"}`. A `503` means
+the running program did not load a key; a `502` includes the provider error.
+If a shared token is configured, add
+`-Headers @{ "X-Flora-Secret" = "your-extension-token" }`.
 
 This repository currently contains the extension background modules under
 [`extension/background/`](extension/background/), but it does not currently

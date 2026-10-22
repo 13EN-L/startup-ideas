@@ -120,9 +120,8 @@ def test_unreachable_llm_sends_every_block_to_review():
         web("b1", 30, "docs.google.com", "Chem PS4"),
     ]})
 
-    assert res.status_code == 200
-    assert res.json()["needs_review"] == ["b1"]
-    assert res.json()["stats"]["on_task_minutes"] == 0
+    assert res.status_code == 502
+    assert "Gemini request failed" in res.json()["detail"]
 
 
 def test_low_confidence_labels_go_to_review_as_unclear():

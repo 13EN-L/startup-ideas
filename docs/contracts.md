@@ -90,12 +90,17 @@ When a result is saved, the service worker also broadcasts `{type: "sessionSaved
 
 ## 3. Part 2 → local backend
 
-`POST /label` and `POST /photo-check` must send the header `X-Flora-Secret`.
+`GET /gemini-status`, `POST /label` and `POST /photo-check` must send the
+header `X-Flora-Secret`.
 These routes, `/activity`, `/usage`, and `/health` are served by the same
 local process on port 8765. The request and response shapes are the Pydantic
 models in [`backend/app/contracts.py`](../backend/app/contracts.py). FastAPI
 also serves them as interactive docs at
 `http://127.0.0.1:8765/docs` while the backend is running.
+
+`GET /gemini-status` makes a minimal Gemini request and returns
+`{"status":"ok","model":"gemini-3.8-flash"}` when the saved key works. A
+`502` response includes the provider error without exposing the API key.
 
 ## Manifest entries Part 2 needs (Part 3 owns `manifest.json`)
 

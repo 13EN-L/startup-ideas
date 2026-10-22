@@ -27,3 +27,27 @@ class Settings:
 
 
 settings = Settings()
+
+
+def _api_key_path() -> Path:
+    return settings.state_directory / "google_api_key"
+
+
+def load_saved_google_api_key() -> str:
+    path = _api_key_path()
+    try:
+        return path.read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        return ""
+
+
+def save_google_api_key(api_key: str) -> None:
+    settings.state_directory.mkdir(parents=True, exist_ok=True)
+    _api_key_path().write_text(api_key.strip(), encoding="utf-8")
+
+
+def delete_saved_google_api_key() -> None:
+    try:
+        _api_key_path().unlink()
+    except FileNotFoundError:
+        pass

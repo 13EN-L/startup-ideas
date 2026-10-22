@@ -1,5 +1,22 @@
 # FocusGarden local backend
 
+## Rebuild the Windows zip
+
+After changing backend code, rebuild the packaged application from the
+repository root:
+
+```powershell
+uv run --project backend --extra build python backend\build_release.py
+```
+
+This downloads and verifies the pinned ActivityWatch release, packages the
+backend executable, and writes the updated
+`backend\FocusGardenLocalBackend-windows-x86_64.zip`. The intermediate
+release folder is placed in the Windows temporary directory by default so
+OneDrive file locks do not interfere with rebuilding. Set
+`$env:FOCUSGARDEN_RELEASE_DIR` if you need to keep that intermediate folder
+somewhere else.
+
 This directory contains the Windows-local program used by the Chrome
 extension. It runs one FastAPI application on `127.0.0.1:8765`, launches the
 bundled ActivityWatch recorder, returns privacy-filtered activity, and hosts
@@ -19,6 +36,10 @@ Download `FocusGardenLocalBackend-windows-x86_64.zip` from a release, then:
 4. Look for the FocusGarden leaf icon in the Windows notification area
    (system tray). The program runs in the background without an open terminal.
 5. Open `http://127.0.0.1:8765/health` and confirm `reachable` is `true`.
+6. Right-click the tray icon, choose **Set Google API key**, and enter your
+   Google AI Studio key. The key is saved locally under
+   `%USERPROFILE%\.focusgarden` and takes effect immediately; it is never sent
+   to the browser extension.
 
 The zip includes Python, the backend dependencies, and ActivityWatch. No
 separate Python or ActivityWatch installation is needed. To run it at Windows
@@ -64,8 +85,8 @@ To protect extension-facing routes with a shared secret:
 
 Configure the extension's `sharedSecret` with the same token. The extension
 sends it as `X-Flora-Secret`. Do not commit or publish the Google API key.
-Create a Google AI Studio API key, then provide it to the local program with
-`--google-api-key`; never put it in the Chrome extension.
+The command-line option remains available for automation, but the tray setting
+is the recommended way to configure the key in the packaged application.
 
 ## Verify the extension-facing API
 
@@ -92,18 +113,40 @@ are intended for the local extension and local testing:
 | Method and route | Authentication | Purpose |
 |---|---|---|
 | `GET /health` | None | Reports whether ActivityWatch is reachable and whether FocusGarden started it |
+| `GET /gemini-status` | `X-Flora-Secret` when a token is configured | Sends a minimal request to Gemini to verify the saved key and model |
 | `GET /activity?start=...&end=...` | `X-Flora-Secret` when a token is configured | Canonical extension activity window |
 | `GET /usage?start=...&end=...&include_raw=false` | `X-Flora-Secret` when a token is configured | Verbose diagnostic usage response |
 | `POST /label` | `X-Flora-Secret` when a token is configured | Labels activity blocks with Gemini |
 | `POST /photo-check` | `X-Flora-Secret` when a token is configured | Checks a paper-study photo with Gemini |
 
+To test the saved Gemini key directly, restart the packaged program after
+replacing it with an updated release and run:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8765/gemini-status" `
+  -Method Get
+```
+
+The expected response is:
+
+```json
+{"status":"ok","model":"gemini-3.8-flash"}
+```
+
+If the backend was started with `--token`, include
+`-Headers @{ "X-Flora-Secret" = "your-extension-token" }`. HTTP 503 means the
+backend has no loaded key; HTTP 502 means Gemini was called but rejected the
+request or could not be reached, and the response detail explains why.
+
 `start` and `end` must be timezone-aware ISO-8601 timestamps, and `end` must
 be after `start`. Activity requests are limited to seven days by default.
 When no shared secret is configured, the protected routes accept local
 requests without a token. When a secret is configured, a missing or incorrect
-`X-Flora-Secret` returns HTTP 401. A missing Google API key causes `/label`
-and `/photo-check` to return HTTP 503; activity collection and `/health` do
-not require the Google API.
+`X-Flora-Secret` returns HTTP 401. A missing Google API key causes `/label` and `/photo-check` to return HTTP
+503; a Gemini authentication, model, quota, or network failure on `/label`
+returns HTTP 502 with the provider's error detail. Activity collection and
+`/health` do not require the Google API.
 
 ### Runtime configuration
 

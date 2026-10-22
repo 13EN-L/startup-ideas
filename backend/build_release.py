@@ -24,7 +24,12 @@ RELEASE_API = (
     f"{ACTIVITYWATCH_VERSION}"
 )
 ROOT = Path(__file__).resolve().parent
-DIST = Path(os.environ.get("FOCUSGARDEN_RELEASE_DIR", ROOT / "release"))
+DIST = Path(
+    os.environ.get(
+        "FOCUSGARDEN_RELEASE_DIR",
+        Path(tempfile.gettempdir()) / "focusgarden-release",
+    )
+)
 
 
 def fetch_json(url: str) -> dict:

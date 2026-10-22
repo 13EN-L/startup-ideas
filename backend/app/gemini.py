@@ -84,6 +84,14 @@ class GeminiClient:
         )
         self.model = model or os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
 
+    def test_connection(self) -> None:
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents="Reply with the single word OK.",
+        )
+        if not response.text:
+            raise RuntimeError("Gemini returned no text")
+
     def _json(self, system: str, content: Any, schema: dict) -> dict:
         response = self.client.models.generate_content(
             model=self.model,

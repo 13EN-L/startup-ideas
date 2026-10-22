@@ -64,7 +64,10 @@ FocusGardenLocalBackend.exe
 
 The executable is a system-tray application, so it does not open a terminal.
 Look for the FocusGarden leaf icon in the Windows notification area. Right-
-click it to open the health page or quit the application. The backend listens on:
+click it to set the Google API key, open the health page, or quit the
+application. Choose **Set Google API key** and enter the key once; it is
+stored locally and takes effect without restarting the backend. The backend
+listens on:
 
 ```text
 http://127.0.0.1:8765
@@ -125,6 +128,33 @@ Studio API key:
 
 The key is for Google's Gemini 3.8 Flash model. Keep it in the local
 program; do not put it in the extension or commit it to Git.
+
+### 4. Test Gemini connectivity
+
+After saving the key, restart the packaged program so it loads the current
+configuration. Then run:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8765/gemini-status" `
+  -Method Get
+```
+
+When Gemini is reachable, the response is:
+
+```json
+{"status":"ok","model":"gemini-3.8-flash"}
+```
+
+If you started the backend with `--token`, add:
+
+```powershell
+-Headers @{ "X-Flora-Secret" = "local-extension-token" }
+```
+
+An HTTP 503 means the backend did not load an API key. An HTTP 502 means the
+request reached the Gemini integration but the provider rejected it or was
+unreachable; inspect the response body for the provider's diagnostic detail.
 
 ## Option 2: Run from source
 
