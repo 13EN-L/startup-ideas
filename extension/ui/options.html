@@ -25,6 +25,13 @@
       <input class="input" id="sharedSecret" type="password" autocomplete="off">
       <span class="muted">Only needed if the backend was started with a secret (--token). Otherwise leave blank.</span>
     </label>
+    <h2>Distracting sites</h2>
+    <label>
+      Always count as off-task
+      <textarea class="input" id="distractingSites" rows="4" spellcheck="false"></textarea>
+      <span class="muted">One site or app per line, e.g. instagram.com. Subdomains count too. Put a site in a
+        session's "Always on-task" list to allow it for that session.</span>
+    </label>
     <div class="row">
       <button class="btn" type="submit">Save</button>
       <button class="btn btn-secondary" type="button" id="test">Test connection</button>

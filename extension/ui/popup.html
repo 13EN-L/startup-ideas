@@ -87,11 +87,27 @@
       <span class="stat-label" id="result-date"></span>
       <h1 id="result-task"></h1>
       <div class="stats" id="result-stats"></div>
-      <div class="progress" id="result-progress" hidden><span></span></div>
+      <div class="split" id="result-split" hidden>
+        <div class="split-bar" aria-hidden="true">
+          <span class="seg seg-productive" id="seg-productive"></span>
+          <span class="seg seg-distracting" id="seg-distracting"></span>
+          <span class="seg seg-other" id="seg-other"></span>
+        </div>
+        <ul class="split-legend" id="split-legend"></ul>
+      </div>
+      <p class="muted small" id="distraction-line" hidden></p>
       <div class="plant-stage" id="result-plant-box" hidden>
         <canvas class="plant-canvas" id="result-plant-canvas"></canvas>
       </div>
       <p class="plant" id="result-plant"></p>
+      <div class="growth" id="growth-box" hidden>
+        <div class="progress"><span id="growth-bar"></span></div>
+        <span class="stat-label" id="growth-label"></span>
+      </div>
+    </div>
+    <div id="apps-box" hidden>
+      <h2 class="section-title">Time by site or app</h2>
+      <ul class="apps" id="app-list"></ul>
     </div>
     <div id="review-box" hidden>
       <h2 class="section-title">Needs your review</h2>

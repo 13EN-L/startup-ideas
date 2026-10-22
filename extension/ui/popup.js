@@ -5,6 +5,7 @@
  * Page and app titles are untrusted text, so they are only ever set with textContent.
  */
 
+import { breakdownByApp, distractionSummary, productivitySplit } from "../background/breakdown.js";
 import { PlantView } from "./plant.js";
 
 const LABEL_NAMES = { on_task: "On task", off_task: "Off task", break: "Break", unclear: "Unclear" };
@@ -160,7 +161,7 @@ function showRunning(active) {
     runningPlant.setProgress(progress);
     $("running-plant-label").textContent = progress >= 1
       ? `Your ${plant.name.toLowerCase()} is fully grown`
-      : `Your ${plant.name.toLowerCase()} is growing`;
+      : `Your ${plant.name.toLowerCase()} is growing · ${Math.floor(progress * 100)}%`;
   };
   clearInterval(timer);
   tick();
@@ -257,6 +258,7 @@ function showResult(session) {
       resultPlant.setProgress(plant.progress);
     });
   }
+  renderGrowth(plant);
   if (session.kind === "paper") renderPaper(session);
   else renderComputer(session);
 }
@@ -269,9 +271,9 @@ function renderComputer(session) {
     statTile(`${Math.round(stats.on_task_pct)}%`, "of your time"),
     statTile(formatMinutes(stats.longest_streak_minutes), "longest focus"),
   );
-  $("result-progress").hidden = false;
-  /** @type {HTMLElement} */ ($("result-progress").firstElementChild).style.width =
-    `${Math.min(100, stats.on_task_pct)}%`;
+  renderSplit(productivitySplit(labels));
+  renderDistraction(distractionSummary(labels, session.blocks || []));
+  renderApps(breakdownByApp(labels, session.blocks || []));
   $("paper-reason").hidden = true;
 
   const blocks = new Map((session.blocks || []).map((b) => [b.id, b]));
@@ -294,7 +296,9 @@ function renderPaper(session) {
     statTile(verified ? "Yes" : "No", "verified"),
     statTile(formatMinutes((Date.parse(session.end) - Date.parse(session.start)) / 60000), "studied"),
   );
-  $("result-progress").hidden = true;
+  $("result-split").hidden = true;
+  $("distraction-line").hidden = true;
+  $("apps-box").hidden = true;
   $("review-box").hidden = true;
   $("blocks-title").hidden = true;
   $("block-list").replaceChildren();
@@ -304,6 +308,54 @@ function renderPaper(session) {
     : credited > 0
       ? `Partial credit: ${reason}.`
       : `No credit this time: ${reason}.`;
+}
+
+/** @param {{productive: number, distracting: number, other: number}} split */
+function renderSplit(split) {
+  $("result-split").hidden = false;
+  const parts = /** @type {const} */ ([
+    ["productive", "productive"], ["distracting", "distracting"], ["other", "break or unclear"],
+  ]);
+  for (const [key] of parts) $(`seg-${key}`).style.width = `${split[key]}%`;
+  $("split-legend").replaceChildren(...parts.map(([key, caption]) =>
+    h("li", {}, h("span", { class: `dot dot-${key}` }), h("strong", {}, `${Math.round(split[key])}%`),
+      caption)));
+}
+
+/** @param {{top: {name: string, minutes: number}|null, switches: number}} summary */
+function renderDistraction({ top, switches }) {
+  const line = $("distraction-line");
+  const parts = [];
+  if (top) parts.push(`Biggest distraction: ${top.name} (${formatMinutes(top.minutes)})`);
+  if (switches) parts.push(`switched off-task ${switches === 1 ? "once" : `${switches} times`}`);
+  line.textContent = parts.join(" · ");
+  line.hidden = parts.length === 0;
+}
+
+/** @param {import("../background/breakdown.js").AppTime[]} apps */
+function renderApps(apps) {
+  $("apps-box").hidden = apps.length === 0;
+  $("app-list").replaceChildren(...apps.map((app) => {
+    const bar = h("span", { class: `app-bar-${app.label}` });
+    bar.style.width = `${app.pct}%`;
+    return h("li", { class: "app" },
+      h("span", { class: "app-name", title: app.name }, app.name),
+      h("span", { class: "app-time" },
+        `${formatMinutes(app.minutes)} · ${Math.round(app.pct)}% · ${LABEL_NAMES[app.label] || app.label}`),
+      h("div", { class: "app-track" }, bar));
+  }));
+}
+
+/** Growth as a percent, plus the on-task minutes left to full growth. @param {any} plant */
+function renderGrowth(plant) {
+  const percent = plant?.percent ?? Math.floor(plantProgress(plant) * 100);
+  const left = plant?.minutesLeft
+    ?? (plant?.minutesToFullGrowth ? Math.max(0, plant.minutesToFullGrowth - (plant.minutes || 0)) : null);
+  $("growth-box").hidden = !plant;
+  $("growth-bar").style.width = `${percent}%`;
+  $("growth-label").textContent = percent >= 100 ? "Plant growth: 100%, fully grown"
+    : left == null ? `Plant growth: ${percent}%`
+    : `Plant growth: ${percent}% · ${formatMinutes(left)} more on-task to full growth`;
 }
 
 /**

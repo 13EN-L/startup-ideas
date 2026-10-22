@@ -99,7 +99,8 @@ class GeminiClient:
             config=types.GenerateContentConfig(
                 system_instruction=system,
                 response_mime_type="application/json",
-                response_schema=schema,
+                # Standard JSON Schema; response_schema rejects keywords like additionalProperties.
+                response_json_schema=schema,
             ),
         )
         text = response.text

@@ -86,6 +86,7 @@ Planned walkthrough:
 ---
 
 ## Architecture
+## Architecture
 
 ```
 Chrome extension (Windows / Mac)          Backend (FastAPI on Windows)            LLM API
@@ -95,6 +96,24 @@ Chrome extension (Windows / Mac)          Backend (FastAPI on Windows)          
 - local storage (no accounts)    ◀──────  - retry on failure (max 2)
                                           - compute stats + sanity checks
 ```
+
+The MVP has two local pieces:
+
+1. The **packaged local program** is a Windows executable containing the
+   FastAPI service and ActivityWatch. It runs one FastAPI application on
+   `127.0.0.1:8765`, launches the bundled ActivityWatch recorder, returns
+   privacy-filtered browser, foreground-window and idle activity, and hosts
+   the LLM labeling and paper-photo routes. There is no separate port-8000
+   service.
+2. The **Chrome extension** owns the popup, settings page, service worker,
+   browser-local session history, and plant display. It starts and ends
+   sessions, asks the local program for activity, sends activity blocks to
+   `/label`, and displays the result. It does not contain a Google API key
+   and does not call Gemini directly.
+
+The two communicate only through `http://127.0.0.1:8765`. The extension-side
+request and response formats are documented in
+[`docs/contracts.md`](docs/contracts.md).
 
 **Privacy:** URLs are stripped to site + page title before leaving the browser. Paper photos are deleted after checking. Session history is stored only in the user's browser.
 
@@ -107,73 +126,159 @@ eval/        Labeled test blocks and photos for measuring accuracy
 docs/        Criteria checklist and design notes
 ```
 
+Backend files:
+
+| File | What it does |
+|---|---|
+| `backend/app/contracts.py` | Pydantic models for requests, responses, and LLM output |
+| `backend/app/main.py` | Unified FastAPI routes and shared-secret check |
+| `backend/app/server.py` | Production entry point and runtime configuration |
+| `backend/app/activitywatch.py` | Starts ActivityWatch and reads local events |
+| `backend/app/formatting.py` | Privacy filtering and `/activity` conversion |
+| `backend/app/labeling.py` | Rules, LLM retry loop, and confidence handling |
+| `backend/app/stats.py` | On-task minutes, percentage, and longest streak |
+| `backend/app/photo.py` | Code-word match and partial credit |
+| `backend/app/gemini.py` | The only code that calls Gemini 3.8 Flash |
+| `extension/background/` | Chrome service-worker clients for local activity and LLM routes |
+
+Plant GIFs and growth settings live in [`extension/plants/`](extension/plants/);
+see the README there for adding a plant.
+
+---
+
 ## Run the local MVP on Windows
 
-The MVP has two local pieces:
+### 1. Install and start the local program
 
-1. The **packaged local program** is a Windows executable containing the
-   FastAPI service and ActivityWatch. It records browser, foreground-window,
-   and idle activity on the user's computer.
-2. The **Chrome extension** starts and ends sessions, asks the local program
-   for activity, sends activity blocks to `/label`, and displays the result.
-
-The local program and the extension communicate only through
-`http://127.0.0.1:8765`. The local program also serves the LLM routes, so
-there is no second local server on port 8000.
-
-### Install and start the local program
-
-For normal testing, download `FocusGardenLocalBackend-windows-x86_64.zip`
-from a release artifact and:
+Download `FocusGardenLocalBackend-windows-x86_64.zip` from a release, then:
 
 1. Extract it, for example to `C:\FocusGarden`.
-2. Open `C:\FocusGarden\FocusGardenLocalBackend`.
-3. Run `FocusGardenLocalBackend.exe`.
-4. Confirm that the FocusGarden leaf icon appears in the Windows system tray.
-   The packaged program runs without an open terminal.
-5. Open `http://127.0.0.1:8765/health` and confirm `"reachable": true`.
-6. Right-click the tray icon, choose **Set Google API key**, and enter the
-   Google AI Studio key. It is saved locally and becomes active immediately;
-   the browser extension never receives the key.
+2. Open the extracted `FocusGardenLocalBackend` folder.
+3. Double-click `FocusGardenLocalBackend.exe`.
+4. Look for the FocusGarden leaf icon in the Windows notification area
+   (system tray). The program runs in the background without an open terminal.
+5. Open `http://127.0.0.1:8765/health` and confirm `reachable` is `true`.
+6. Right-click the tray icon, choose **Set Google API key**, and enter your
+   Google AI Studio key. The key is saved locally under
+   `%USERPROFILE%\.focusgarden` and takes effect immediately; it is never sent
+   to the browser extension.
 
-The package includes ActivityWatch and starts it automatically. To start the
-program when Windows logs in, create a shortcut to the executable in
-`Windows + R` → `shell:startup`. See
-[`backend/README.md`](backend/README.md) for source-mode setup, release
-building, authentication, runtime configuration, API behavior, and
-troubleshooting.
+The zip includes Python, the backend dependencies, and ActivityWatch. No
+separate Python or ActivityWatch installation is needed. To run it at Windows
+login, create a shortcut to the executable in the Startup folder
+(`Windows + R`, then `shell:startup`). Right-click the tray icon to open the
+health page or quit the backend.
 
-To turn FocusGarden off for the current session, right-click its leaf icon in
-the Windows notification area and select **Quit FocusGarden**. This stops both
-the local API and the complete ActivityWatch process tree launched by it
-(including the server and watcher processes). Start the executable again to
-turn it back on. Remove the `shell:startup` shortcut if
-you also want to prevent it from starting automatically at the next sign-in.
-This shutdown does not delete ActivityWatch's locally stored history. The
-history is kept in ActivityWatch's Windows user-data directory, separate from
-the extracted release folder, and remains available the next time FocusGarden
-starts.
-
-### Configure and load the Chrome extension
-
-The extension must point both `backendUrl` and `activityUrl` at
-`http://127.0.0.1:8765`, and its `sharedSecret` must match the token used to
-start the executable. For example:
+To protect extension-facing routes with a shared secret, start the program
+with a token:
 
 ```powershell
 .\FocusGardenLocalBackend.exe --token "local-extension-token" `
   --google-api-key "your-google-api-key"
 ```
 
-Never commit the Google API key. The backend uses it to call Gemini, and the extension sends `X-Flora-Secret` to
-`/activity`, `/label`, and `/photo-check`.
+The extension must be configured with the same token; it sends it as
+`X-Flora-Secret` to `/activity`, `/label`, and `/photo-check`. The tray's
+**Set Google API key** menu is the recommended way to configure the key; the
+`--google-api-key` option remains available for automation and source-mode
+testing. Never commit or publish the Google API key.
 
-The tray application's **Set Google API key** menu is the recommended way to
-configure the key. The `--google-api-key` option remains available for
-automation and source-mode testing.
+### 2. Load the Chrome extension
 
-To verify that the saved key can reach Gemini, restart the updated local
-program and run:
+1. Open `chrome://extensions`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked** and choose the [`extension/`](extension/) directory.
+4. Open the extension's **Settings** page and confirm:
+   - Backend address: `http://127.0.0.1:8765` (used for both `backendUrl` and
+     `activityUrl`)
+   - Shared secret: blank unless the backend was started with `--token`, in
+     which case it must match that token
+5. Click **Test connection**. The backend must be running and ActivityWatch
+   must be reachable.
+
+### 3. Turn FocusGarden off
+
+To stop FocusGarden for the current Windows session:
+
+1. Find the green FocusGarden leaf in the notification area. If it is hidden,
+   click the small `^` arrow near the clock.
+2. Right-click the leaf icon.
+3. Select **Quit FocusGarden**.
+
+This stops the local API and the entire ActivityWatch process tree launched by
+FocusGarden, including `aw-server` and watcher processes. It does not
+uninstall anything or delete ActivityWatch's locally stored history.
+ActivityWatch writes that history to its Windows user-data directory,
+separate from the extracted `FocusGardenLocalBackend` program folder. The
+recorded history remains available after FocusGarden is started again, and
+deleting the extracted release folder does not intentionally delete it.
+
+The Chrome extension remains installed but cannot start a session while the
+local program is off. Start the executable again to turn FocusGarden back on.
+If you created a shortcut in `shell:startup`, Windows will start it again at
+the next sign-in; remove that shortcut if you do not want automatic startup.
+
+Only data that ActivityWatch has received before shutdown is available. If you
+quit immediately while a new event is still being collected, allow a short
+moment for the event to reach ActivityWatch before quitting.
+
+Do not use Task Manager to stop only ActivityWatch: the backend may still be
+running, and the extension will then receive recorder-unavailable errors.
+
+---
+
+## How a session works
+
+- **Computer session:** the service worker requests `/activity`, then sends
+  the privacy-filtered blocks to `/label` when the session ends.
+- **Paper session:** the service worker sends the resized photo to
+  `/photo-check`; the backend decides whether the time is verified (see
+  [paper-session photo checks](#use-paper-session-photo-checks)).
+- **Review:** unclear computer blocks can be resolved in the popup. The
+  service worker recomputes statistics locally after the user's decision.
+- **Garden:** the extension selects a plant and computes growth from verified
+  minutes. Gemini never controls plant growth.
+- **Result stats:** the result screen shows a productive / distracting /
+  break-or-unclear bar, time per site or app (top five plus Other), the
+  biggest distraction, how many times you switched from on-task to off-task,
+  and plant growth as a percentage with minutes left to full growth. These are
+  computed in the extension from the final labels, so review decisions update
+  them.
+- **Distracting sites:** sites listed under **Distracting sites** in Settings
+  (Instagram, TikTok, Facebook, X/Twitter and Snapchat by default) are added to
+  each computer session's blocklist, so they always count as off-task. Putting
+  a site in a session's "Always on-task" list exempts it for that session.
+
+The service worker is the only extension module that talks to the backend.
+The popup communicates with it using `chrome.runtime.sendMessage`; UI code
+does not make backend requests directly.
+
+## Local API reference
+
+The packaged program listens only on `127.0.0.1` by default, so these routes
+are intended for the local extension and local testing:
+
+| Method and route | Authentication | Purpose |
+|---|---|---|
+| `GET /health` | None | Reports whether ActivityWatch is reachable and whether FocusGarden started it |
+| `GET /gemini-status` | `X-Flora-Secret` when a token is configured | Sends a minimal request to Gemini to verify the saved key and model |
+| `GET /activity?start=...&end=...` | `X-Flora-Secret` when a token is configured | Canonical extension activity window |
+| `GET /usage?start=...&end=...&include_raw=false` | `X-Flora-Secret` when a token is configured | Verbose diagnostic usage response |
+| `POST /label` | `X-Flora-Secret` when a token is configured | Labels activity blocks with Gemini |
+| `POST /photo-check` | `X-Flora-Secret` when a token is configured | Checks a paper-study photo with Gemini |
+
+`start` and `end` must be timezone-aware ISO-8601 timestamps, and `end` must
+be after `start`. Activity requests are limited to seven days by default.
+When no shared secret is configured, the protected routes accept local
+requests without a token. When a secret is configured, a missing or incorrect
+`X-Flora-Secret` returns HTTP 401. A missing Google API key causes `/label`
+and `/photo-check` to return HTTP 503; a Gemini authentication, model, quota,
+or network failure on `/label` returns HTTP 502 with the provider's error
+detail. Activity collection and `/health` do not require the Google API.
+
+### Verify the Gemini key
+
+After restarting the local program, run:
 
 ```powershell
 Invoke-RestMethod `
@@ -181,19 +286,18 @@ Invoke-RestMethod `
   -Method Get
 ```
 
-Success returns `{"status":"ok","model":"gemini-3.8-flash"}`. A `503` means
-the running program did not load a key; a `502` includes the provider error.
-If a shared token is configured, add
-`-Headers @{ "X-Flora-Secret" = "your-extension-token" }`.
+The expected response is:
 
-The Chrome extension is in [`extension/`](extension/), with its manifest,
-popup, options page, service worker, and plant assets. Load it in
-`chrome://extensions` using **Developer mode** → **Load unpacked**, selecting
-the `extension` directory. Configure the backend URL and optional shared
-secret from the extension's **Settings** page. The extension never receives
-the Google API key; the local program keeps that key and calls Gemini.
+```json
+{"status":"ok","model":"gemini-3.8-flash"}
+```
 
-### Test the complete local integration
+If the backend was started with `--token`, add
+`-Headers @{ "X-Flora-Secret" = "your-extension-token" }`. HTTP 503 means the
+backend has no loaded key; HTTP 502 means Gemini was called but rejected the
+request or could not be reached, and the response detail explains why.
+
+### Verify the activity contract
 
 With the executable running:
 
@@ -213,36 +317,128 @@ Invoke-RestMethod `
 The second command should return an object with `start`, `end`, and `blocks`.
 Each block has `kind` (`web`, `app`, or `idle`), whole-second duration, and
 privacy-filtered site/title fields. The extension uses this exact response
-when ending a computer session. `/usage` remains available for diagnostics.
+when ending a computer session. `/usage` returns the more verbose diagnostic
+format.
 
-### Demo a paper session and photo check
+### Runtime configuration
 
-The extension also supports paper study:
+For source mode, these environment variables provide the same configuration
+as the packaged command-line options:
 
-1. Start a paper session with a task.
-2. Write the code word returned by the extension at the top of the page.
-3. Study and take a clear photo that includes the code word and relevant notes.
-4. End the paper session and submit the photo.
+| Variable | Default | Purpose |
+|---|---|---|
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | empty | Google AI Studio key for Gemini labeling/photo checks |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Gemini model name |
+| `FOCUSGARDEN_EXTENSION_TOKEN` | empty | Shared secret expected in `X-Flora-Secret` |
+| `FOCUSGARDEN_HOST` | `127.0.0.1` | Local API bind address |
+| `FOCUSGARDEN_PORT` | `8765` | Local API port |
+| `ACTIVITYWATCH_EXECUTABLE` | auto-detected in release | ActivityWatch executable path |
+| `ACTIVITYWATCH_START_COMMAND` | empty | Alternative command for starting ActivityWatch |
+| `ACTIVITYWATCH_URL` | `http://127.0.0.1:5600` | ActivityWatch API address |
+| `ACTIVITYWATCH_TIMEOUT_SECONDS` | `5` | ActivityWatch request timeout |
+| `FOCUSGARDEN_MAX_WINDOW_SECONDS` | `604800` | Maximum requested activity window (7 days) |
 
-The extension sends the image as base64 to the local backend's
-`POST /photo-check`. The backend sends it to Gemini 3.8 Flash, checks the code
-word, notes, task relevance, and confidence, then returns full credit when all
-checks pass. Start the executable with
-`--google-api-key` for this feature. See
-[`backend/README.md`](backend/README.md#use-paper-session-photo-checks) for
-the direct API test and request format.
+The packaged launcher also accepts `--token`, `--google-api-key`, `--host`,
+`--port`, and `--console`. Command-line values override the corresponding
+launcher defaults. Keep API keys and shared secrets out of Git and out of the
+Chrome extension; only the shared secret is sent between the extension and
+local backend.
 
-Only an ambiguous but plausible image can receive 50% credit: the code word
-must match, notes must be present and task-related, and Gemini's confidence
-must be below the verification threshold. Wrong code words, blank or unrelated
-pages, and model failures receive 0%. The extension allows at most two photo
-attempts per paper session; a failed first attempt remains active so the user
-can retake the photo.
+## Use paper-session photo checks
 
-Run the automated backend and contract tests from the repository root:
+Paper sessions use the same local backend and Google API key:
+
+1. Start a paper session with a task. The extension sends
+   `{"type": "startPaperSession", "task": "finish chemistry problem set 4"}`
+   to its service worker.
+2. Write the returned `codeWord` at the top of the study page.
+3. Study for the session.
+4. Take a clear photo showing the code word and task-related notes.
+5. End the paper session and submit the photo. The extension converts the
+   image to base64 and sends `endPaperSession` with `imageBase64` and its
+   `mediaType` (`image/jpeg`, `image/png`, or `image/webp`).
+
+The service worker sends this request to:
+
+```text
+POST http://127.0.0.1:8765/photo-check
+```
+
+The backend sends the image and task to Gemini 3.8 Flash. Gemini returns
+whether it saw the exact code word, whether notes are present, whether the
+notes relate to the task, and a confidence score. The backend, not the model,
+decides the credit:
+
+| Result | Credit |
+|---|---:|
+| Code word matches, notes are present and task-related, confidence is at least 0.6 | 100% of session minutes |
+| The code word matches, notes are present and task-related, but confidence is below 0.6 | 50% of session minutes |
+| Wrong/missing code word, no notes, unrelated notes, model failure, or invalid output | 0% of session minutes |
+
+The extension permits two photo submissions per paper session. A failed first
+attempt stays active and returns `attemptsRemaining` so the user can retake
+the photo; the session is finalized after a successful verification or the
+second failed attempt.
+
+Photos are sent to Gemini for checking and are not saved by the backend after
+the request. Do not use a photo containing unrelated sensitive information.
+
+For a direct API test, save a test image as `paper-test.jpg`, then run:
 
 ```powershell
+$bytes = [IO.File]::ReadAllBytes((Resolve-Path ".\paper-test.jpg"))
+$image = [Convert]::ToBase64String($bytes)
+$body = @{
+  task = "finish chemistry problem set 4"
+  code_word = "maple"
+  minutes = 25
+  image_base64 = $image
+  media_type = "image/jpeg"
+} | ConvertTo-Json -Compress
+$headers = @{ "X-Flora-Secret" = "local-extension-token" }
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8765/photo-check" `
+  -Headers $headers -ContentType "application/json" -Body $body |
+  ConvertTo-Json
+```
+
+Expected response shape:
+
+```json
+{
+  "verified": true,
+  "credited_minutes": 25.0,
+  "reason": "code word and task notes found"
+}
+```
+
+Without a Google API key, the endpoint returns HTTP 503.
+
+---
+
+## Development
+
+### Run tests
+
+From the repository root:
+
+```powershell
+uv sync --project backend --extra test --inexact
 uv run --project backend --extra test --no-sync pytest backend\tests
+```
+
+The automated tests use fake photo readers to verify validation, retries,
+exact code-word matching, zero credit for clear failures, and limited partial
+credit; they do not call Gemini or consume API credits.
+
+The extension's stats (time per site or app, the productive / distracting
+split, top distraction, plant growth) and the distracting-site list are
+tested with Node's built-in runner. Node 18 or later is required; there are no
+dependencies to install:
+
+```powershell
+cd extension
+npm test
 ```
 
 For the full manual test and five-minute demo, see
@@ -250,11 +446,62 @@ For the full manual test and five-minute demo, see
 show both sides: the extension starts a task session and ends it, while the
 local program records the activity and returns blocks for labeling.
 
-For Windows distribution, `backend/build_release.py` downloads and verifies
-the pinned ActivityWatch v0.14.1 binary, freezes the Python service into
-`FocusGardenLocalBackend.exe`, and creates a distributable zip. The build is
-also available through
+### Run the backend from source
+
+Set the ActivityWatch executable and start the unified production app:
+
+```powershell
+cd backend
+$env:ACTIVITYWATCH_EXECUTABLE = "C:\Program Files\ActivityWatch\aw-qt.exe"
+$env:FLORA_SHARED_SECRET = "local-extension-token"
+$env:GOOGLE_API_KEY = "your-google-api-key"
+uv run --no-sync uvicorn app.server:app --host 127.0.0.1 --port 8765
+```
+
+If Windows reports that a `focusgarden_local_backend-*.dist-info` directory is
+locked, do not delete it while it is in use. Run with `--no-sync`, or close
+Python/VS Code processes that use the virtual environment before synchronizing.
+Use `--console` if you want visible Uvicorn logs instead of the tray:
+
+```powershell
+uv run --no-sync python -m app.launcher --console --port 8765
+```
+
+Press `Ctrl+C` in this console to stop the source-mode backend. In the normal
+packaged release, use the tray menu instead.
+
+### Build a Windows release
+
+After changing backend code, rebuild the packaged application from the
+repository root. The release builder downloads and verifies the pinned
+ActivityWatch v0.14.1 binary, freezes the Python service into
+`FocusGardenLocalBackend.exe` (a windowed system-tray application), and
+creates a distributable zip containing both programs:
+
+```powershell
+uv sync --project backend --extra build --inexact
+uv run --project backend --extra build --no-sync python backend\build_release.py
+```
+
+The result is `backend\FocusGardenLocalBackend-windows-x86_64.zip`. The
+intermediate release folder is placed in the Windows temporary directory by
+default so OneDrive file locks do not interfere with rebuilding. Set
+`$env:FOCUSGARDEN_RELEASE_DIR` if you need to keep that intermediate folder
+somewhere else.
+
+The build is also available through
 [`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml).
+
+### Accuracy evaluation
+
+This command uses API credits:
+
+```powershell
+cd backend
+uv run --no-sync python ..\eval\run_eval.py
+```
+
+---
 
 ## Tech stack
 Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · GitHub Actions · hosted LLM API with vision

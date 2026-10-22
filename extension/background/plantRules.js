@@ -9,8 +9,9 @@ const DEFAULT_MINUTES = 60;
 
 /**
  * @typedef {{name: string, gif: string|null, minutesToFullGrowth: number}} PlantChoice
- * @typedef {PlantChoice & {minutes: number, progress: number}} Plant
- *   progress runs from 0 (seed, first frame) to 1 (fully grown, last frame)
+ * @typedef {PlantChoice & {minutes: number, progress: number, percent: number, minutesLeft: number}} Plant
+ *   progress runs from 0 (seed, first frame) to 1 (fully grown, last frame); percent is
+ *   progress rounded down, so 100 only means fully grown; minutesLeft is on-task minutes to go
  */
 
 /** @returns {Promise<PlantChoice|null>} a random plant from plants.json, or null if none */
@@ -43,6 +44,7 @@ export function plantFor(choice, minutes) {
   const name = choice?.name || "Plant";
   const gif = choice?.gif || null;
   const full = choice?.minutesToFullGrowth || DEFAULT_MINUTES;
-  return { name, gif, minutesToFullGrowth: full, minutes,
-           progress: Math.min(1, Math.max(0, minutes / full)) };
+  const progress = Math.min(1, Math.max(0, minutes / full));
+  return { name, gif, minutesToFullGrowth: full, minutes, progress,
+           percent: Math.floor(progress * 100), minutesLeft: Math.max(0, full - minutes) };
 }

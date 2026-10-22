@@ -1,19 +1,22 @@
 // @ts-check
-/** Settings page: where the backend is and its shared secret. Read by background/config.js. */
+/** Settings page: the backend, its shared secret, and distracting sites. Read by background/config.js. */
 import { DEFAULTS, getConfig } from "../background/config.js";
 
 const url = /** @type {HTMLInputElement} */ (document.getElementById("backendUrl"));
 const secret = /** @type {HTMLInputElement} */ (document.getElementById("sharedSecret"));
+const distracting = /** @type {HTMLTextAreaElement} */ (document.getElementById("distractingSites"));
 const status = /** @type {HTMLElement} */ (document.getElementById("status"));
 
 const config = await getConfig();
 url.value = config.backendUrl;
 secret.value = config.sharedSecret;
+distracting.value = config.distractingSites.join("\n");
 
 function current() {
   const backendUrl = (url.value.trim() || DEFAULTS.backendUrl).replace(/\/+$/, "");
+  const distractingSites = distracting.value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
   // One local backend serves both activity and labeling.
-  return { backendUrl, activityUrl: backendUrl, sharedSecret: secret.value };
+  return { backendUrl, activityUrl: backendUrl, sharedSecret: secret.value, distractingSites };
 }
 
 document.getElementById("settings")?.addEventListener("submit", async (event) => {

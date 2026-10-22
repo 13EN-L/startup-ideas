@@ -13,6 +13,8 @@
  * Broadcast when a result is saved: {type: "sessionSaved", session}
  */
 import { checkPhoto, labelSession } from "./backendClient.js";
+import { getConfig } from "./config.js";
+import { effectiveBlocklist } from "./distracting.js";
 import { fetchActivity } from "./localClient.js";
 import { choosePlant, plantFor } from "./plantRules.js";
 import { computeStats } from "./stats.js";
@@ -32,8 +34,11 @@ async function handle(msg) {
   switch (msg.type) {
     case "startSession": {
       if (await getActive()) throw new Error("a session is already running");
+      const allowlist = msg.allowlist || [];
+      const { distractingSites } = await getConfig();
       await setActive({ kind: "computer", task: msg.task, start: new Date().toISOString(),
-                        allowlist: msg.allowlist || [], blocklist: msg.blocklist || [],
+                        allowlist,
+                        blocklist: effectiveBlocklist(distractingSites, msg.blocklist || [], allowlist),
                         plant: await choosePlant() });
       return null;
     }

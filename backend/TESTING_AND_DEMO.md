@@ -559,7 +559,7 @@ key produces HTTP 503 because the real Gemini reader is unavailable, and the
 extension does not finalize the session until the retry limit is reached.
 
 For a direct PowerShell request, follow the base64 example in
-[`backend/README.md`](README.md#use-paper-session-photo-checks). The automated
+[`README.md`](../README.md#use-paper-session-photo-checks). The automated
 photo tests use fake readers and do not consume Google API credits; a real
 photo test requires a Google AI Studio API key.
 
