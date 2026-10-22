@@ -1,5 +1,5 @@
 // @ts-check
-/** Talks to Part 1's local backend. Format: docs/contracts.md#activity-window */
+/** Talks to the unified local backend. Format: docs/contracts.md#activity-window */
 import { getConfig } from "./config.js";
 
 /**
@@ -14,9 +14,11 @@ import { getConfig } from "./config.js";
  * @returns {Promise<ActivityWindow>}
  */
 export async function fetchActivity(start, end) {
-  const { activityUrl } = await getConfig();
+  const { activityUrl, sharedSecret } = await getConfig();
   const url = `${activityUrl}/activity?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: { "X-Flora-Secret": sharedSecret },
+  });
   if (!res.ok) throw new Error(`activity backend returned ${res.status}`);
   return res.json();
 }

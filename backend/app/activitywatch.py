@@ -30,6 +30,8 @@ class ActivityWatchManager:
         self.timeout = timeout
         self._process: subprocess.Popen[bytes] | None = None
         self._lock = Lock()
+        self.startup_error: str | None = None
+        self.started_by_manager = False
 
     @property
     def process_running(self) -> bool:
@@ -48,6 +50,16 @@ class ActivityWatchManager:
             self._request("/api/0/info")
         except ActivityWatchError:
             return False
+        return True
+
+    def startup(self) -> bool:
+        """Start the configured/bundled ActivityWatch process and report readiness."""
+        try:
+            self.ensure_running()
+        except ActivityWatchError as exc:
+            self.startup_error = str(exc)
+            return False
+        self.startup_error = None
         return True
 
     def ensure_running(self) -> None:
@@ -69,9 +81,10 @@ class ActivityWatchManager:
             try:
                 self._process = subprocess.Popen(
                     command,
-                    cwd=str(Path.home()),
+                    cwd=str(Path(command[0]).resolve().parent),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
+                    env={**os.environ, "AW_HIDE": "1"},
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 )
             except OSError as exc:
@@ -81,8 +94,15 @@ class ActivityWatchManager:
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 if self.is_reachable():
+                    self.started_by_manager = True
                     return
                 time.sleep(0.25)
+            if self._process.poll() is not None:
+                exit_code = self._process.returncode
+                self._process = None
+                raise ActivityWatchError(
+                    f"ActivityWatch exited before becoming ready (exit code {exit_code})"
+                )
             raise ActivityWatchError("ActivityWatch launched but did not become reachable")
 
     def _command(self) -> list[str] | None:
@@ -103,7 +123,7 @@ class ActivityWatchManager:
         return None
 
     def buckets(self) -> list[dict[str, Any]]:
-        result = self._request("/api/0/buckets")
+        result = self._request("/api/0/buckets/")
         if not isinstance(result, dict):
             raise ActivityWatchError("ActivityWatch returned invalid bucket data")
         buckets: list[dict[str, Any]] = []
@@ -133,6 +153,7 @@ class ActivityWatchManager:
         if self._process is not None and self._process.poll() is None:
             self._process.terminate()
             self._process = None
+            self.started_by_manager = False
 
 
 def dump_json(value: Any) -> str:

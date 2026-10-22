@@ -27,16 +27,20 @@ def main() -> None:
     parser.add_argument("--host", default=os.getenv("FOCUSGARDEN_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("FOCUSGARDEN_PORT", "8765")))
     parser.add_argument("--token", default=os.getenv("FOCUSGARDEN_EXTENSION_TOKEN", ""))
+    parser.add_argument("--anthropic-api-key", default=os.getenv("ANTHROPIC_API_KEY", ""))
     args = parser.parse_args()
 
     if args.token:
+        os.environ["FLORA_SHARED_SECRET"] = args.token
         os.environ["FOCUSGARDEN_EXTENSION_TOKEN"] = args.token
+    if args.anthropic_api_key:
+        os.environ["ANTHROPIC_API_KEY"] = args.anthropic_api_key
     if "ACTIVITYWATCH_EXECUTABLE" not in os.environ:
         executable = _bundled_activitywatch()
         if executable is not None:
             os.environ["ACTIVITYWATCH_EXECUTABLE"] = str(executable)
 
-    from app.main import app
+    from app.server import app
 
     uvicorn.run(app, host=args.host, port=args.port, log_level="info")
 

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from .models import UsageEvent
+from .contracts import ActivityBlock, ActivityWindow
 
 
 def _datetime(value: Any) -> datetime | None:
@@ -95,3 +96,49 @@ def bucket_source(bucket: dict[str, Any]) -> str:
     if "window" in identifier or "app" in identifier or "afk" not in identifier:
         return "desktop"
     return "unknown"
+
+
+def to_activity_window(
+    events: list[UsageEvent],
+    start: datetime,
+    end: datetime,
+    minimum_seconds: int = 10,
+) -> ActivityWindow:
+    """Adapt local usage events to the extension's compact activity contract."""
+    blocks: list[ActivityBlock] = []
+    for event in events:
+        seconds = int(round(event.duration_seconds))
+        if seconds < minimum_seconds:
+            continue
+        kind = "idle" if event.idle else "web" if event.source == "browser" else "app"
+        candidate = ActivityBlock(
+            id="",
+            start=event.start,
+            seconds=seconds,
+            kind=kind,
+            app=event.application or "",
+            site=event.site if kind == "web" else None,
+            title=event.title,
+        )
+        if blocks:
+            previous = blocks[-1]
+            previous_end = previous.start + timedelta(seconds=previous.seconds)
+            same_activity = (
+                previous.kind == candidate.kind
+                and previous.app == candidate.app
+                and previous.site == candidate.site
+                and previous.title == candidate.title
+                and previous_end == candidate.start
+            )
+            if same_activity:
+                blocks[-1] = previous.model_copy(
+                    update={"seconds": previous.seconds + candidate.seconds}
+                )
+                continue
+        blocks.append(candidate)
+
+    blocks = [
+        block.model_copy(update={"id": f"b{index}"})
+        for index, block in enumerate(blocks, start=1)
+    ]
+    return ActivityWindow(start=start, end=end, blocks=blocks)

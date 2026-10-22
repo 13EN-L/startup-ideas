@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -23,7 +24,7 @@ RELEASE_API = (
     f"{ACTIVITYWATCH_VERSION}"
 )
 ROOT = Path(__file__).resolve().parent
-DIST = ROOT / "release"
+DIST = Path(os.environ.get("FOCUSGARDEN_RELEASE_DIR", ROOT / "release"))
 
 
 def fetch_json(url: str) -> dict:
@@ -91,6 +92,9 @@ def build() -> None:
                 f"aw-qt.exe. Executables found: {found or 'none'}"
             )
         activitywatch_root = executable.parent
+        pyinstaller_dist = temporary_path / "pyinstaller-dist"
+        pyinstaller_work = temporary_path / "pyinstaller-work"
+        pyinstaller_spec = temporary_path / "pyinstaller-spec"
 
         subprocess.run(
             [
@@ -102,14 +106,32 @@ def build() -> None:
                 "--onedir",
                 "--name",
                 "FocusGardenLocalBackend",
+                "--distpath",
+                str(pyinstaller_dist),
+                "--workpath",
+                str(pyinstaller_work),
+                "--specpath",
+                str(pyinstaller_spec),
                 "--paths",
                 str(ROOT),
+                "--hidden-import",
+                "app.server",
+                "--hidden-import",
+                "app.claude",
+                "--hidden-import",
+                "app.contracts",
+                "--hidden-import",
+                "app.labeling",
+                "--hidden-import",
+                "app.photo",
+                "--hidden-import",
+                "app.stats",
                 str(ROOT / "app" / "launcher.py"),
             ],
             cwd=ROOT,
             check=True,
         )
-        packaged = ROOT / "dist" / "FocusGardenLocalBackend"
+        packaged = pyinstaller_dist / "FocusGardenLocalBackend"
         destination = packaged / "activitywatch"
         if destination.exists():
             shutil.rmtree(destination)

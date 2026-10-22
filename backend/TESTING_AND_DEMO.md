@@ -1,9 +1,10 @@
-# Local Backend Testing and Demo Guide
+﻿# Local Backend and Chrome Extension Testing and Demo Guide
 
-This guide explains how to test and demonstrate the FocusGarden local backend
-on Windows. The backend connects the Chrome extension to ActivityWatch,
-collects local browser/desktop/idle activity, and returns formatted JSON for a
-requested time range.
+This guide explains how to install, test, and demonstrate both local parts of
+FocusGarden on Windows: the packaged local backend and the Chrome extension.
+The backend connects the extension to ActivityWatch, collects local
+browser/desktop/idle activity, and returns formatted JSON for a requested time
+range.
 
 ## What this guide tests
 
@@ -24,7 +25,8 @@ The guide covers:
 - Running the automated backend tests
 - Requesting real usage data
 - Checking privacy filtering and error handling
-- Demonstrating the component to other people
+- Configuring the extension to use the local backend
+- Demonstrating the end-to-end extension/local-backend flow
 
 ## Option 1: Test the packaged Windows release
 
@@ -66,8 +68,9 @@ Leave the console window open while testing. The backend listens on:
 http://127.0.0.1:8765
 ```
 
-The bundled ActivityWatch process is launched automatically when the backend
-receives its first usage request.
+The bundled ActivityWatch process is launched automatically while the backend
+starts. The backend waits for ActivityWatch to become ready before reporting
+successful recorder health.
 
 To test command-line startup instead, open PowerShell in the application
 folder and run:
@@ -83,7 +86,7 @@ The `--help` command should list `--host`, `--port`, and `--token`.
 
 For a local demo without authentication, start the executable normally.
 
-To require a bearer token, start it with:
+To require the extension shared secret, start it with:
 
 ```powershell
 .\FocusGardenLocalBackend.exe --token "local-extension-token"
@@ -92,7 +95,7 @@ To require a bearer token, start it with:
 The Chrome extension must then send:
 
 ```http
-Authorization: Bearer local-extension-token
+X-Flora-Secret: local-extension-token
 ```
 
 ## Option 2: Run from source
@@ -113,7 +116,7 @@ To run the server from source:
 cd "C:\path\to\startup-ideas\backend"
 $env:ACTIVITYWATCH_EXECUTABLE = "C:\Program Files\ActivityWatch\aw-qt.exe"
 $env:FOCUSGARDEN_EXTENSION_TOKEN = "local-extension-token"
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8765
+uv run uvicorn app.server:app --host 127.0.0.1 --port 8765
 ```
 
 If Windows reports that a
@@ -136,7 +139,7 @@ uv run --project backend --extra test pytest backend\tests
 The expected result is:
 
 ```text
-7 passed
+36 passed
 ```
 
 The automated tests verify:
@@ -180,14 +183,15 @@ Expected response shape:
 ```
 
 `reachable: true` means the backend can communicate with ActivityWatch.
-`managed_process_running: false` is normal if ActivityWatch was already
+`managed_process_running: true` means this backend launched the bundled
+ActivityWatch process. It can be `false` when ActivityWatch was already
 running before the backend started.
 
 If authentication is enabled:
 
 ```powershell
 $headers = @{
-    Authorization = "Bearer local-extension-token"
+    "X-Flora-Secret" = "local-extension-token"
 }
 
 Invoke-RestMethod `
@@ -241,7 +245,7 @@ With authentication:
 
 ```powershell
 $headers = @{
-    Authorization = "Bearer local-extension-token"
+    "X-Flora-Secret" = "local-extension-token"
 }
 
 Invoke-RestMethod `
@@ -341,7 +345,7 @@ Expected result: HTTP 422.
 ### Missing authentication
 
 If the backend was started with `--token`, send a request without the
-`Authorization` header.
+`X-Flora-Secret` header.
 
 Expected result: HTTP 401.
 
@@ -349,8 +353,9 @@ Expected result: HTTP 401.
 
 Stop ActivityWatch and request `/usage`.
 
-Expected result: HTTP 503 rather than a successful response containing
-fabricated or empty usage data.
+Expected result: `/health` reports `reachable: false` with a diagnostic detail,
+and a usage request returns HTTP 503 rather than a successful response
+containing fabricated or empty usage data.
 
 ## Five-minute demo script
 
@@ -440,7 +445,29 @@ Explain:
 Point out that the normal response contains a hostname, title, and useful
 search text rather than the complete original URL.
 
-#### 7. Show the interactive API documentation
+#### 7. Run the Chrome extension flow
+
+The extension uses the same local process for all computer-session requests:
+
+```text
+GET  http://127.0.0.1:8765/activity
+POST http://127.0.0.1:8765/label
+POST http://127.0.0.1:8765/photo-check
+```
+
+Set `backendUrl` and `activityUrl` to `http://127.0.0.1:8765`, and set the
+extension's `sharedSecret` to the token passed to the executable. Start a
+computer session in the extension, visit a productive page and an unrelated
+page, then end the session. The extension should request `/activity`, send
+the returned `blocks` to `/label`, and display the saved session's labels and
+stats.
+
+This checkout contains the extension background modules but does not contain a
+`manifest.json` or popup/options UI. If the extension package is supplied
+separately, load its manifest directory with Chrome's **Developer mode** →
+**Load unpacked** before running this step.
+
+#### 8. Show the interactive API documentation
 
 Open:
 
@@ -448,8 +475,8 @@ Open:
 http://127.0.0.1:8765/docs
 ```
 
-The FastAPI documentation lets you inspect and execute `/health` and `/usage`
-requests interactively.
+The FastAPI documentation lets you inspect and execute `/health`, `/activity`,
+`/usage`, `/label`, and `/photo-check` requests interactively.
 
 ## What this demonstrates
 
@@ -461,8 +488,10 @@ This test/demo proves that the local backend can:
 - Accept a time-range request over localhost.
 - Return structured, predictable JSON.
 - Reduce unnecessary URL details.
-- Provide data in a format suitable for the Chrome extension.
+- Provide data in the exact `ActivityWindow` format required by the Chrome
+  extension.
 
-It does not yet demonstrate the separate Chrome extension UI, LLM
-productivity labeling, review screen, garden updates, or paper-session
-behavior. Those belong to other MVP components.
+When the extension package is available, the end-to-end demo also demonstrates
+the extension session flow and LLM labeling. The local-backend-only portion
+does not demonstrate the popup UI, review screen, garden updates, or
+paper-session behavior.

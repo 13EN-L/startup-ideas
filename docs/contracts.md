@@ -3,7 +3,7 @@
 This file defines how the three parts pass data to each other. If a format changes, update this file, [`docs/examples/`](examples/) and `backend/app/contracts.py` in the same PR. `backend/tests/test_activity_contract.py` fails if the example stops matching.
 
 ```
-Part 1 (local activity backend) --GET /activity--> Part 2 (service worker) --POST /label--> backend --> Claude
+Local packaged backend --GET /activity--> Part 2 (service worker) --POST /label--> same backend --> Claude
 Part 3 (UI) <--chrome.runtime messages--> Part 2 (service worker)
 ```
 
@@ -12,8 +12,11 @@ Part 3 (UI) <--chrome.runtime messages--> Part 2 (service worker)
 The service worker calls Part 1's local backend:
 
 ```
-GET http://127.0.0.1:5601/activity?start=<ISO 8601>&end=<ISO 8601>
+GET http://127.0.0.1:8765/activity?start=<ISO 8601>&end=<ISO 8601>
 ```
+
+The request must include the same `X-Flora-Secret` header used by `/label` and
+`/photo-check` when the packaged backend is configured with a secret.
 
 It expects this response (full example: [`examples/activity-window.json`](examples/activity-window.json)):
 
@@ -85,9 +88,14 @@ When a result is saved, the service worker also broadcasts `{type: "sessionSaved
 - **Paper sessions:** `result` is `{verified, credited_minutes, reason}`. A verified photo gets full minutes; otherwise the session gets 50%.
 - **`plant`:** comes from `extension/background/plantRules.js`. **This is a placeholder for Part 3 to replace.**
 
-## 3. Part 2 → backend
+## 3. Part 2 → local backend
 
-`POST /label` and `POST /photo-check` must send the header `X-Flora-Secret`. The request and response shapes are the Pydantic models in [`backend/app/contracts.py`](../backend/app/contracts.py). FastAPI also serves them as interactive docs at `/docs` while the backend is running.
+`POST /label` and `POST /photo-check` must send the header `X-Flora-Secret`.
+These routes, `/activity`, `/usage`, and `/health` are served by the same
+local process on port 8765. The request and response shapes are the Pydantic
+models in [`backend/app/contracts.py`](../backend/app/contracts.py). FastAPI
+also serves them as interactive docs at
+`http://127.0.0.1:8765/docs` while the backend is running.
 
 ## Manifest entries Part 2 needs (Part 3 owns `manifest.json`)
 

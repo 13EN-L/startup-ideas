@@ -2,8 +2,8 @@
 /** Where Part 2 sends data. Settings saved by the options page (Part 3) override these. */
 
 export const DEFAULTS = {
-  backendUrl: "http://127.0.0.1:8000", // FastAPI backend (Render URL once deployed)
-  activityUrl: "http://127.0.0.1:5601", // Part 1's local activity backend
+  backendUrl: "http://127.0.0.1:8765", // unified local backend
+  activityUrl: "http://127.0.0.1:8765", // retained as a settings migration alias
   sharedSecret: "", // must match FLORA_SHARED_SECRET on the backend
 };
 

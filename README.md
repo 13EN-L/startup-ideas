@@ -107,16 +107,92 @@ eval/        Labeled test blocks and photos for measuring accuracy
 docs/        Criteria checklist and design notes
 ```
 
-### Local computer-usage backend
+## Run the local MVP on Windows
 
-The repository also includes a Windows-local bridge in [`backend/`](backend/).
-It manages a configured ActivityWatch process, reads browser, foreground-window,
-and idle events, and exposes privacy-filtered time-range data to the Chrome
-extension at `http://127.0.0.1:8765/usage`. See
-[`backend/README.md`](backend/README.md) for installation, optional bearer
-authentication, Windows startup instructions, and the request/response schema.
-ActivityWatch remains the local source of truth; the bridge does not upload
-usage data or persist a second copy.
+The MVP has two local pieces:
+
+1. The **packaged local program** is a Windows executable containing the
+   FastAPI service and ActivityWatch. It records browser, foreground-window,
+   and idle activity on the user's computer.
+2. The **Chrome extension** starts and ends sessions, asks the local program
+   for activity, sends activity blocks to `/label`, and displays the result.
+
+The local program and the extension communicate only through
+`http://127.0.0.1:8765`. The local program also serves the LLM routes, so
+there is no second local server on port 8000.
+
+### Install and start the local program
+
+For normal testing, download `FocusGardenLocalBackend-windows-x86_64.zip`
+from a release artifact and:
+
+1. Extract it, for example to `C:\FocusGarden`.
+2. Open `C:\FocusGarden\FocusGardenLocalBackend`.
+3. Run `FocusGardenLocalBackend.exe`.
+4. Leave it running while the extension is in use.
+5. Open `http://127.0.0.1:8765/health` and confirm `"reachable": true`.
+
+The package includes ActivityWatch and starts it automatically. To start the
+program when Windows logs in, create a shortcut to the executable in
+`Windows + R` → `shell:startup`. See
+[`backend/README.md`](backend/README.md) for source-mode setup, release
+building, authentication, and troubleshooting.
+
+### Configure and load the Chrome extension
+
+The extension must point both `backendUrl` and `activityUrl` at
+`http://127.0.0.1:8765`, and its `sharedSecret` must match the token used to
+start the executable. For example:
+
+```powershell
+.\FocusGardenLocalBackend.exe --token "local-extension-token" `
+  --anthropic-api-key "your-anthropic-key"
+```
+
+Never commit the Anthropic key. The extension sends `X-Flora-Secret` to
+`/activity`, `/label`, and `/photo-check`.
+
+This repository currently contains the extension background modules under
+[`extension/background/`](extension/background/), but it does not currently
+contain a Chrome `manifest.json` or a built popup/options UI. Therefore the
+local program can be installed and tested now, while loading the complete
+extension in `chrome://extensions` requires the extension manifest/UI task to
+be present. When that task is available, use Chrome's **Developer mode** →
+**Load unpacked** and select the directory containing `manifest.json`; then
+configure the shared secret in the extension settings.
+
+### Test the complete local integration
+
+With the executable running:
+
+```powershell
+# Local recorder health
+Invoke-RestMethod http://127.0.0.1:8765/health
+
+# Extension-facing activity contract
+$headers = @{ "X-Flora-Secret" = "local-extension-token" }
+$start = (Get-Date).ToUniversalTime().AddMinutes(-5).ToString("yyyy-MM-ddTHH:mm:ssZ")
+$end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8765/activity?start=$start&end=$end" `
+  -Headers $headers | ConvertTo-Json -Depth 10
+```
+
+The second command should return an object with `start`, `end`, and `blocks`.
+Each block has `kind` (`web`, `app`, or `idle`), whole-second duration, and
+privacy-filtered site/title fields. The extension uses this exact response
+when ending a computer session. `/usage` remains available for diagnostics.
+
+Run the automated backend and contract tests from the repository root:
+
+```powershell
+uv run --project backend --extra test --no-sync pytest backend\tests
+```
+
+For the full manual test and five-minute demo, see
+[`backend/TESTING_AND_DEMO.md`](backend/TESTING_AND_DEMO.md). The demo should
+show both sides: the extension starts a task session and ends it, while the
+local program records the activity and returns blocks for labeling.
 
 For Windows distribution, `backend/build_release.py` downloads and verifies
 the pinned ActivityWatch v0.14.1 binary, freezes the Python service into
@@ -125,7 +201,7 @@ also available through
 [`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml).
 
 ## Tech stack
-Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · Docker · Render · GitHub Actions · hosted LLM API with vision
+Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · GitHub Actions · hosted LLM API with vision
 
 ## Timeline (6 weeks)
 
