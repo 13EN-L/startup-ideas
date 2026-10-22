@@ -36,7 +36,7 @@ FocusGarden is both a productivity tracker and a motivator.
 3. **LLM judges the activity.** When the session ends, an LLM labels each block of activity as on-task, off-task, break or unclear, with a short reason. Productivity stats (on-task minutes, on-task %, longest focus streak) are computed by code from those labels.
 4. **The garden grows.** Verified on-task time grows plants in a virtual garden. Different kinds of productivity grow different plants (for example, computer work and paper work grow different species), and more on-task time grows them further.
 
-**Paper work counts too.** For offline study, the user starts a paper session and writes that session's code word at the top of their page. At the end, a photo of the page is checked by the LLM for the code word and task-related notes. Verified paper time gets full credit; unverified time gets partial credit.
+**Paper work counts too.** For offline study, the user starts a paper session and writes that session's code word at the top of their page. At the end, a photo of the page is checked by the LLM for the code word and task-related notes. Verified paper time gets full credit; only an ambiguous but plausible photo can receive partial credit, while clear failures receive no credit.
 
 **Nothing unvalidated reaches the garden.** Every LLM output is checked (schema, every block labeled exactly once, user allow/block lists, confidence thresholds, exact code-word match, stat sanity checks). On failure, the errors are sent back to the LLM for up to 2 retries; after that, uncertain blocks go to a review screen where the user decides.
 
@@ -88,7 +88,7 @@ Planned walkthrough:
 ## Architecture
 
 ```
-Chrome extension (Windows / Mac)          Backend (FastAPI on Render)            LLM API
+Chrome extension (Windows / Mac)          Backend (FastAPI on Windows)            LLM API
 - task entry, session timer      ──────▶  - label activity blocks        ──────▶ labels / photo verdict
 - tab + idle tracking                     - validate (schema, coverage,  ◀──────
 - review screen, garden                     overrides, confidence)
@@ -107,8 +107,161 @@ eval/        Labeled test blocks and photos for measuring accuracy
 docs/        Criteria checklist and design notes
 ```
 
+## Run the local MVP on Windows
+
+The MVP has two local pieces:
+
+1. The **packaged local program** is a Windows executable containing the
+   FastAPI service and ActivityWatch. It records browser, foreground-window,
+   and idle activity on the user's computer.
+2. The **Chrome extension** starts and ends sessions, asks the local program
+   for activity, sends activity blocks to `/label`, and displays the result.
+
+The local program and the extension communicate only through
+`http://127.0.0.1:8765`. The local program also serves the LLM routes, so
+there is no second local server on port 8000.
+
+### Install and start the local program
+
+For normal testing, download `FocusGardenLocalBackend-windows-x86_64.zip`
+from a release artifact and:
+
+1. Extract it, for example to `C:\FocusGarden`.
+2. Open `C:\FocusGarden\FocusGardenLocalBackend`.
+3. Run `FocusGardenLocalBackend.exe`.
+4. Confirm that the FocusGarden leaf icon appears in the Windows system tray.
+   The packaged program runs without an open terminal.
+5. Open `http://127.0.0.1:8765/health` and confirm `"reachable": true`.
+
+The package includes ActivityWatch and starts it automatically. To start the
+program when Windows logs in, create a shortcut to the executable in
+`Windows + R` → `shell:startup`. See
+[`backend/README.md`](backend/README.md) for source-mode setup, release
+building, authentication, runtime configuration, API behavior, and
+troubleshooting.
+
+To turn FocusGarden off for the current session, right-click its leaf icon in
+the Windows notification area and select **Quit FocusGarden**. This stops both
+the local API and the complete ActivityWatch process tree launched by it
+(including the server and watcher processes). Start the executable again to
+turn it back on. Remove the `shell:startup` shortcut if
+you also want to prevent it from starting automatically at the next sign-in.
+This shutdown does not delete ActivityWatch's locally stored history. The
+history is kept in ActivityWatch's Windows user-data directory, separate from
+the extracted release folder, and remains available the next time FocusGarden
+starts.
+
+### Configure and load the Chrome extension
+
+The extension must point both `backendUrl` and `activityUrl` at
+`http://127.0.0.1:8765`, and its `sharedSecret` must match the token used to
+start the executable. For example:
+
+```powershell
+.\FocusGardenLocalBackend.exe --token "local-extension-token" `
+  --google-api-key "your-google-api-key"
+```
+
+Never commit the Google API key. The backend uses it to call Gemini, and the extension sends `X-Flora-Secret` to
+`/activity`, `/label`, and `/photo-check`.
+
+To load the extension, open `chrome://extensions`, turn on **Developer mode**,
+click **Load unpacked**, and select the [`extension/`](extension/) folder. Then
+click the extension's **Settings** link, enter the shared secret, and use
+**Test connection**.
+
+### Test the complete local integration
+
+With the executable running:
+
+```powershell
+# Local recorder health
+Invoke-RestMethod http://127.0.0.1:8765/health
+
+# Extension-facing activity contract
+$headers = @{ "X-Flora-Secret" = "local-extension-token" }
+$start = (Get-Date).ToUniversalTime().AddMinutes(-5).ToString("yyyy-MM-ddTHH:mm:ssZ")
+$end = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+Invoke-RestMethod `
+  -Uri "http://127.0.0.1:8765/activity?start=$start&end=$end" `
+  -Headers $headers | ConvertTo-Json -Depth 10
+```
+
+The second command should return an object with `start`, `end`, and `blocks`.
+Each block has `kind` (`web`, `app`, or `idle`), whole-second duration, and
+privacy-filtered site/title fields. The extension uses this exact response
+when ending a computer session. `/usage` remains available for diagnostics.
+
+### Demo a paper session and photo check
+
+The extension also supports paper study:
+
+1. Start a paper session with a task.
+2. Write the code word returned by the extension at the top of the page.
+3. Study and take a clear photo that includes the code word and relevant notes.
+4. End the paper session and submit the photo.
+
+The extension sends the image as base64 to the local backend's
+`POST /photo-check`. The backend sends it to Gemini 3.8 Flash, checks the code
+word, notes, task relevance, and confidence, then returns full credit when all
+checks pass. Start the executable with
+`--google-api-key` for this feature. See
+[`backend/README.md`](backend/README.md#use-paper-session-photo-checks) for
+the direct API test and request format.
+
+Only an ambiguous but plausible image can receive 50% credit: the code word
+must match, notes must be present and task-related, and Gemini's confidence
+must be below the verification threshold. Wrong code words, blank or unrelated
+pages, and model failures receive 0%. The extension allows at most two photo
+attempts per paper session; a failed first attempt remains active so the user
+can retake the photo.
+
+Run the automated backend and contract tests from the repository root:
+
+```powershell
+uv run --project backend --extra test --no-sync pytest backend\tests
+```
+
+For the full manual test and five-minute demo, see
+[`backend/TESTING_AND_DEMO.md`](backend/TESTING_AND_DEMO.md). The demo should
+show both sides: the extension starts a task session and ends it, while the
+local program records the activity and returns blocks for labeling.
+
+For Windows distribution, `backend/build_release.py` downloads and verifies
+the pinned ActivityWatch v0.14.1 binary, freezes the Python service into
+`FocusGardenLocalBackend.exe`, and creates a distributable zip. The build is
+also available through
+[`.github/workflows/build-windows-release.yml`](.github/workflows/build-windows-release.yml).
+
+## Run the local MVP on a Mac (for development)
+
+There's no packaged Mac build yet, so run the backend from source and install
+ActivityWatch yourself.
+
+1. **Install ActivityWatch** from [activitywatch.net](https://activitywatch.net/)
+   (or `brew install --cask activitywatch`), open it once, and allow the
+   **Accessibility** permission macOS asks for. Without it, window titles are blank.
+2. **Install the ActivityWatch web watcher** for Chrome ("ActivityWatch Web
+   Watcher" in the Chrome Web Store). Without it, blocks show the app name but
+   not the site.
+3. **Start the backend** (Python 3.11+):
+
+   ```sh
+   cd backend
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements-dev.txt
+   export GOOGLE_API_KEY=...   # Gemini key; never commit this
+   .venv/bin/uvicorn app.server:app --port 8765
+   ```
+
+   The backend starts ActivityWatch if it is installed in `/Applications` and not
+   already running. With no `FLORA_SHARED_SECRET` set, the extension's shared
+   secret can stay blank.
+4. **Load the extension** as described above, then open the popup, enter a task
+   and start a session.
+
 ## Tech stack
-Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · Docker · Render · GitHub Actions · hosted LLM API with vision
+Chrome Extension (Manifest V3) · Python · FastAPI · Pydantic · pytest · GitHub Actions · hosted LLM API with vision
 
 ## Timeline (6 weeks)
 
