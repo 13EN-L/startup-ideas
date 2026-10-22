@@ -11,6 +11,7 @@ from threading import Lock
 from typing import Any
 
 import httpx
+import psutil
 
 
 class ActivityWatchError(RuntimeError):
@@ -30,6 +31,7 @@ class ActivityWatchManager:
         self.start_command = start_command
         self.timeout = timeout
         self._process: subprocess.Popen[bytes] | None = None
+        self._managed_processes: dict[int, psutil.Process] = {}
         self._lock = Lock()
         self.startup_error: str | None = None
         self.started_by_manager = False
@@ -92,9 +94,11 @@ class ActivityWatchManager:
                 raise ActivityWatchError(
                     f"Could not launch ActivityWatch: {exc}"
                 ) from exc
+            self._remember_process_tree()
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 if self.is_reachable():
+                    self._remember_process_tree()
                     self.started_by_manager = True
                     return
                 time.sleep(0.25)
@@ -155,10 +159,49 @@ class ActivityWatchManager:
         return [event for event in result if isinstance(event, dict)]
 
     def close(self) -> None:
-        if self._process is not None and self._process.poll() is None:
-            self._process.terminate()
-            self._process = None
-            self.started_by_manager = False
+        self._remember_process_tree()
+        processes = list(self._managed_processes.values())
+        if self._process is not None:
+            try:
+                root = psutil.Process(self._process.pid)
+                processes.append(root)
+            except psutil.Error:
+                pass
+        unique_processes = {process.pid: process for process in processes}
+        descendants = []
+        for process in unique_processes.values():
+            try:
+                descendants.extend(process.children(recursive=True))
+            except psutil.Error:
+                continue
+        unique_processes.update({process.pid: process for process in descendants})
+        for process in unique_processes.values():
+            try:
+                process.terminate()
+            except psutil.Error:
+                pass
+        _, alive = psutil.wait_procs(list(unique_processes.values()), timeout=5)
+        for process in alive:
+            try:
+                process.kill()
+            except psutil.Error:
+                pass
+        if alive:
+            psutil.wait_procs(alive, timeout=5)
+        self._managed_processes.clear()
+        self._process = None
+        self.started_by_manager = False
+
+    def _remember_process_tree(self) -> None:
+        if self._process is None:
+            return
+        try:
+            root = psutil.Process(self._process.pid)
+            self._managed_processes[root.pid] = root
+            for child in root.children(recursive=True):
+                self._managed_processes[child.pid] = child
+        except psutil.Error:
+            return
 
 
 def dump_json(value: Any) -> str:

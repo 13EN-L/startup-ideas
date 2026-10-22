@@ -26,6 +26,35 @@ login, create a shortcut to the executable in the Startup folder
 (`Windows + R`, then `shell:startup`). Right-click the tray icon to open the
 health page or quit the backend.
 
+### Turn FocusGarden off
+
+To stop FocusGarden for the current Windows session:
+
+1. Find the green FocusGarden leaf in the notification area. If it is hidden,
+   click the small `^` arrow near the clock.
+2. Right-click the leaf icon.
+3. Select **Quit FocusGarden**.
+
+This stops the local API and the entire ActivityWatch process tree launched by
+FocusGarden, including `aw-server` and watcher processes.
+It does not uninstall anything or delete ActivityWatch's locally stored
+history. ActivityWatch writes that history to its Windows user-data directory,
+separate from the extracted `FocusGardenLocalBackend` program folder. The
+recorded history remains available after FocusGarden is started again, and
+deleting the extracted release folder does not intentionally delete it.
+
+The Chrome extension remains installed but cannot start a session while the
+local program is off. Start the executable again to turn FocusGarden back on.
+If you created a shortcut in `shell:startup`, Windows will start it again at
+the next sign-in; remove that shortcut if you do not want automatic startup.
+
+Only data that ActivityWatch has received before shutdown is available. If you
+quit immediately while a new event is still being collected, allow a short
+moment for the event to reach ActivityWatch before quitting.
+
+Do not use Task Manager to stop only ActivityWatch: the backend may still be
+running, and the extension will then receive recorder-unavailable errors.
+
 To protect extension-facing routes with a shared secret:
 
 ```powershell
@@ -54,6 +83,51 @@ The response must contain `start`, `end`, and `blocks`. The extension uses
 `/activity` for computer sessions. `/usage` returns the more verbose
 diagnostic format; `/label` and `/photo-check` are served by this same
 process.
+
+### Local API and authentication reference
+
+The packaged program listens only on `127.0.0.1` by default, so these routes
+are intended for the local extension and local testing:
+
+| Method and route | Authentication | Purpose |
+|---|---|---|
+| `GET /health` | None | Reports whether ActivityWatch is reachable and whether FocusGarden started it |
+| `GET /activity?start=...&end=...` | `X-Flora-Secret` when a token is configured | Canonical extension activity window |
+| `GET /usage?start=...&end=...&include_raw=false` | `X-Flora-Secret` when a token is configured | Verbose diagnostic usage response |
+| `POST /label` | `X-Flora-Secret` when a token is configured | Labels activity blocks with Gemini |
+| `POST /photo-check` | `X-Flora-Secret` when a token is configured | Checks a paper-study photo with Gemini |
+
+`start` and `end` must be timezone-aware ISO-8601 timestamps, and `end` must
+be after `start`. Activity requests are limited to seven days by default.
+When no shared secret is configured, the protected routes accept local
+requests without a token. When a secret is configured, a missing or incorrect
+`X-Flora-Secret` returns HTTP 401. A missing Google API key causes `/label`
+and `/photo-check` to return HTTP 503; activity collection and `/health` do
+not require the Google API.
+
+### Runtime configuration
+
+For source mode, these environment variables provide the same configuration
+as the packaged command-line options:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GOOGLE_API_KEY` or `GEMINI_API_KEY` | empty | Google AI Studio key for Gemini labeling/photo checks |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | Gemini model name |
+| `FOCUSGARDEN_EXTENSION_TOKEN` | empty | Shared secret expected in `X-Flora-Secret` |
+| `FOCUSGARDEN_HOST` | `127.0.0.1` | Local API bind address |
+| `FOCUSGARDEN_PORT` | `8765` | Local API port |
+| `ACTIVITYWATCH_EXECUTABLE` | auto-detected in release | ActivityWatch executable path |
+| `ACTIVITYWATCH_START_COMMAND` | empty | Alternative command for starting ActivityWatch |
+| `ACTIVITYWATCH_URL` | `http://127.0.0.1:5600` | ActivityWatch API address |
+| `ACTIVITYWATCH_TIMEOUT_SECONDS` | `5` | ActivityWatch request timeout |
+| `FOCUSGARDEN_MAX_WINDOW_SECONDS` | `604800` | Maximum requested activity window (7 days) |
+
+The packaged launcher also accepts `--token`, `--google-api-key`, `--host`,
+`--port`, and `--console`. Command-line values override the corresponding
+launcher defaults. Keep API keys and shared secrets out of Git and out of the
+Chrome extension; only the shared secret is sent between the extension and
+local backend.
 
 ## Use paper-session photo checks
 
@@ -155,6 +229,9 @@ instead of the tray:
 ```powershell
 uv run --no-sync python -m app.launcher --console --port 8765
 ```
+
+Press `Ctrl+C` in this console to stop the source-mode backend. In the normal
+packaged release, use the tray menu instead.
 
 ## Build a Windows release
 
