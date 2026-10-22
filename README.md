@@ -88,7 +88,7 @@ Planned walkthrough:
 ## Architecture
 
 ```
-Chrome extension (Windows / Mac)          Backend (FastAPI on Render)            LLM API
+Chrome extension (Windows / Mac)          Backend (FastAPI on Windows)            LLM API
 - task entry, session timer      ──────▶  - label activity blocks        ──────▶ labels / photo verdict
 - tab + idle tracking                     - validate (schema, coverage,  ◀──────
 - review screen, garden                     overrides, confidence)
@@ -137,7 +137,19 @@ The package includes ActivityWatch and starts it automatically. To start the
 program when Windows logs in, create a shortcut to the executable in
 `Windows + R` → `shell:startup`. See
 [`backend/README.md`](backend/README.md) for source-mode setup, release
-building, authentication, and troubleshooting.
+building, authentication, runtime configuration, API behavior, and
+troubleshooting.
+
+To turn FocusGarden off for the current session, right-click its leaf icon in
+the Windows notification area and select **Quit FocusGarden**. This stops both
+the local API and the complete ActivityWatch process tree launched by it
+(including the server and watcher processes). Start the executable again to
+turn it back on. Remove the `shell:startup` shortcut if
+you also want to prevent it from starting automatically at the next sign-in.
+This shutdown does not delete ActivityWatch's locally stored history. The
+history is kept in ActivityWatch's Windows user-data directory, separate from
+the extracted release folder, and remains available the next time FocusGarden
+starts.
 
 ### Configure and load the Chrome extension
 

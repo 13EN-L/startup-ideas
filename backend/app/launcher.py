@@ -66,17 +66,31 @@ def main() -> None:
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
         return
 
-    config = uvicorn.Config(app, host=args.host, port=args.port, log_level="warning")
+    # A windowless PyInstaller process has no stderr stream. Uvicorn's default
+    # logging config assumes one exists and calls isatty() during startup.
+    config = uvicorn.Config(
+        app,
+        host=args.host,
+        port=args.port,
+        log_level="warning",
+        log_config=None,
+        access_log=False,
+    )
     server = uvicorn.Server(config)
     server_thread = threading.Thread(target=server.run, name="focusgarden-api", daemon=True)
     server_thread.start()
+
+    def shutdown_server() -> None:
+        server.should_exit = True
+        server_thread.join(timeout=10)
+        if server_thread.is_alive():
+            app.state.activitywatch.close()
 
     def open_health() -> None:
         webbrowser.open(f"http://{args.host}:{args.port}/health")
 
     def quit_application(icon: pystray.Icon, _: object) -> None:
-        server.should_exit = True
-        server_thread.join(timeout=10)
+        shutdown_server()
         icon.stop()
 
     icon = pystray.Icon(
@@ -88,7 +102,10 @@ def main() -> None:
             pystray.MenuItem("Quit FocusGarden", quit_application),
         ),
     )
-    icon.run()
+    try:
+        icon.run()
+    finally:
+        shutdown_server()
 
 
 if __name__ == "__main__":

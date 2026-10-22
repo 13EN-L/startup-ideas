@@ -84,6 +84,20 @@ uv run --no-sync python -m app.launcher --console --port 8765
 The packaged release normally runs without a terminal. Use the source-mode
 launcher with `--console` when you need visible logs during development.
 
+To turn the packaged program off, right-click the FocusGarden tray leaf and
+select **Quit FocusGarden**. This stops the local API and the complete
+ActivityWatch process tree (`aw-qt`, `aw-server`, and watcher processes). It
+does not uninstall the program or erase local ActivityWatch history.
+ActivityWatch stores that history in its Windows user-data directory, separate
+from the extracted `FocusGardenLocalBackend` folder. Start the executable again
+and previously recorded events remain available. Deleting the extracted
+release folder does not intentionally delete this history.
+
+Only events already received by ActivityWatch can be retained. For a clean
+demo, wait a few seconds after generating activity before selecting **Quit
+FocusGarden**. If the program was added to `shell:startup`, it will start again
+at the next Windows sign-in; remove that shortcut to disable automatic startup.
+
 ### 3. Optional: configure extension authentication
 
 For a local demo without authentication, start the executable normally.

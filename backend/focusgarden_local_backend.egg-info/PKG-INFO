@@ -8,6 +8,7 @@ Requires-Dist: fastapi<1,>=0.115
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: pillow<13,>=10
 Requires-Dist: pystray<1,>=0.19
+Requires-Dist: psutil<8,>=6
 Requires-Dist: pydantic<3,>=2.7
 Requires-Dist: uvicorn[standard]<1,>=0.30
 Provides-Extra: test
