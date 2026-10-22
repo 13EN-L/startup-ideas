@@ -1,17 +1,48 @@
 // @ts-check
 /**
- * PLACEHOLDER for Part 3: turns verified minutes into garden growth.
- * Code decides growth from validated stats, never the LLM. Replace freely.
+ * Picks a plant for each session and turns verified minutes into growth.
+ * Plants are configured in extension/plants/plants.json (see the README there).
+ * Code decides growth from validated stats, never the LLM.
  */
 
+const DEFAULT_MINUTES = 60;
+
 /**
- * @param {"computer"|"paper"} kind
- * @param {number} onTaskMinutes verified on-task (or credited paper) minutes
- * @returns {{species: string, growth: number}}
+ * @typedef {{name: string, gif: string|null, minutesToFullGrowth: number}} PlantChoice
+ * @typedef {PlantChoice & {minutes: number, progress: number}} Plant
+ *   progress runs from 0 (seed, first frame) to 1 (fully grown, last frame)
  */
-export function plantFor(kind, onTaskMinutes) {
+
+/** @returns {Promise<PlantChoice|null>} a random plant from plants.json, or null if none */
+export async function choosePlant() {
+  let config;
+  try {
+    const res = await fetch(chrome.runtime.getURL("plants/plants.json"));
+    config = await res.json();
+  } catch {
+    return null; // missing or invalid plants.json: the UI falls back to an emoji
+  }
+  const plants = Array.isArray(config.plants) ? config.plants.filter((p) => p && p.file) : [];
+  if (!plants.length) return null;
+  const [n] = crypto.getRandomValues(new Uint32Array(1));
+  const plant = plants[n % plants.length];
   return {
-    species: kind === "paper" ? "fern" : "sunflower",
-    growth: Math.floor(onTaskMinutes / 15), // one growth step per 15 verified minutes
+    name: plant.name || plant.file.replace(/\.gif$/i, ""),
+    gif: `plants/${plant.file}`,
+    minutesToFullGrowth: Number(plant.minutesToFullGrowth || config.minutesToFullGrowth)
+      || DEFAULT_MINUTES,
   };
+}
+
+/**
+ * @param {PlantChoice|null|undefined} choice the plant picked when the session started
+ * @param {number} minutes verified on-task (or credited paper) minutes
+ * @returns {Plant}
+ */
+export function plantFor(choice, minutes) {
+  const name = choice?.name || "Plant";
+  const gif = choice?.gif || null;
+  const full = choice?.minutesToFullGrowth || DEFAULT_MINUTES;
+  return { name, gif, minutesToFullGrowth: full, minutes,
+           progress: Math.min(1, Math.max(0, minutes / full)) };
 }

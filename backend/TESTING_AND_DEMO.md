@@ -520,10 +520,11 @@ page, then end the session. The extension should request `/activity`, send
 the returned `blocks` to `/label`, and display the saved session's labels and
 stats.
 
-This checkout contains the extension background modules but does not contain a
-`manifest.json` or popup/options UI. If the extension package is supplied
-separately, load its manifest directory with Chrome's **Developer mode** →
-**Load unpacked** before running this step.
+Load the extension from the repository's separate `extension` directory:
+open Chrome's **Developer mode** → **Load unpacked**, select `extension`,
+then configure its backend URL and optional shared secret in **Settings**.
+The extension's service worker owns the HTTP calls; the popup and options
+pages communicate with it through `chrome.runtime` messages.
 
 #### 8. Demo a paper session and photo check
 

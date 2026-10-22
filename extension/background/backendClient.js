@@ -5,13 +5,23 @@ import { getConfig } from "./config.js";
 /**
  * @typedef {{block_id: string, seconds: number, label: "on_task"|"off_task"|"break"|"unclear",
  *            confidence: number, reason: string,
- *            source: "llm"|"rule"|"override"|"low_confidence"|"unlabeled"}} FinalLabel
+ *            source: "llm"|"rule"|"override"|"low_confidence"|"unlabeled"|"user"}} FinalLabel
  * @typedef {{total_minutes: number, on_task_minutes: number, off_task_minutes: number,
  *            break_minutes: number, unclear_minutes: number, on_task_pct: number,
  *            longest_streak_minutes: number}} Stats
  * @typedef {{labels: FinalLabel[], stats: Stats, needs_review: string[]}} LabelResponse
  * @typedef {{verified: boolean, credited_minutes: number, reason: string}} PhotoCheckResponse
  */
+
+/** The backend's error detail, e.g. "ActivityWatch is not reachable". @param {Response} res */
+export async function errorDetail(res) {
+  const text = await res.text();
+  try {
+    const { detail } = JSON.parse(text);
+    if (typeof detail === "string") return detail;
+  } catch {}
+  return text || res.statusText;
+}
 
 /** @param {string} path @param {object} body */
 async function post(path, body) {
@@ -21,7 +31,7 @@ async function post(path, body) {
     headers: { "Content-Type": "application/json", "X-Flora-Secret": sharedSecret },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`backend ${path} returned ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`backend ${path} returned ${res.status}: ${await errorDetail(res)}`);
   return res.json();
 }
 

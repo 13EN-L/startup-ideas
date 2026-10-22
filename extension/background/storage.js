@@ -3,13 +3,19 @@
 
 /**
  * @typedef {{id: string, kind: "computer"|"paper", task: string, start: string, end: string,
- *            result: object, plant: {species: string, growth: number}}} SavedSession
+ *            result: any, plant: import("./plantRules.js").Plant, blocks?: object[]}} SavedSession
  */
 
 /** @param {SavedSession} session */
 export async function saveSession(session) {
   const history = await getHistory();
   history.push(session);
+  await chrome.storage.local.set({ history });
+}
+
+/** Replaces a saved session with the same id. @param {SavedSession} session */
+export async function updateSession(session) {
+  const history = (await getHistory()).map((s) => (s.id === session.id ? session : s));
   await chrome.storage.local.set({ history });
 }
 

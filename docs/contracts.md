@@ -86,7 +86,8 @@ When a result is saved, the service worker also broadcasts `{type: "sessionSaved
   - `low_confidence`: Gemini wasn't sure (its reason is kept);
   - `unlabeled`: Gemini failed validation after 2 retries.
 - **Paper sessions:** `result` is `{verified, credited_minutes, reason}`. A verified photo gets full minutes. An ambiguous but plausible photo can get 50%; clear failures get 0%.
-- **`plant`:** comes from `extension/background/plantRules.js`. **This is a placeholder for Part 3 to replace.**
+- **`plant`:** is selected and grown by the extension's code in
+  `extension/background/plantRules.js`; it is never decided by the LLM.
 
 ## 3. Part 2 → local backend
 
@@ -102,7 +103,13 @@ also serves them as interactive docs at
 `{"status":"ok","model":"gemini-3.8-flash"}` when the saved key works. A
 `502` response includes the provider error without exposing the API key.
 
-## Manifest entries Part 2 needs (Part 3 owns `manifest.json`)
+## Extension ownership
+
+The Chrome extension owns [`extension/manifest.json`](../extension/manifest.json),
+the popup/options UI, service worker, browser storage, and plant rendering.
+The local program owns the ActivityWatch bridge and Gemini calls under
+`backend/`. The extension communicates with the local program only over the
+documented localhost HTTP endpoints above.
 
 ```json
 {

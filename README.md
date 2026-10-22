@@ -186,14 +186,12 @@ the running program did not load a key; a `502` includes the provider error.
 If a shared token is configured, add
 `-Headers @{ "X-Flora-Secret" = "your-extension-token" }`.
 
-This repository currently contains the extension background modules under
-[`extension/background/`](extension/background/), but it does not currently
-contain a Chrome `manifest.json` or a built popup/options UI. Therefore the
-local program can be installed and tested now, while loading the complete
-extension in `chrome://extensions` requires the extension manifest/UI task to
-be present. When that task is available, use Chrome's **Developer mode** →
-**Load unpacked** and select the directory containing `manifest.json`; then
-configure the shared secret in the extension settings.
+The Chrome extension is in [`extension/`](extension/), with its manifest,
+popup, options page, service worker, and plant assets. Load it in
+`chrome://extensions` using **Developer mode** → **Load unpacked**, selecting
+the `extension` directory. Configure the backend URL and optional shared
+secret from the extension's **Settings** page. The extension never receives
+the Google API key; the local program keeps that key and calls Gemini.
 
 ### Test the complete local integration
 
