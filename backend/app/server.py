@@ -2,26 +2,28 @@
 import logging
 import os
 
-from app.gemini import GeminiLabeler, GeminiPhotoReader
+from app.claude import ClaudeLabeler, ClaudePhotoReader
 from app.activitywatch import ActivityWatchManager
 from app.config import settings
 from app.main import create_app
+from app.store import SessionStore
 
 logging.basicConfig(level=logging.INFO)
 
 secret = os.environ.get("FLORA_SHARED_SECRET", settings.extension_token)
 if not secret:
     logging.warning(
-        "FLORA_SHARED_SECRET is not set; extension endpoints will not require a secret."
+        "FLORA_SHARED_SECRET is not set; /activity, /usage, /label and /photo-check will not"
+        " require a secret. The FocusGarden page never needs one."
     )
 
 labeler = photo_reader = None
-if os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"):
-    labeler = GeminiLabeler()
-    photo_reader = GeminiPhotoReader()
+if os.environ.get("ANTHROPIC_API_KEY"):
+    labeler = ClaudeLabeler()
+    photo_reader = ClaudePhotoReader()
 else:
     logging.warning(
-        "GOOGLE_API_KEY is not set; /label and /photo-check will return 503."
+        "ANTHROPIC_API_KEY is not set; /label and /photo-check will return 503."
     )
 
 app = create_app(
@@ -35,4 +37,5 @@ app = create_app(
         settings.request_timeout_seconds,
     ),
     start_activitywatch=True,
+    store=SessionStore(settings.state_directory / "sessions.json"),
 )

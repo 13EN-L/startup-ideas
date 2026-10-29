@@ -1,15 +1,11 @@
-/* Popup layout only. Colors, sizes and components come from theme.css. */
+/* Main page layout only. Colors, sizes and components come from theme.css. */
 
+/* The original extension popup's narrow column, centered in the browser tab. */
 body {
-  width: var(--popup-width);
-  padding: var(--space-4);
-  font-size: var(--text-sm);
-}
-/* Opened in a full tab (for photo upload): center a popup-width column. */
-body.in-tab {
-  width: auto;
   max-width: var(--popup-width);
   margin: var(--space-6) auto;
+  padding: var(--space-4);
+  font-size: var(--text-sm);
 }
 
 .topbar {
@@ -147,6 +143,12 @@ summary { cursor: pointer; font-size: var(--text-xs); }
 .block-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
 .review-actions { display: flex; gap: var(--space-1); margin-top: var(--space-1); }
 .review-actions .btn { min-height: 30px; padding: 0 var(--space-3); font-size: var(--text-xs); }
+
+/* Time tracker: groups shown as neutral chips; totals use the big-number tiles. */
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.chip-tag { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.tracker-total { margin-top: var(--space-3); }
+.stack-tight { display: flex; flex-direction: column; }
 
 /* Productive / distracting / other split. Colors match the label chips in theme.css. */
 .split { display: flex; flex-direction: column; gap: var(--space-2); }

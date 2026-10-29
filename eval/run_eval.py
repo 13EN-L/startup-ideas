@@ -1,16 +1,16 @@
-"""Measures real Gemini label accuracy on label_set.json. Costs API credits.
+"""Measures real Claude label accuracy on label_set.json. Costs API credits.
 
-Run from backend/:  GOOGLE_API_KEY=... PYTHONPATH=. .venv/bin/python ../eval/run_eval.py
+Run from backend/:  $env:ANTHROPIC_API_KEY = "..."; uv run --no-sync python ../eval/run_eval.py
 """
 import json
 from pathlib import Path
 
-from app.gemini import GeminiLabeler
+from app.claude import ClaudeLabeler
 from app.contracts import LabelRequest
 from app.labeling import label_session
 
 cases = json.loads((Path(__file__).parent / "label_set.json").read_text())
-labeler = GeminiLabeler()
+labeler = ClaudeLabeler()
 right = total = review = 0
 for case in cases:
     result = label_session(LabelRequest(task=case["task"], blocks=case["blocks"]), labeler)

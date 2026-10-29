@@ -13,7 +13,7 @@ const TOP_APPS = 5;
 /**
  * Minutes per site (web) or app, largest first. Past the top five, the rest become "Other".
  * Each row's label is the label that covered most of its time.
- * @param {import("./backendClient.js").FinalLabel[]} labels
+ * @param {import("./api.js").FinalLabel[]} labels
  * @param {any[]} blocks
  * @returns {AppTime[]}
  */
@@ -49,7 +49,7 @@ export function breakdownByApp(labels, blocks) {
 /**
  * Percent of the session that was productive (on_task), distracting (off_task), or
  * other (break or unclear). The three add up to 100, or are all 0 for an empty session.
- * @param {import("./backendClient.js").FinalLabel[]} labels
+ * @param {import("./api.js").FinalLabel[]} labels
  * @returns {{productive: number, distracting: number, other: number}}
  */
 export function productivitySplit(labels) {
@@ -68,7 +68,7 @@ export function productivitySplit(labels) {
  * The off-task site or app that took the most time (null if nothing was off-task), and how
  * many times on-task work was followed by off-task time. Labels must be in time order;
  * break and unclear blocks between the two don't break up a switch.
- * @param {import("./backendClient.js").FinalLabel[]} labels
+ * @param {import("./api.js").FinalLabel[]} labels
  * @param {any[]} blocks
  * @returns {{top: {name: string, minutes: number}|null, switches: number}}
  */

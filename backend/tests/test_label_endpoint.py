@@ -121,7 +121,7 @@ def test_unreachable_llm_sends_every_block_to_review():
     ]})
 
     assert res.status_code == 502
-    assert "Gemini request failed" in res.json()["detail"]
+    assert "Claude request failed" in res.json()["detail"]
 
 
 def test_low_confidence_labels_go_to_review_as_unclear():

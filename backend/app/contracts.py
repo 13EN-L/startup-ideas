@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, Field, field_validator
 
 Label = Literal["on_task", "off_task", "break", "unclear"]
-LabelSource = Literal["llm", "rule", "override", "low_confidence", "unlabeled"]
+LabelSource = Literal["llm", "rule", "override", "low_confidence", "unlabeled", "user"]
 
 
 class ActivityBlock(BaseModel):

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import sys
 
 
 @dataclass(frozen=True)
@@ -13,11 +14,6 @@ class Settings:
     port: int = int(os.getenv("FOCUSGARDEN_PORT", "8765"))
     max_window_seconds: int = int(os.getenv("FOCUSGARDEN_MAX_WINDOW_SECONDS", "604800"))
     request_timeout_seconds: float = float(os.getenv("ACTIVITYWATCH_TIMEOUT_SECONDS", "5"))
-    allow_origins: tuple[str, ...] = (
-        "chrome-extension://*",
-        "http://localhost",
-        "http://127.0.0.1",
-    )
     state_directory: Path = Path(
         os.getenv(
             "FOCUSGARDEN_STATE_DIRECTORY",
@@ -29,25 +25,32 @@ class Settings:
 settings = Settings()
 
 
-def _api_key_path() -> Path:
-    return settings.state_directory / "google_api_key"
+def default_web_root() -> Path:
+    """The FocusGarden page's files: web/ in the repo, bundled as web/ in the packaged exe."""
+    if getattr(sys, "frozen", False):
+        return Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent)) / "web"
+    return Path(__file__).resolve().parents[2] / "web"
 
 
-def load_saved_google_api_key() -> str:
-    path = _api_key_path()
+def _api_key_path(directory: Path | None) -> Path:
+    return (directory or settings.state_directory) / "anthropic_api_key"
+
+
+def load_saved_claude_api_key(directory: Path | None = None) -> str:
     try:
-        return path.read_text(encoding="utf-8").strip()
+        return _api_key_path(directory).read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         return ""
 
 
-def save_google_api_key(api_key: str) -> None:
-    settings.state_directory.mkdir(parents=True, exist_ok=True)
-    _api_key_path().write_text(api_key.strip(), encoding="utf-8")
+def save_claude_api_key(api_key: str, directory: Path | None = None) -> None:
+    path = _api_key_path(directory)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(api_key.strip(), encoding="utf-8")
 
 
-def delete_saved_google_api_key() -> None:
+def delete_saved_claude_api_key(directory: Path | None = None) -> None:
     try:
-        _api_key_path().unlink()
+        _api_key_path(directory).unlink()
     except FileNotFoundError:
         pass

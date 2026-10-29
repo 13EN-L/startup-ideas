@@ -1,51 +1,22 @@
 // @ts-check
 /**
- * The popup: start/end sessions, show results, review unclear blocks.
- * All work happens in the service worker (docs/contracts.md section 2); this file only renders.
+ * The FocusGarden page: start/end sessions, show results, review unclear blocks.
+ * All work happens in the local program (docs/contracts.md section 2); this file only renders.
  * Page and app titles are untrusted text, so they are only ever set with textContent.
  */
 
-import { breakdownByApp, distractionSummary, productivitySplit } from "../background/breakdown.js";
+import { api, sessionEvents } from "./api.js";
+import { breakdownByApp, distractionSummary, productivitySplit } from "./breakdown.js";
+import { $, formatElapsed, formatMinutes, h } from "./dom.js";
 import { PlantView } from "./plant.js";
+import { showTracker, stopTracker } from "./tracker.js";
 
 const LABEL_NAMES = { on_task: "On task", off_task: "Off task", break: "Break", unclear: "Unclear" };
-const inTab = new URLSearchParams(location.search).has("tab");
-
-/** @param {string} id */
-const $ = (id) => /** @type {HTMLElement} */ (document.getElementById(id));
-
-/**
- * Builds an element. Children that are strings become text nodes, never HTML.
- * @param {string} tag @param {Record<string, string>} [attrs] @param {(Node|string)[]} children
- */
-function h(tag, attrs = {}, ...children) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
-  el.append(...children);
-  return el;
-}
-
-/** Sends a message to the service worker and unwraps {ok, data|error}. @param {object} msg */
-async function send(msg) {
-  const reply = await chrome.runtime.sendMessage(msg);
-  if (!reply) throw new Error("The extension's background worker didn't answer. Try reloading it.");
-  if (!reply.ok) throw new Error(reply.error);
-  return reply.data;
-}
 
 function showError(err) {
   const box = $("error");
-  box.textContent = err ? friendly(String(err.message || err)) : "";
+  box.textContent = err ? String(err.message || err) : "";
   box.hidden = !err;
-}
-
-/** Turns raw fetch/backend failures into something a student can act on. @param {string} message */
-function friendly(message) {
-  if (message.includes("Failed to fetch")) {
-    return "Can't reach the FocusGarden backend. Make sure it's running, and check the address in Settings.";
-  }
-  if (message.includes("401")) return "The backend rejected the shared secret. Check it in Settings.";
-  return message;
 }
 
 /** A warning that isn't an error, e.g. a photo to retake. @param {string} text */
@@ -79,7 +50,7 @@ const splitList = (value) => value.split(",").map((s) => s.trim()).filter(Boolea
 
 async function showStart() {
   show("view-start");
-  const history = /** @type {any[]} */ (await send({ type: "getHistory" }));
+  const history = /** @type {any[]} */ (await api.getHistory());
   const list = $("history");
   list.replaceChildren();
   for (const session of history.slice(-5).reverse()) {
@@ -106,16 +77,15 @@ $("start-form").addEventListener("submit", async (event) => {
   if (!task) return;
   try {
     if (mode === "computer") {
-      await send({
-        type: "startSession",
+      await api.startSession({
         task,
         allowlist: splitList(/** @type {HTMLInputElement} */ ($("allowlist")).value),
         blocklist: splitList(/** @type {HTMLInputElement} */ ($("blocklist")).value),
       });
     } else {
-      await send({ type: "startPaperSession", task });
+      await api.startPaperSession(task);
     }
-    showRunning(await send({ type: "getActive" }));
+    showRunning(await api.getActive());
   } catch (err) {
     showError(err);
   }
@@ -135,11 +105,9 @@ function showRunning(active) {
   $("code-word").textContent = active.codeWord || "";
   $("running-hint").textContent = paper
     ? "Study on paper. When you're done, take a photo of the page with the code word."
-    : "Work as you normally would. You can close this popup.";
+    : "Work as you normally would. You can close this tab.";
   $("end-btn").hidden = paper;
-  // A file picker can close the popup, so photo upload happens in a full tab.
-  $("photo-label").hidden = !paper || !inTab;
-  $("open-tab-btn").hidden = !paper || inTab;
+  $("photo-label").hidden = !paper;
 
   const started = Date.parse(active.start);
   const plant = active.plant;
@@ -177,16 +145,11 @@ $("end-btn").addEventListener("click", async () => {
   show("view-working");
   $("working-text").textContent = "Checking your session against your task…";
   try {
-    showResult(await send({ type: "endSession" }));
+    saved(await api.endSession());
   } catch (err) {
     showError(err);
-    showRunning(await send({ type: "getActive" })); // the session is still running; try again
+    showRunning(await api.getActive()); // the session is still running; try again
   }
-});
-
-$("open-tab-btn").addEventListener("click", () => {
-  chrome.tabs.create({ url: chrome.runtime.getURL("ui/popup.html?tab=1") });
-  window.close();
 });
 
 $("photo").addEventListener("change", async (event) => {
@@ -200,19 +163,19 @@ $("photo").addEventListener("change", async (event) => {
   $("working-text").textContent = "Checking your notes for the code word…";
   try {
     const imageBase64 = await toJpegBase64(file);
-    const reply = await send({ type: "endPaperSession", imageBase64, mediaType: "image/jpeg" });
+    const reply = await api.endPaperSession(imageBase64, "image/jpeg");
     if (reply.completed === false) {
       // The photo failed but the session is still running: let the user try another photo.
-      showRunning(await send({ type: "getActive" }));
+      showRunning(await api.getActive());
       const tries = reply.attemptsRemaining === 1 ? "1 more try" : `${reply.attemptsRemaining} more tries`;
       showNotice(`That photo didn't pass: ${reply.result.reason}. Make sure the code word is clear, `
         + `then upload another photo (${tries}).`);
       return;
     }
-    showResult(reply);
+    saved(reply);
   } catch (err) {
     showError(err);
-    showRunning(await send({ type: "getActive" }));
+    showRunning(await api.getActive());
   }
 });
 
@@ -239,6 +202,12 @@ async function toJpegBase64(file) {
 /* ---------- Results ---------- */
 
 let shownSessionId = "";
+
+/** Shows a just-saved session and tells other open FocusGarden tabs. @param {any} session */
+function saved(session) {
+  showResult(session);
+  sessionEvents.postMessage({ type: "sessionSaved", session });
+}
 
 /** @param {any} session */
 function showResult(session) {
@@ -332,7 +301,7 @@ function renderDistraction({ top, switches }) {
   line.hidden = parts.length === 0;
 }
 
-/** @param {import("../background/breakdown.js").AppTime[]} apps */
+/** @param {import("./breakdown.js").AppTime[]} apps */
 function renderApps(apps) {
   $("apps-box").hidden = apps.length === 0;
   $("app-list").replaceChildren(...apps.map((app) => {
@@ -381,7 +350,7 @@ function blockItem(label, block, sessionId) {
       button.addEventListener("click", async () => {
         showError(null);
         try {
-          showResult(await send({ type: "reviewBlock", sessionId, blockId: label.block_id, label: choice }));
+          saved(await api.reviewBlock(sessionId, label.block_id, choice));
         } catch (err) {
           showError(err);
         }
@@ -400,28 +369,10 @@ function statTile(value, caption) {
 
 $("done-btn").addEventListener("click", () => {
   shownSessionId = "";
-  if (inTab) window.close();
-  else showStart();
+  showStart();
 });
 
 /* ---------- Formatting ---------- */
-
-/** @param {number} minutes */
-function formatMinutes(minutes) {
-  const rounded = Math.round(minutes);
-  if (minutes > 0 && rounded === 0) return "<1 min";
-  if (rounded < 60) return `${rounded} min`;
-  return `${Math.floor(rounded / 60)}h ${rounded % 60}m`;
-}
-
-/** @param {number} ms */
-function formatElapsed(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = String(total % 60).padStart(2, "0");
-  return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
-}
 
 /** Growth as 0..1. Sessions saved before plant GIFs used {growth} steps of 15 minutes. @param {any} plant */
 const plantProgress = (plant) => plant?.progress ?? Math.min(1, (plant?.growth || 0) / 4);
@@ -441,20 +392,34 @@ function plantLine(plant) {
   return `Your ${name} grew to ${Math.round(progress * 100)}% from on-task time.`;
 }
 
+/* ---------- Focus / Time tracker tabs ---------- */
+
+/** The tab is kept in the address (#tracker) so a reload stays on it. @param {"focus"|"tracker"} pane */
+function showPane(pane) {
+  $("nav-focus").setAttribute("aria-selected", String(pane === "focus"));
+  $("nav-tracker").setAttribute("aria-selected", String(pane === "tracker"));
+  $("focus-pane").hidden = pane !== "focus";
+  $("tracker-pane").hidden = pane !== "tracker";
+  history.replaceState(null, "", pane === "tracker" ? "#tracker" : location.pathname);
+  if (pane === "tracker") showTracker(showError);
+  else stopTracker();
+}
+
+$("nav-focus").addEventListener("click", () => showPane("focus"));
+$("nav-tracker").addEventListener("click", () => showPane("tracker"));
+
 /* ---------- Start up ---------- */
 
-$("open-settings").addEventListener("click", () => chrome.runtime.openOptionsPage());
-
-// Another view (or the tab) saved a session: refresh if it's the one on screen.
-chrome.runtime.onMessage.addListener((msg) => {
+// Another FocusGarden tab saved a session: refresh if it's the one on screen.
+sessionEvents.addEventListener("message", ({ data: msg }) => {
   if (msg.type === "sessionSaved" && msg.session.id === shownSessionId) showResult(msg.session);
 });
 
-if (inTab) document.body.classList.add("in-tab");
 setMode("computer");
+showPane(location.hash === "#tracker" ? "tracker" : "focus");
 (async () => {
   try {
-    const active = await send({ type: "getActive" });
+    const active = await api.getActive();
     if (active) showRunning(active);
     else await showStart();
   } catch (err) {

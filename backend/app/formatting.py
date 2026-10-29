@@ -76,11 +76,12 @@ def normalize_event(
             else data.get("application") if isinstance(data.get("application"), str)
             else None
         ),
+        # ActivityWatch's AFK watcher records both "afk" and "not-afk" spans.
         idle=(
-            bool(data.get("idle"))
-            if normalized_source == "idle" and "idle" in data
-            else normalized_source == "idle"
-        ),
+            bool(data.get("idle")) if "idle" in data
+            else data.get("status") == "afk" if "status" in data
+            else True
+        ) if normalized_source == "idle" else False,
     )
 
 
@@ -104,12 +105,14 @@ def to_activity_window(
     end: datetime,
     minimum_seconds: int = 10,
 ) -> ActivityWindow:
-    """Adapt local usage events to the extension's compact activity contract."""
+    """Adapt local usage events to the compact activity contract sessions are labeled from."""
     blocks: list[ActivityBlock] = []
     for event in events:
         seconds = int(round(event.duration_seconds))
         if seconds < minimum_seconds:
             continue
+        if event.source == "idle" and not event.idle:
+            continue  # "not-afk": the browser/window events already cover that time
         kind = "idle" if event.idle else "web" if event.source == "browser" else "app"
         candidate = ActivityBlock(
             id="",

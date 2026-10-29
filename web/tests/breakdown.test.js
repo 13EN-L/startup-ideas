@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { breakdownByApp, distractionSummary, productivitySplit } from "../background/breakdown.js";
+import { breakdownByApp, distractionSummary, productivitySplit } from "../ui/breakdown.js";
 
 /** A labeled block, as stored on a computer session. */
 function block(id, seconds, label, where = {}) {

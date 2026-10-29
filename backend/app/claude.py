@@ -1,15 +1,14 @@
-"""Gemini adapters: the only code that talks to the LLM."""
-import base64
+"""Claude adapters: the only code that talks to the LLM."""
 import json
 import os
 from typing import Any, List, Optional
 
-from google import genai
-from google.genai import types
+import anthropic
 
 from app.contracts import ActivityBlock
 
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "claude-opus-5-5"
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
 LABEL_SYSTEM = """You judge whether a student's computer activity fits the task they set for themselves.
 
@@ -77,42 +76,40 @@ def feedback_text(feedback: List[str]) -> str:
     )
 
 
-class GeminiClient:
-    def __init__(self, client: Optional[genai.Client] = None, model: Optional[str] = None):
-        self.client = client or genai.Client(
-            api_key=os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
+class ClaudeClient:
+    def __init__(self, client: Optional[anthropic.Anthropic] = None, model: Optional[str] = None):
+        self.client = client or anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        self.model = model or os.environ.get("CLAUDE_MODEL", DEFAULT_MODEL)
+
+    def _text(self, content: Any, max_tokens: int, output_config: dict, **request: Any) -> str:
+        response = self.client.beta.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": content}],
+            output_config=output_config,
+            # If a safety classifier declines, the API retries on its recommended model.
+            betas=[FALLBACK_BETA],
+            fallbacks="default",
+            **request,
         )
-        self.model = model or os.environ.get("GEMINI_MODEL", DEFAULT_MODEL)
+        if response.stop_reason in ("refusal", "max_tokens"):
+            # A refusal has no usable output and a cut-off answer is partial JSON.
+            raise RuntimeError(f"Claude stopped without an answer ({response.stop_reason})")
+        return next((b.text for b in response.content if b.type == "text"), "")
 
     def test_connection(self) -> None:
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents="Reply with the single word OK.",
-        )
-        if not response.text:
-            raise RuntimeError("Gemini returned no text")
+        self._text("Reply with the single word OK.", 1024, {"effort": "low"})
 
     def _json(self, system: str, content: Any, schema: dict) -> dict:
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=content,
-            config=types.GenerateContentConfig(
-                system_instruction=system,
-                response_mime_type="application/json",
-                # Standard JSON Schema; response_schema rejects keywords like additionalProperties.
-                response_json_schema=schema,
-            ),
-        )
-        text = response.text
-        if not text:
-            raise RuntimeError("Gemini returned no text")
+        text = self._text(content, 16000,
+                          {"format": {"type": "json_schema", "schema": schema}}, system=system)
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             return {"invalid_json": text}
 
 
-class GeminiLabeler(GeminiClient):
+class ClaudeLabeler(ClaudeClient):
     def label_blocks(self, task: str, blocks: List[ActivityBlock], feedback: List[str]) -> dict:
         prompt = (
             f"Task: {task}\n\nBlocks:\n"
@@ -122,13 +119,14 @@ class GeminiLabeler(GeminiClient):
         return self._json(LABEL_SYSTEM, prompt, LABELS_SCHEMA)
 
 
-class GeminiPhotoReader(GeminiClient):
+class ClaudePhotoReader(ClaudeClient):
     def read_photo(
         self, task: str, image_base64: str, media_type: str, feedback: List[str]
     ) -> dict:
         content = [
-            types.Part.from_bytes(data=base64.b64decode(image_base64), mime_type=media_type),
-            types.Part.from_text(text=f"Task: {task}" + feedback_text(feedback)),
+            {"type": "image",
+             "source": {"type": "base64", "media_type": media_type, "data": image_base64}},
+            {"type": "text", "text": f"Task: {task}" + feedback_text(feedback)},
         ]
         raw = self._json(PHOTO_SYSTEM, content, PHOTO_SCHEMA)
         if raw.get("code_word_seen") == "":

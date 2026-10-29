@@ -3,6 +3,7 @@ app/__init__.py
 app/activitywatch.py
 app/config.py
 app/contracts.py
+app/errors.py
 app/formatting.py
 app/gemini.py
 app/labeling.py
@@ -10,8 +11,12 @@ app/launcher.py
 app/main.py
 app/models.py
 app/photo.py
+app/plants.py
 app/server.py
+app/sessions.py
 app/stats.py
+app/store.py
+app/tracker.py
 focusgarden_local_backend.egg-info/PKG-INFO
 focusgarden_local_backend.egg-info/SOURCES.txt
 focusgarden_local_backend.egg-info/dependency_links.txt
@@ -21,7 +26,13 @@ focusgarden_local_backend.egg-info/top_level.txt
 tests/test_activity_contract.py
 tests/test_api.py
 tests/test_formatting.py
+tests/test_gemini.py
 tests/test_label_endpoint.py
+tests/test_launcher.py
 tests/test_merged_app.py
 tests/test_photo_endpoint.py
+tests/test_sessions_api.py
 tests/test_stats.py
+tests/test_store.py
+tests/test_tracker_api.py
+tests/test_web_ui.py

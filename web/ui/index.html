@@ -5,16 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FocusGarden</title>
   <link rel="stylesheet" href="theme.css">
-  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <header class="topbar">
     <span class="brand">🌱 FocusGarden</span>
-    <button class="link" id="open-settings" type="button">Settings</button>
+    <a class="link" id="open-settings" href="settings.html">Settings</a>
   </header>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" class="tab" id="nav-focus" aria-selected="true" type="button">Focus session</button>
+    <button role="tab" class="tab" id="nav-tracker" aria-selected="false" type="button">Time tracker</button>
+  </div>
 
   <p class="error" id="error" role="alert" hidden></p>
 
+  <div id="focus-pane">
   <!-- 1. Start a session -->
   <section id="view-start" hidden>
     <div class="tabs" role="tablist">
@@ -65,13 +71,12 @@
       <span class="stat-label">Write this at the top of your page</span>
       <div class="code-word" id="code-word"></div>
     </div>
-    <p class="muted small" id="running-hint">Work as you normally would. You can close this popup.</p>
+    <p class="muted small" id="running-hint">Work as you normally would. You can close this tab.</p>
     <button class="btn" type="button" id="end-btn">End session</button>
     <label class="btn" id="photo-label" hidden>
       Upload photo of my notes
       <input type="file" id="photo" accept="image/jpeg,image/png,image/webp" hidden>
     </label>
-    <button class="btn" type="button" id="open-tab-btn" hidden>Continue in a tab to upload photo</button>
   </section>
 
   <!-- 3. Waiting for the LLM -->
@@ -119,7 +124,45 @@
     <p class="muted small" id="paper-reason" hidden></p>
     <button class="btn btn-secondary full" type="button" id="done-btn">Done</button>
   </section>
+  </div>
 
-  <script type="module" src="popup.js"></script>
+  <!-- Time tracker: task timers that run alongside focus sessions -->
+  <section id="tracker-pane" hidden>
+    <form id="tracker-form" class="card stack">
+      <label class="field">
+        <span>Track a task</span>
+        <input class="input" id="tracker-name" required maxlength="200"
+               placeholder="e.g. read chem chapter 5" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Groups</span>
+        <input class="input" id="tracker-tags" placeholder="Chem, Midterm prep" autocomplete="off">
+      </label>
+      <button class="btn" type="submit">Start timer</button>
+      <p class="muted small">Timers already running keep going. Time spent on two tasks at once counts
+        once in group and overall totals. A focus session shows up here too.</p>
+    </form>
+
+    <div class="card stack tracker-total">
+      <span class="stat-label">Today, all tasks</span>
+      <div class="stats" id="tracker-total"></div>
+    </div>
+    <p class="muted small" id="tracker-aw-warning" hidden>
+      ActivityWatch isn't reachable, so idle time can't be told apart from work right now.</p>
+
+    <div id="tracker-groups-box" hidden>
+      <h2 class="section-title">Groups</h2>
+      <ul class="blocks" id="tracker-groups"></ul>
+    </div>
+    <h2 class="section-title">Tasks</h2>
+    <ul class="blocks" id="tracker-tasks"></ul>
+    <p class="muted small" id="tracker-empty">No tasks yet.</p>
+    <details id="tracker-done-box" hidden>
+      <summary class="muted">Done tasks</summary>
+      <ul class="blocks" id="tracker-done"></ul>
+    </details>
+  </section>
+
+  <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,4 +1,3 @@
-google-genai<2,>=1.0
 fastapi<1,>=0.115
 httpx<1,>=0.27
 pillow<13,>=10
@@ -6,6 +5,7 @@ pystray<1,>=0.19
 psutil<8,>=6
 pydantic<3,>=2.7
 uvicorn[standard]<1,>=0.30
+anthropic>=2.3.0
 
 [build]
 pyinstaller<7,>=6.10

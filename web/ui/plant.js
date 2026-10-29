@@ -7,7 +7,7 @@
  */
 
 const FRAME_MS = 70;
-const MAX_SIZE = 480; // px; big GIFs are shrunk so a popup doesn't hold hundreds of MB of frames
+const MAX_SIZE = 480; // px; big GIFs are shrunk so a tab doesn't hold hundreds of MB of frames
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 export class PlantView {
@@ -32,8 +32,8 @@ export class PlantView {
     this.shown = -1;
     try {
       if (typeof ImageDecoder === "undefined") throw new Error("ImageDecoder unavailable");
-      // Plant paths in plants.json are relative to the extension root, not ui/.
-      const res = await fetch(chrome.runtime.getURL(url));
+      // Plant paths in plants.json are relative to the site root, not ui/.
+      const res = await fetch(`/${url}`);
       if (!res.ok) throw new Error(`${url} returned ${res.status}`);
       const decoder = new ImageDecoder({ data: await res.arrayBuffer(), type: "image/gif" });
       await decoder.tracks.ready;

@@ -74,7 +74,7 @@ def ask_llm(task: str, blocks: List[ActivityBlock], labeler) -> Dict[str, LLMLab
             raw = labeler.label_blocks(task, blocks, feedback)
         except Exception as exc:
             log.exception("labeler call failed")
-            raise LLMUnavailableError(f"Gemini request failed: {exc}") from exc
+            raise LLMUnavailableError(f"Claude request failed: {exc}") from exc
         by_id, feedback = check_labels(raw, expected)
         if not feedback:
             break
