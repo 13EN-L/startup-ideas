@@ -1,8 +1,8 @@
-"""The time tracker: task timers that run alongside focus sessions.
+"""Tasks and groups: every focus or paper session belongs to a task, named on the Focus form.
 
-A task has tags (its groups) and a list of running intervals. Totals for a group or for
-everything are the union of the intervals involved, so overlapping tasks never
-double-count.
+A task has tags (its groups), the intervals its sessions ran, and its saved sessions. Time
+totals for a group or for everything are the union of the intervals involved, so nothing is
+counted twice; productivity stats combine the sessions' validated labels (stats.py).
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import uuid
 from pydantic import BaseModel, Field
 
 from .errors import SessionError
+from .stats import overlap_stats
 from .store import SessionStore
 
 Interval = tuple[datetime, datetime]
@@ -23,16 +24,9 @@ IdleLookup = Callable[[datetime, datetime], Optional[list[Interval]]]
 IDLE_SETTLE_TIME = timedelta(minutes=5)
 
 
-class NewTask(BaseModel):
-    name: str = Field(min_length=1, max_length=200)
-    tags: list[str] = []
-    running: bool = True
-
-
 class TaskChanges(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     tags: Optional[list[str]] = None
-    done: Optional[bool] = None
 
 
 def union(intervals: Iterable[Interval]) -> list[Interval]:
@@ -68,11 +62,10 @@ def clean_tags(tags: Iterable[str]) -> list[str]:
     return list(seen.values())
 
 
-def create_task(store: SessionStore, now: datetime, body: NewTask) -> dict:
-    task = {"id": str(uuid.uuid4()), "name": body.name.strip(), "tags": clean_tags(body.tags),
-            "done": False, "intervals": []}
-    if body.running:
-        task["intervals"].append({"start": now.isoformat(), "end": None})
+def create_task(store: SessionStore, now: datetime, name: str) -> dict:
+    """A new task, running from `now`."""
+    task = {"id": str(uuid.uuid4()), "name": name.strip(), "tags": [],
+            "intervals": [{"start": now.isoformat(), "end": None}]}
     store.save_tasks([*store.tasks(), task])
     return task
 
@@ -101,16 +94,12 @@ def stop_task(store: SessionStore, now: datetime, task_id: str) -> dict:
     return _update(store, task_id, stop)
 
 
-def edit_task(store: SessionStore, now: datetime, task_id: str, changes: TaskChanges) -> dict:
+def edit_task(store: SessionStore, task_id: str, changes: TaskChanges) -> dict:
     def edit(task: dict) -> None:
         if changes.name is not None:
             task["name"] = changes.name.strip()
         if changes.tags is not None:
             task["tags"] = clean_tags(changes.tags)
-        if changes.done is not None:
-            task["done"] = changes.done
-            if changes.done and _running(task):
-                task["intervals"][-1]["end"] = now.isoformat()  # a finished task stops
     return _update(store, task_id, edit)
 
 
@@ -121,16 +110,13 @@ def delete_task(store: SessionStore, task_id: str) -> None:
     store.save_tasks([t for t in tasks if t["id"] != task_id])
 
 
-def track_session(store: SessionStore, now: datetime, name: str) -> Optional[str]:
-    """A focus session also runs as a tracker task: an unfinished task with the same name
-    (ignoring case), or a new one. Returns the task's id if the session started its timer,
-    so ending the session stops only a timer it started."""
+def track_session(store: SessionStore, now: datetime, name: str) -> str:
+    """A session's task: the task with the same name (ignoring case), or a new one. Its timer
+    runs until the session ends. Returns the task's id."""
     task = next((t for t in store.tasks()
-                 if not t["done"] and t["name"].casefold() == name.strip().casefold()), None)
+                 if t["name"].casefold() == name.strip().casefold()), None)
     if task is None:
-        return create_task(store, now, NewTask(name=name))["id"]
-    if _running(task):
-        return None
+        return create_task(store, now, name)["id"]
     return start_task(store, now, task["id"])["id"]
 
 
@@ -173,36 +159,68 @@ def _totals(work: list[Interval], idle: list[Interval], now: datetime, since: da
     return {"today": split(since), "all": split(None)}
 
 
+def _sessions_by_task(tasks: list[dict], history: list[dict]) -> dict[str, list[dict]]:
+    """Saved sessions per task id. Sessions saved before they recorded `taskId` belong to the
+    task whose timer they started, which began at the same instant as the session."""
+    ids = {t["id"] for t in tasks}
+    started = {i["start"]: t["id"] for t in tasks for i in t["intervals"]}
+    found: dict[str, list[dict]] = {}
+    for session in history:
+        task_id = session.get("taskId")
+        if task_id not in ids:
+            task_id = started.get(session["start"])
+        if task_id:
+            found.setdefault(task_id, []).append(session)
+    return found
+
+
+def _with_stats(totals: dict, sessions: list[dict], since: datetime) -> dict:
+    """Adds the sessions' combined productivity stats, computed by code from validated labels."""
+    today = [s for s in sessions if datetime.fromisoformat(s["start"]) >= since]
+    for key, chosen in (("today", today), ("all", sessions)):
+        totals[key]["sessions"] = len(chosen)
+        totals[key]["stats"] = overlap_stats(chosen).model_dump()
+    return {**totals, "session_ids": [s["id"] for s in sessions]}
+
+
 def summarize(store: SessionStore, now: datetime, since: datetime, idle_between: IdleLookup) -> dict:
-    """Work and idle seconds, today (from `since`) and all time, per task, per tag and in total.
-    Idle is ActivityWatch AFK time while a task was running; work is the rest."""
+    """Per task, per tag and in total, for today (from `since`) and all time: work and idle
+    seconds, and productivity stats from the saved sessions. Idle is ActivityWatch AFK time
+    while a task was running; work is the rest."""
     stored = store.tasks()
+    sessions = _sessions_by_task(stored, store.history())
     tasks = []
     groups: dict[str, dict] = {}  # by tag ignoring case; the first spelling names the group
-    everything: dict[str, list[Interval]] = {"work": [], "idle": []}
+    everything: dict[str, list] = {"work": [], "idle": [], "sessions": []}
     activitywatch_ok = True
     for task in stored:
         work = _intervals(task, now)
         idle, complete = _idle(task, now, idle_between)
+        own = sessions.get(task["id"], [])
         activitywatch_ok = activitywatch_ok and complete
         everything["work"] += work
         everything["idle"] += idle
+        everything["sessions"] += own
         tasks.append({"id": task["id"], "name": task["name"], "tags": task["tags"],
-                      "done": task["done"], "running": _running(task),
-                      **_totals(work, idle, now, since)})
+                      "running": _running(task),
+                      **_with_stats(_totals(work, idle, now, since), own, since)})
         for tag in task["tags"]:
-            group = groups.setdefault(tag.casefold(),
-                                      {"name": tag, "work": [], "idle": [], "running": False})
+            group = groups.setdefault(tag.casefold(), {"name": tag, "work": [], "idle": [],
+                                                       "sessions": [], "running": False})
             group["work"] += work
             group["idle"] += idle
+            group["sessions"] += own
             group["running"] = group["running"] or _running(task)
     store.save_tasks(stored)  # keeps idle spans cached by _idle
+
+    def counted(item: dict) -> dict:
+        in_order = sorted(item["sessions"], key=lambda s: s["start"])
+        return _with_stats(_totals(item["work"], item["idle"], now, since), in_order, since)
+
     return {
         "tasks": tasks,
-        "groups": [{"name": g["name"], "running": g["running"],
-                    **_totals(g["work"], g["idle"], now, since)}
+        "groups": [{"name": g["name"], "running": g["running"], **counted(g)}
                    for g in sorted(groups.values(), key=lambda g: g["name"].casefold())],
-        "total": {"running": any(t["running"] for t in tasks),
-                  **_totals(everything["work"], everything["idle"], now, since)},
+        "total": {"running": any(t["running"] for t in tasks), **counted(everything)},
         "activitywatch": activitywatch_ok,
     }

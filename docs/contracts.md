@@ -51,42 +51,47 @@ The page calls these with `fetch` (only from `web/ui/api.js`). Errors are HTTP s
 
 | Request | Response |
 |---|---|
-| `POST /api/sessions` `{task, allowlist?, blocklist?}` | The running session. `409` if one is already running. |
-| `POST /api/sessions/end` | A saved session (see below). This can take a few seconds while the LLM runs. `502`/`503` if labeling fails; the session keeps running. |
-| `POST /api/paper-sessions` `{task}` | The running session, including `codeWord`. Show it to the user to write at the top of their page. |
-| `POST /api/paper-sessions/end` `{imageBase64, mediaType}` | A saved session, or `{completed: false, retryable: true, attemptsRemaining, result}` after a failed first photo. `mediaType` is `image/jpeg`, `image/png` or `image/webp`. |
+| `POST /api/sessions` `{task, allowlist?, blocklist?}` | The new running session, with its `id`. Other sessions keep running. `409` if a session for the same task (ignoring case) is already running. |
+| `POST /api/sessions/{id}/end` | Ends that running computer session (its Done button). A saved session with the same `id` (see below). This can take a few seconds while the LLM runs. `502`/`503` if labeling fails; the session keeps running. `404` if no computer session with that `id` is running. |
+| `POST /api/paper-sessions` `{task}` | The new running session, including `id` and `codeWord`; `409` as above. Show it to the user to write at the top of their page. |
+| `POST /api/paper-sessions/{id}/end` `{imageBase64, mediaType}` | A saved session, or `{completed: false, retryable: true, attemptsRemaining, result}` after a failed first photo. `mediaType` is `image/jpeg`, `image/png` or `image/webp`. |
 | `POST /api/sessions/{id}/blocks/{block_id}/review` `{label}` | The updated saved session. `label` is `on_task`, `off_task` or `break`. |
-| `GET /api/active` | The running session, or `null`. |
+| `GET /api/active` | The running sessions, oldest first (`[]` if none). Several tasks can run at once. |
 | `GET /api/history` | An array of saved sessions, oldest first. |
 | `GET /api/settings`, `PUT /api/settings` `{distractingSites}` | `{distractingSites: [...]}` (lowercased, blanks dropped). |
 
-### Time tracker
+### Tasks and groups
+
+Tasks are created only by starting a session: `POST /api/sessions` or `POST /api/paper-sessions` continues the task with the same name (ignoring case) or creates one, and its timer runs until the session ends. The running session's `trackerTaskId` is that task, and the saved session records it as `taskId`.
 
 | Request | Response |
 |---|---|
-| `GET /api/tracker?since=<ISO 8601>` | A tracker summary (below). `since` is the start of the user's local day. |
-| `POST /api/tracker/tasks` `{name, tags?, running?}` | The new task. It starts running unless `running` is `false`. Other running tasks are unaffected. |
-| `POST /api/tracker/tasks/{id}/start`, `POST .../stop` | The task. Starting a running task or stopping a stopped one does nothing. |
-| `PATCH /api/tracker/tasks/{id}` `{name?, tags?, done?}` | The task. `done: true` also stops it. |
-| `DELETE /api/tracker/tasks/{id}` | `{deleted: id}`. `404` if there is no such task. |
+| `GET /api/tracker?since=<ISO 8601>` | A summary (below). `since` is the start of the user's local day. |
+| `PATCH /api/tracker/tasks/{id}` `{name?, tags?}` | The task. `tags` replaces its groups. A task stops only when its session ends. |
+| `DELETE /api/tracker/tasks/{id}` | `{deleted: id}`. `404` if there is no such task. Its sessions stay in history. |
 
 ```json
 {
-  "tasks": [{"id": "uuid", "name": "chem ps4", "tags": ["Chem"], "done": false, "running": true,
-             "today": {"work_seconds": 2520, "idle_seconds": 180},
-             "all": {"work_seconds": 9000, "idle_seconds": 600}}],
-  "groups": [{"name": "Chem", "running": true, "today": {...}, "all": {...}}],
-  "total": {"running": true, "today": {...}, "all": {...}},
+  "tasks": [{"id": "uuid", "name": "chem ps4", "tags": ["Chem"], "running": true,
+             "session_ids": ["uuid", "uuid"],
+             "today": {"work_seconds": 2520, "idle_seconds": 180, "sessions": 1,
+                       "stats": {"total_minutes": 45, "on_task_minutes": 35, "off_task_minutes": 6,
+                                 "break_minutes": 3, "unclear_minutes": 1, "on_task_pct": 77.8,
+                                 "longest_streak_minutes": 25}},
+             "all": {"work_seconds": 9000, "idle_seconds": 600, "sessions": 4, "stats": {...}}}],
+  "groups": [{"name": "Chem", "running": true, "session_ids": [...], "today": {...}, "all": {...}}],
+  "total": {"running": true, "session_ids": [...], "today": {...}, "all": {...}},
   "activitywatch": true
 }
 ```
 
 - `tags` are the task's groups; a task can be in several. Group names match ignoring case and are sorted.
-- Group and `total` times are the **union** of their tasks' running intervals, so overlapping tasks count once.
+- Group and `total` times are the **union** of their tasks' running intervals, so nothing counts twice.
 - `idle_seconds` is time ActivityWatch's AFK watcher marked as away while a timer ran; `work_seconds` is the rest. `activitywatch` is `false` when idle couldn't be checked, in which case that time counts as work.
-- A running focus session has a tracker task with its name (`trackerTaskId` on the running session). Ending the session stops that task's timer only if the session started it.
+- `stats` has the saved-session stats shape, combined by code over the saved sessions (`sessions` of them; `today` counts sessions that started at or after `since`): minutes add up, `on_task_pct` is recomputed, `longest_streak_minutes` is the longest single streak. Sessions that ran at the same time (different tasks) are counted moment by moment instead: each moment once, labeled `on_task` if any of them was on-task then, otherwise `off_task`, `break`, then `unclear`. A paper session counts `credited_minutes` as on-task and the rest of its length as unclear. `session_ids` (all time, oldest first) lets the page build site/app breakdowns from `GET /api/history`.
+- Sessions saved before `taskId` existed belong to the task whose timer interval started at the session's `start`.
 
-When a result is saved, the page posts `{type: "sessionSaved", session}` on the `BroadcastChannel` named `focusgarden`, so other open FocusGarden tabs can update without polling.
+When a session starts the page posts `{type: "sessionStarted"}`, and when a result is saved `{type: "sessionSaved", session}`, on the `BroadcastChannel` named `focusgarden`, so other open FocusGarden tabs can update without polling.
 
 `allowlist` and `blocklist` take entries like `instructure.com` (which also matches subdomains) or `Discord` (an app name). The blocklist wins if both match. The running session's `blocklist` already includes the distracting sites from settings, minus the allowlist.
 
@@ -94,7 +99,7 @@ When a result is saved, the page posts `{type: "sessionSaved", session}` on the 
 
 ```json
 {
-  "id": "uuid", "kind": "computer", "task": "finish chem ps4",
+  "id": "uuid", "kind": "computer", "task": "finish chem ps4", "taskId": "uuid",
   "start": "...", "end": "...",
   "plant": {"name": "Strawberry", "gif": "plants/strawberry_stages.gif", "minutesToFullGrowth": 60,
             "minutes": 40, "progress": 0.667, "percent": 66, "minutesLeft": 20},
@@ -139,6 +144,6 @@ also serves them as interactive docs at
 ## Ownership
 
 The page (`web/ui/`, `web/plants/`) only renders and computes
-display breakdowns (`breakdown.js`) and live timer counting
-(`trackerTotals.js`). The program under `backend/` owns sessions, the time
-tracker, storage, plant growth, the ActivityWatch bridge and Claude calls.
+display breakdowns (`breakdown.js`, per session or combined over a task's or
+group's sessions) and live timer counting (`trackerTotals.js`). The program
+under `backend/` owns sessions, tasks and groups (with their combined stats), storage, plant growth, the ActivityWatch bridge and Claude calls.

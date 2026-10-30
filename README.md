@@ -36,7 +36,7 @@ FocusGarden is both a productivity tracker and a motivator.
 3. **LLM judges the activity.** When the session ends, an LLM labels each block of activity as on-task, off-task, break or unclear, with a short reason. Productivity stats (on-task minutes, on-task %, longest focus streak) are computed by code from those labels.
 4. **The garden grows.** Verified on-task time grows plants in a virtual garden. Different kinds of productivity grow different plants (for example, computer work and paper work grow different species), and more on-task time grows them further.
 
-**Time tracker.** A separate **Time tracker** tab keeps timers for any number of tasks at once: adding a task never stops the ones already running (or a focus session). Tasks can be put in groups (a task can be in several), and each task, group and the overall total shows **work** and **idle** time for today and all time. Time spent on overlapping tasks counts once in group and overall totals, and time ActivityWatch marks as away-from-keyboard is shown as idle, never as work. A running focus session appears as a tracker task automatically.
+**Tasks and groups.** Everything is on one page. A task is named only when a session starts; starting another session with the same name adds to that task. Below the session, a **Tasks & groups** section lists every task and lets the user put it in groups (a task can be in several). Each task, group and the overall total shows the same productivity stats as a session result (on-task time and %, longest focus, the productive / distracting split, biggest distraction, time by site or app), combined over its sessions, plus **tracked** and **idle** time, for today and all time. Time ActivityWatch marks as away-from-keyboard is shown as idle, never as work.
 
 **Paper work counts too.** For offline study, the user starts a paper session and writes that session's code word at the top of their page. At the end, a photo of the page is checked by the LLM for the code word and task-related notes. Verified paper time gets full credit; only an ambiguous but plausible photo can receive partial credit, while clear failures receive no credit.
 
@@ -55,7 +55,7 @@ FocusGarden is both a productivity tracker and a motivator.
 | Review screen for unclear blocks | Keeps the user in control when the LLM isn't sure, so wrong calls don't kill motivation |
 | Paper session + code-word photo check | Paper study is real study; without it, the tracker would penalize it |
 | Garden view | The motivation loop being tested by the hypothesis |
-| Time tracker tab (grouped tasks, overlap-free totals, idle vs work) | Measures total time across a set of tasks, the KPI in the validation plan |
+| Tasks & groups (per-task and per-group stats, idle vs work) | Measures total time across a set of tasks, the KPI in the validation plan |
 
 **Deliberately out of scope:** Mac and Linux builds, phone tracking, AI-generated artwork, accounts and cloud sync.
 
@@ -106,7 +106,7 @@ FastAPI service and ActivityWatch. It runs in the system tray, listens on
 
 - serves the FocusGarden page (right-click the tray icon → **Open
   FocusGarden**, or browse to `http://127.0.0.1:8765/`);
-- starts and ends sessions, and keeps the running session, history and
+- starts and ends sessions, and keeps the running sessions, history and
   settings in `%USERPROFILE%\.focusgarden\sessions.json`;
 - launches the bundled ActivityWatch recorder and reads privacy-filtered
   browser, foreground-window and idle activity;
@@ -139,23 +139,24 @@ Backend files:
 | `backend/app/launcher.py` | Tray app (Open FocusGarden, API key, quit) and packaged entry point |
 | `backend/app/main.py` | FastAPI routes: the page's `/api/`, the page itself, and the LLM/activity routes |
 | `backend/app/sessions.py` | Start/end computer and paper sessions, block review, distracting sites |
-| `backend/app/store.py` | Local JSON file with the running session, history and settings |
+| `backend/app/store.py` | Local JSON file with the running sessions, history and settings |
 | `backend/app/plants.py` | Picks a plant and turns verified minutes into growth |
-| `backend/app/tracker.py` | Time tracker: task timers, groups, overlap-free work/idle totals |
+| `backend/app/tracker.py` | Tasks & groups: each session's task, groups, work/idle totals and combined stats |
 | `backend/app/server.py` | Production entry point and runtime configuration |
 | `backend/app/contracts.py` | Pydantic models for requests, responses, and LLM output |
 | `backend/app/activitywatch.py` | Starts ActivityWatch and reads local events |
 | `backend/app/formatting.py` | Privacy filtering and `/activity` conversion |
 | `backend/app/labeling.py` | Rules, LLM retry loop, and confidence handling |
-| `backend/app/stats.py` | On-task minutes, percentage, and longest streak |
+| `backend/app/stats.py` | On-task minutes, percentage, and longest streak, per session and combined |
 | `backend/app/photo.py` | Code-word match and partial credit |
 | `backend/app/claude.py` | The only code that calls Claude (`claude-opus-5-5` by default) |
 
 Page files are in [`web/ui/`](web/ui/): `index.html`/`app.js`
-(the main page), `tracker.js`/`trackerTotals.js` (the Time tracker tab),
+(the main page), `tracker.js`/`trackerTotals.js` (the Tasks & groups section),
 `settings.html`/`settings.js`, `api.js` (the only module that talks to the
 program), `dom.js` (shared DOM and formatting helpers), `breakdown.js` (result
-breakdowns) and `plant.js` (GIF plant rendering). Plant GIFs and growth settings live in
+breakdowns, also combined over several sessions), `breakdownView.js` (the
+elements that show them) and `plant.js` (GIF plant rendering). Plant GIFs and growth settings live in
 [`web/plants/`](web/plants/); see the README there for adding a
 plant.
 
@@ -192,13 +193,16 @@ executable in the Startup folder (`Windows + R`, then `shell:startup`).
 ### 2. Open FocusGarden
 
 Click the tray icon, or right-click it and choose **Open FocusGarden**. Your
-default browser opens `http://127.0.0.1:8765/`. The **Focus session** tab has
-the same screens the Chrome extension popup used to have: start a computer or
-paper session, watch the timer and plant, see results, review unclear blocks.
-The **Time tracker** tab tracks time across tasks (see
-[Time tracker](#time-tracker)). Open **Settings** to edit distracting sites (**Check activity tracking** there confirms
-ActivityWatch is running). You can close the tab while a session runs; the
-program keeps the session, and reopening the page shows it again.
+default browser opens `http://127.0.0.1:8765/`. The top of the page has
+the same screens the Chrome extension popup used to have: name a task and
+start a computer or paper session, watch the timer and plant, see results,
+review unclear blocks. Several tasks can run at once: each running session
+gets its own card under **Running**, with its own timer, plant and **Done**
+button, and the form stays available to start another. Below it, **Tasks & groups** lists your tasks with
+their stats and lets you group them (see [Tasks and groups](#tasks-and-groups)).
+Open **Settings** to edit distracting sites (**Check activity tracking** there confirms
+ActivityWatch is running). You can close the tab while sessions run; the
+program keeps them, and reopening the page shows them again.
 
 The tray menu also has **Open health status** (`/health`) and **Quit
 FocusGarden**.
@@ -275,31 +279,46 @@ running, and ending a session will then fail with a recorder-unavailable error.
   each computer session's blocklist, so they always count as off-task. Putting
   a site in a session's "Always on-task" list exempts it for that session.
 
-## Time tracker
+## Tasks and groups
 
-The **Time tracker** tab measures total time spent on a set of tasks, separate
-from focus sessions:
+The **Tasks & groups** section, below the session on the same page, measures
+total time and productivity across a set of tasks:
 
-- **Start a task** with a name and optional groups (comma-separated, for
-  example `Chem, Midterm prep`). Timers already running keep going; any number
-  can run at once. Each task can be stopped, restarted, edited (name and
-  groups), marked done (which stops it) and deleted.
-- **Groups** are tags: a task can be in several. Group names match ignoring
-  case, and the first spelling is shown.
-- **No double counting:** a group's time, and the overall total, is the union
-  of its tasks' running time. Two chem tasks running from 2:00 to 2:30 and
-  2:15 to 2:45 add up to 45 minutes of Chem, not 60.
-- **Idle vs work:** while a task's timer runs, time ActivityWatch's AFK
-  watcher marks as away is **idle**; the rest is **work**. Both are shown for
-  every task, group and the total, for today (since local midnight) and all
-  time. If ActivityWatch isn't reachable, the tab says so and all tracked time
-  shows as work until it is.
-- **Focus sessions** run as tracker tasks too: starting one starts (or
-  resumes) the unfinished tracker task with the same name, and ending it stops
-  that timer, unless it was already running before the session started.
+- **Tasks come from sessions only.** The task you type when starting a
+  computer or paper session is the task. Starting another session with the
+  same name (ignoring case) adds to that task. Different tasks can run at the
+  same time, each with its own timer; the same task can't run twice at once.
+  A task's timer runs only while one of its sessions does, and a session's
+  **Done** button (on its card under **Running**) is the only way to stop it;
+  there are no separate timers or task-level Done buttons.
+- **Groups** are assigned here: each task has its groups as chips (× removes
+  one) and an input to add it to a group, suggesting existing group names.
+  A task can be in several groups. Group names match ignoring case, and the
+  first spelling is shown. Tasks can also be deleted (deleting a task keeps
+  its sessions in your history).
+- **The same stats as a session result**, for every task, every group and all
+  tasks together, today (sessions that started since local midnight) and all
+  time: on-task time and %, longest focus streak and number of sessions.
+  **Breakdown, all time** adds the productive / distracting / break-or-unclear
+  bar, the biggest distraction with the number of off-task switches, and time
+  by site or app. Minutes add up across sessions and the percentage is
+  recomputed from them; the longest streak is the longest single one.
+  Each session is judged against its own task only, so the same minutes can be
+  on-task for one task and off-task for another. In group and overall stats,
+  minutes when several sessions ran at once count once, as on-task if they
+  were on-task for any of those tasks. A paper
+  session's credited minutes count as on-task and the rest of it as unclear.
+  Review decisions update these stats.
+- **Idle vs work:** while a session's task runs, time ActivityWatch's AFK
+  watcher marks as away is **idle**; the rest is **tracked** work. If
+  ActivityWatch isn't reachable, the section says so and all tracked time
+  shows as work until it is. Group and overall time is the union of their
+  tasks' running time, so nothing is counted twice.
 
-Totals are computed by the program (`backend/app/tracker.py`) and refreshed
-every 30 seconds; in between, the page keeps running timers counting.
+Totals and stats are computed by the program (`backend/app/tracker.py`,
+`backend/app/stats.py`) from validated labels, never by the LLM. They refresh
+every 30 seconds and whenever a session starts, ends or is reviewed; in
+between, the page keeps running sessions' time counting.
 
 `web/ui/api.js` is the only page module that makes requests. If two
 FocusGarden tabs are open, saving a result in one refreshes the other.
@@ -315,14 +334,13 @@ routes are for diagnostics and direct API use:
 | Method and route | Authentication | Purpose |
 |---|---|---|
 | `GET /` | None | Redirects to the FocusGarden page at `/ui/` |
-| `GET /api/active`, `GET /api/history` | Same origin | The running session (or `null`) and saved sessions |
-| `POST /api/sessions`, `POST /api/sessions/end` | Same origin | Start / end a computer session |
-| `POST /api/paper-sessions`, `POST /api/paper-sessions/end` | Same origin | Start a paper session (returns `codeWord`) / submit its photo |
+| `GET /api/active`, `GET /api/history` | Same origin | The running sessions (a list) and saved sessions |
+| `POST /api/sessions`, `POST /api/sessions/{id}/end` | Same origin | Start / end (Done) a computer session; others keep running |
+| `POST /api/paper-sessions`, `POST /api/paper-sessions/{id}/end` | Same origin | Start a paper session (returns `id` and `codeWord`) / submit its photo |
 | `POST /api/sessions/{id}/blocks/{block_id}/review` | Same origin | Resolve an unclear block |
 | `GET`/`PUT /api/settings` | Same origin | Distracting sites |
-| `GET /api/tracker?since=...` | Same origin | Time tracker totals per task, group and overall (today from `since`, and all time) |
-| `POST /api/tracker/tasks`, `PATCH`/`DELETE /api/tracker/tasks/{id}` | Same origin | Add (and start) / edit / delete a tracker task |
-| `POST /api/tracker/tasks/{id}/start`, `.../stop` | Same origin | Start or stop a tracker task's timer |
+| `GET /api/tracker?since=...` | Same origin | Tasks & groups: time and productivity stats per task, group and overall (today from `since`, and all time) |
+| `PATCH`/`DELETE /api/tracker/tasks/{id}` | Same origin | Change a task's groups or name / delete it (tasks are created by starting a session) |
 | `GET /health` | None | Reports whether ActivityWatch is reachable and whether FocusGarden started it |
 | `GET /claude-status` | `X-Flora-Secret` when a token is configured | Sends a minimal request to Claude to verify the saved key and model |
 | `GET /activity?start=...&end=...` | `X-Flora-Secret` when a token is configured | Compact activity window (the blocks sessions are labeled from) |
@@ -415,8 +433,8 @@ Paper sessions use the same program and Claude API key:
 2. Write the code word at the top of the study page.
 3. Study for the session.
 4. Take a clear photo showing the code word and task-related notes.
-5. Choose **Upload photo of my notes**. The page shrinks the image and sends
-   it to `POST /api/paper-sessions/end`; the program checks it with the same
+5. Press **Done** on the session's card and choose the photo. The page shrinks
+   the image and sends it to `POST /api/paper-sessions/{id}/end`; the program checks it with the same
    logic as:
 
 ```text
@@ -487,16 +505,17 @@ uv run --project backend --extra test --no-sync pytest backend\tests
 ```
 
 The automated tests use fake LLM readers, a fake ActivityWatch and a
-temporary session store. They cover the session API (start/end, paper photo
+temporary session store. They cover the session API (start/end, several sessions at once, paper photo
 retries, review, plant growth, distracting sites, same-origin protection),
-the time tracker (concurrent timers, overlap-free group totals, AFK idle
-split, today vs all time, the focus-session link),
+tasks and groups (tasks only from sessions, same-name sessions adding up,
+group assignment, combined stats including reviews and paper credit, AFK idle
+split, today vs all time),
 that the page is served, LLM output validation, retries, exact code-word
 matching, and credit rules. They do not call Claude or consume API credits.
 
 The page's result breakdowns (time per site or app, the productive /
-distracting split, top distraction) and the tracker's live timer counting are
-tested with Node's built-in runner.
+distracting split, top distraction), the same breakdowns combined over a
+task's or group's sessions, and the live timer counting are tested with Node's built-in runner.
 Node 18 or later is required; there are no dependencies to install:
 
 ```powershell

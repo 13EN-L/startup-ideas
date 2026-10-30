@@ -1,13 +1,14 @@
 // @ts-check
 /**
- * The time tracker refreshes from the program every 30 seconds; in between, running timers
- * keep counting on the page. Idle time only changes on a refresh (ActivityWatch decides it).
+ * Tasks & groups refresh from the program every 30 seconds; in between, the running session's
+ * timer keeps counting on the page. Idle time and stats only change on a refresh.
  */
 
 /**
- * @typedef {{work_seconds: number, idle_seconds: number}} Totals
- * @typedef {{running: boolean, today: Totals, all: Totals}} Counted
- * @typedef {{tasks: (Counted & {id: string, name: string, tags: string[], done: boolean})[],
+ * @typedef {{work_seconds: number, idle_seconds: number, sessions: number,
+ *            stats: import("./api.js").Stats}} Totals
+ * @typedef {{running: boolean, today: Totals, all: Totals, session_ids: string[]}} Counted
+ * @typedef {{tasks: (Counted & {id: string, name: string, tags: string[]})[],
  *            groups: (Counted & {name: string})[], total: Counted, activitywatch: boolean}} TrackerSummary
  */
 

@@ -1,4 +1,4 @@
-"""Session history, the running session and user settings, kept in one local JSON file.
+"""Session history, the running sessions and user settings, kept in one local JSON file.
 
 Replaces the Chrome extension's chrome.storage: there are no accounts or cloud sync.
 """
@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import threading
+import uuid
 from typing import Any, Optional
 
 
@@ -21,7 +22,10 @@ class SessionStore:
     def _load(self) -> dict[str, Any]:
         if self.path is None or not self.path.is_file():
             return {}
-        return json.loads(self.path.read_text(encoding="utf-8"))
+        data = json.loads(self.path.read_text(encoding="utf-8"))
+        if "active" in data:  # saved when only one session could run at a time
+            data["running"] = [{"id": str(uuid.uuid4()), **data.pop("active")}]
+        return data
 
     def _save(self) -> None:
         if self.path is None:
@@ -31,15 +35,26 @@ class SessionStore:
         temporary.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
         temporary.replace(self.path)  # a crash mid-write can't leave a half-written file
 
-    def get_active(self) -> Optional[dict]:
-        return self._data.get("active")
+    def running(self) -> list[dict]:
+        """The running sessions, oldest first. Several tasks can run at once."""
+        return list(self._data.get("running", []))
 
-    def set_active(self, active: Optional[dict]) -> None:
+    def add_running(self, session: dict) -> None:
         with self._lock:
-            if active:
-                self._data["active"] = active
-            else:
-                self._data.pop("active", None)
+            self._data.setdefault("running", []).append(session)
+            self._save()
+
+    def update_running(self, session: dict) -> None:
+        """Replaces the running session with the same id."""
+        with self._lock:
+            self._data["running"] = [session if s["id"] == session["id"] else s
+                                     for s in self._data.get("running", [])]
+            self._save()
+
+    def remove_running(self, session_id: str) -> None:
+        with self._lock:
+            self._data["running"] = [s for s in self._data.get("running", [])
+                                     if s["id"] != session_id]
             self._save()
 
     def get_settings(self) -> dict:

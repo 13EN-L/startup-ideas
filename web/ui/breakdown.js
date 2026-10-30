@@ -89,6 +89,43 @@ export function distractionSummary(labels, blocks) {
   return { top: worst ? { name: worst[0], minutes: worst[1] / 60 } : null, switches };
 }
 
+/**
+ * The productivity split from stats the program combined over several sessions
+ * (paper sessions included), in the same shape as productivitySplit.
+ * @param {import("./api.js").Stats} stats
+ */
+export function splitFromStats(stats) {
+  const total = stats.total_minutes;
+  const pct = (/** @type {number} */ minutes) => (total ? (100 * minutes) / total : 0);
+  const productive = pct(stats.on_task_minutes);
+  const distracting = pct(stats.off_task_minutes);
+  return { productive, distracting, other: total ? 100 - productive - distracting : 0 };
+}
+
+/**
+ * Time by site or app and the biggest distraction over several saved sessions (a task or a
+ * group). Only computer sessions have blocks; off-task switches are counted per session.
+ * @param {any[]} sessions saved sessions, oldest first
+ */
+export function combinedBreakdown(sessions) {
+  /** @type {import("./api.js").FinalLabel[]} */
+  const labels = [];
+  /** @type {any[]} */
+  const blocks = [];
+  let switches = 0;
+  for (const session of sessions) {
+    if (session.kind !== "computer") continue;
+    const own = session.blocks || [];
+    switches += distractionSummary(session.result.labels, own).switches;
+    // Block ids (b1, b2, ...) repeat across sessions, so they're made unique here.
+    labels.push(...session.result.labels.map(
+      (/** @type {any} */ l) => ({ ...l, block_id: `${session.id}/${l.block_id}` })));
+    blocks.push(...own.map((/** @type {any} */ b) => ({ ...b, id: `${session.id}/${b.id}` })));
+  }
+  return { apps: breakdownByApp(labels, blocks),
+           distraction: { top: distractionSummary(labels, blocks).top, switches } };
+}
+
 /** @param {Record<string, number>} byLabel @param {string} label @param {number} seconds */
 function addSeconds(byLabel, label, seconds) {
   byLabel[label] = (byLabel[label] || 0) + seconds;

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { breakdownByApp, distractionSummary, productivitySplit } from "../ui/breakdown.js";
+import {
+  breakdownByApp, combinedBreakdown, distractionSummary, productivitySplit, splitFromStats,
+} from "../ui/breakdown.js";
 
 /** A labeled block, as stored on a computer session. */
 function block(id, seconds, label, where = {}) {
@@ -104,4 +106,42 @@ test("off-task time at the very start is not a switch away from work", () => {
   const { labels, blocks } = split([block("b1", 60, "off_task"), block("b2", 600, "on_task")]);
 
   assert.equal(distractionSummary(labels, blocks).switches, 0);
+});
+
+/** A saved computer session made of labeled blocks. */
+function session(id, items) {
+  const { labels, blocks } = split(items);
+  return { id, kind: "computer", result: { labels }, blocks };
+}
+
+test("over several sessions, time by site adds up even though block ids repeat", () => {
+  const sessions = [
+    session("s1", [block("b1", 600, "on_task", { site: "docs.google.com" }),
+                   block("b2", 300, "off_task", { site: "instagram.com" })]),
+    session("s2", [block("b1", 300, "off_task", { site: "instagram.com" })]),
+    { id: "p1", kind: "paper", result: { verified: true, credited_minutes: 20 } },
+  ];
+
+  const { apps, distraction } = combinedBreakdown(sessions);
+
+  assert.deepEqual(apps.map((a) => [a.name, a.minutes]), [["docs.google.com", 10], ["instagram.com", 10]]);
+  assert.deepEqual(distraction.top, { name: "instagram.com", minutes: 10 });
+});
+
+test("off-task switches are counted within each session, not across them", () => {
+  const sessions = [
+    session("s1", [block("b1", 60, "off_task"), block("b2", 60, "on_task"), block("b3", 60, "off_task")]),
+    session("s2", [block("b1", 60, "on_task")]),
+    session("s3", [block("b1", 60, "off_task")]), // follows s2's on-task time, but a new session
+  ];
+
+  assert.equal(combinedBreakdown(sessions).distraction.switches, 1);
+});
+
+test("the split from combined stats puts break and unclear time in other", () => {
+  const stats = { total_minutes: 50, on_task_minutes: 30, off_task_minutes: 10, break_minutes: 5,
+                  unclear_minutes: 5, on_task_pct: 60, longest_streak_minutes: 20 };
+
+  assert.deepEqual(splitFromStats(stats), { productive: 60, distracting: 20, other: 20 });
+  assert.deepEqual(splitFromStats({ ...stats, total_minutes: 0 }), { productive: 0, distracting: 0, other: 0 });
 });

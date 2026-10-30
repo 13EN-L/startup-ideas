@@ -234,17 +234,18 @@ def create_app(
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
     @api.get("/active")
-    def get_active() -> Optional[dict]:
-        return store.get_active()
+    def get_active() -> list[dict]:
+        """The running sessions, oldest first; several tasks can run at once."""
+        return store.running()
 
     @api.post("/sessions")
     def start_session(body: sessions.StartSession) -> dict:
         return sessions.start_session(store, now(), body.task, body.allowlist, body.blocklist,
                                       choose_plant(web_root))
 
-    @api.post("/sessions/end")
-    def end_session() -> dict:
-        active = sessions.require_active(store, "computer")
+    @api.post("/sessions/{session_id}/end")
+    def end_session(session_id: str) -> dict:
+        active = sessions.require_running(store, session_id, "computer")
         end = now()
         usage_response = collect_usage(
             datetime.fromisoformat(active["start"]), end, include_raw=False
@@ -264,15 +265,15 @@ def create_app(
     def start_paper_session(body: sessions.StartPaperSession) -> dict:
         return sessions.start_paper_session(store, now(), body.task, choose_plant(web_root))
 
-    @api.post("/paper-sessions/end")
-    def end_paper_session(body: sessions.EndPaperSession) -> dict:
+    @api.post("/paper-sessions/{session_id}/end")
+    def end_paper_session(session_id: str, body: sessions.EndPaperSession) -> dict:
         def check(request: PhotoCheckRequest) -> PhotoCheckResponse:
             if app.state.photo_reader is None:
                 return PhotoCheckResponse(verified=False, credited_minutes=0,
                                           reason="photo check unavailable: no API key is set")
             return check_photo(request, app.state.photo_reader)
 
-        return sessions.end_paper_session(store, now(), check, body)
+        return sessions.end_paper_session(store, now(), check, session_id, body)
 
     @api.post("/sessions/{session_id}/blocks/{block_id}/review")
     def review_block(session_id: str, block_id: str, body: sessions.Review) -> dict:
@@ -288,24 +289,13 @@ def create_app(
 
     @api.get("/tracker")
     def get_tracker(since: datetime = Query(...)) -> dict:
-        """Totals for the time tracker tab. `since` is the start of the user's local day."""
+        """Tasks & groups totals and stats. `since` is the start of the user's local day.
+        Tasks are only created by starting a session (tracker.track_session)."""
         return tracker.summarize(store, now(), since, afk_between)
-
-    @api.post("/tracker/tasks")
-    def create_tracker_task(body: tracker.NewTask) -> dict:
-        return tracker.create_task(store, now(), body)
-
-    @api.post("/tracker/tasks/{task_id}/start")
-    def start_tracker_task(task_id: str) -> dict:
-        return tracker.start_task(store, now(), task_id)
-
-    @api.post("/tracker/tasks/{task_id}/stop")
-    def stop_tracker_task(task_id: str) -> dict:
-        return tracker.stop_task(store, now(), task_id)
 
     @api.patch("/tracker/tasks/{task_id}")
     def edit_tracker_task(task_id: str, body: tracker.TaskChanges) -> dict:
-        return tracker.edit_task(store, now(), task_id, body)
+        return tracker.edit_task(store, task_id, body)
 
     @api.delete("/tracker/tasks/{task_id}")
     def delete_tracker_task(task_id: str) -> dict:

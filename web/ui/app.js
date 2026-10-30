@@ -1,17 +1,17 @@
 // @ts-check
 /**
- * The FocusGarden page: start/end sessions, show results, review unclear blocks.
+ * The FocusGarden page: start/end sessions, show results, review unclear blocks. Tasks are
+ * named only here; the Tasks & groups section below (tracker.js) groups them.
  * All work happens in the local program (docs/contracts.md section 2); this file only renders.
  * Page and app titles are untrusted text, so they are only ever set with textContent.
  */
 
 import { api, sessionEvents } from "./api.js";
 import { breakdownByApp, distractionSummary, productivitySplit } from "./breakdown.js";
+import { LABEL_NAMES, appRows, distractionText, splitView } from "./breakdownView.js";
 import { $, formatElapsed, formatMinutes, h } from "./dom.js";
 import { PlantView } from "./plant.js";
-import { showTracker, stopTracker } from "./tracker.js";
-
-const LABEL_NAMES = { on_task: "On task", off_task: "Off task", break: "Break", unclear: "Unclear" };
+import { refreshTracker, showTracker } from "./tracker.js";
 
 function showError(err) {
   const box = $("error");
@@ -26,8 +26,8 @@ function showNotice(text) {
   box.hidden = false;
 }
 
-const views = ["view-start", "view-running", "view-working", "view-result"];
-/** @param {string} name */
+const views = ["view-start", "view-result"];
+/** Running sessions have their own list above these, so they stay visible. @param {string} name */
 function show(name) {
   for (const view of views) $(view).hidden = view !== name;
 }
@@ -85,7 +85,10 @@ $("start-form").addEventListener("submit", async (event) => {
     } else {
       await api.startPaperSession(task);
     }
-    showRunning(await api.getActive());
+    /** @type {HTMLInputElement} */ ($("task")).value = "";
+    await renderRunning();
+    refreshTracker(); // the session's task is now running
+    sessionEvents.postMessage({ type: "sessionStarted" });
   } catch (err) {
     showError(err);
   }
@@ -93,91 +96,125 @@ $("start-form").addEventListener("submit", async (event) => {
 
 /* ---------- Running ---------- */
 
-let timer = 0;
+/** Ids of sessions whose Done is being checked by the LLM, so a re-render keeps saying so. */
+const ending = new Set();
+/** Each card's once-a-second update (timer and growing plant). @type {(() => void)[]} */
+let cardTicks = [];
+/** @type {PlantView[]} */
+let runningPlants = [];
+setInterval(() => { for (const tick of cardTicks) tick(); }, 1000);
+
+/** Shows every running session as a card, oldest first. */
+async function renderRunning() {
+  const running = /** @type {any[]} */ (await api.getActive());
+  for (const plant of runningPlants) plant.stop();
+  runningPlants = [];
+  cardTicks = [];
+  $("running-box").hidden = running.length === 0;
+  $("running-list").replaceChildren(...running.map(runningCard));
+  for (const tick of cardTicks) tick();
+}
 
 /** @param {any} active */
-function showRunning(active) {
-  show("view-running");
+function runningCard(active) {
   const paper = active.kind === "paper";
-  $("running-kind").textContent = paper ? "Paper session" : "Computer session";
-  $("running-task").textContent = active.task;
-  $("code-word-box").hidden = !paper;
-  $("code-word").textContent = active.codeWord || "";
-  $("running-hint").textContent = paper
-    ? "Study on paper. When you're done, take a photo of the page with the code word."
-    : "Work as you normally would. You can close this tab.";
-  $("end-btn").hidden = paper;
-  $("photo-label").hidden = !paper;
+  const timer = h("div", { class: "stat" }, "0:00");
+  const canvas = /** @type {HTMLCanvasElement} */ (h("canvas", { class: "plant-canvas" }));
+  const plantLabel = h("span", { class: "stat-label" });
+  const plantBox = h("div", { class: "plant-stage" }, canvas, plantLabel);
+  plantBox.hidden = true;
+
+  const card = h("li", { class: "card stack" },
+    h("span", { class: "stat-label" }, paper ? "Paper session" : "Computer session"),
+    h("h1", {}, active.task),
+    plantBox,
+    h("div", {}, timer, h("span", { class: "stat-label" }, "elapsed")),
+    ...(paper ? [h("div", { class: "code-box" },
+      h("span", { class: "stat-label" }, "Write this at the top of your page"),
+      h("div", { class: "code-word" }, active.codeWord || ""))] : []),
+    ...(ending.has(active.id) ? checking(paper) : [
+      h("p", { class: "muted small" }, paper
+        ? "Study on paper. When you're done, press Done and take a photo of the page with the code word."
+        : "Work as you normally would. You can close this tab."),
+      paper ? photoDone(active) : computerDone(active)]));
 
   const started = Date.parse(active.start);
   const plant = active.plant;
-  $("running-plant-box").hidden = true;
+  const plantView = plant?.gif ? new PlantView(canvas) : null;
   let plantReady = false;
-  if (plant?.gif) {
-    runningPlant.load(plant.gif).then((ok) => {
-      plantReady = ok;
-      $("running-plant-box").hidden = !ok;
-      tick();
-    });
+  if (plantView) {
+    runningPlants.push(plantView);
+    plantView.load(plant.gif).then((ok) => { plantReady = ok; plantBox.hidden = !ok; tick(); });
   }
   const tick = () => {
     const elapsed = Date.now() - started;
-    $("timer").textContent = formatElapsed(elapsed);
-    if (!plantReady) return;
+    timer.textContent = formatElapsed(elapsed);
+    if (!plantReady || !plantView) return;
     // While studying, the plant grows with time. Its final size comes from verified minutes.
     const progress = elapsed / 60000 / plant.minutesToFullGrowth;
-    runningPlant.setProgress(progress);
-    $("running-plant-label").textContent = progress >= 1
+    plantView.setProgress(progress);
+    plantLabel.textContent = progress >= 1
       ? `Your ${plant.name.toLowerCase()} is fully grown`
       : `Your ${plant.name.toLowerCase()} is growing · ${Math.floor(progress * 100)}%`;
   };
-  clearInterval(timer);
-  tick();
-  timer = setInterval(tick, 1000);
+  cardTicks.push(tick);
+  return card;
 }
 
-const runningPlant = new PlantView(/** @type {HTMLCanvasElement} */ ($("running-plant")));
-const resultPlant = new PlantView(/** @type {HTMLCanvasElement} */ ($("result-plant-canvas")));
+/** What a card shows while its Done is being checked. @param {boolean} paper */
+const checking = (paper) => [h("p", { class: "center" },
+  h("span", { class: "sprout", "aria-hidden": "true" }, "🌱"), " ",
+  paper ? "Checking your notes for the code word…" : "Checking your session against your task…")];
 
-$("end-btn").addEventListener("click", async () => {
+/**
+ * Runs a session's Done: the card says it's checking (other sessions keep running), then
+ * the result is shown, or the error and the card come back so the user can try again.
+ * @param {string} id @param {() => Promise<any>} end
+ */
+async function finishSession(id, end) {
   showError(null);
-  clearInterval(timer);
-  show("view-working");
-  $("working-text").textContent = "Checking your session against your task…";
+  ending.add(id);
+  await renderRunning();
   try {
-    saved(await api.endSession());
-  } catch (err) {
-    showError(err);
-    showRunning(await api.getActive()); // the session is still running; try again
-  }
-});
-
-$("photo").addEventListener("change", async (event) => {
-  const input = /** @type {HTMLInputElement} */ (event.target);
-  const file = input.files && input.files[0];
-  input.value = "";
-  if (!file) return;
-  showError(null);
-  clearInterval(timer);
-  show("view-working");
-  $("working-text").textContent = "Checking your notes for the code word…";
-  try {
-    const imageBase64 = await toJpegBase64(file);
-    const reply = await api.endPaperSession(imageBase64, "image/jpeg");
+    const reply = await end();
     if (reply.completed === false) {
       // The photo failed but the session is still running: let the user try another photo.
-      showRunning(await api.getActive());
       const tries = reply.attemptsRemaining === 1 ? "1 more try" : `${reply.attemptsRemaining} more tries`;
       showNotice(`That photo didn't pass: ${reply.result.reason}. Make sure the code word is clear, `
-        + `then upload another photo (${tries}).`);
-      return;
+        + `then press Done and upload another photo (${tries}).`);
+    } else {
+      saved(reply);
     }
-    saved(reply);
   } catch (err) {
-    showError(err);
-    showRunning(await api.getActive());
+    showError(err); // the session is still running; try again
+  } finally {
+    ending.delete(id);
+    await renderRunning();
   }
-});
+}
+
+/** @param {any} active */
+function computerDone(active) {
+  const button = h("button", { class: "btn", type: "button" }, "Done");
+  button.addEventListener("click", () => finishSession(active.id, () => api.endSession(active.id)));
+  return button;
+}
+
+/** A paper session's Done asks for the photo of the page. @param {any} active */
+function photoDone(active) {
+  const input = /** @type {HTMLInputElement} */ (h("input", { type: "file",
+    accept: "image/jpeg,image/png,image/webp", hidden: "" }));
+  input.addEventListener("change", () => {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    finishSession(active.id, async () =>
+      api.endPaperSession(active.id, await toJpegBase64(file), "image/jpeg"));
+  });
+  return h("label", { class: "btn" }, "Done", input);
+}
+
+const resultPlant = new PlantView(/** @type {HTMLCanvasElement} */ ($("result-plant-canvas")));
 
 /**
  * Phone photos are large; shrink to 1600px on the long side so the upload stays well
@@ -206,6 +243,7 @@ let shownSessionId = "";
 /** Shows a just-saved session and tells other open FocusGarden tabs. @param {any} session */
 function saved(session) {
   showResult(session);
+  refreshTracker();
   sessionEvents.postMessage({ type: "sessionSaved", session });
 }
 
@@ -282,37 +320,20 @@ function renderPaper(session) {
 /** @param {{productive: number, distracting: number, other: number}} split */
 function renderSplit(split) {
   $("result-split").hidden = false;
-  const parts = /** @type {const} */ ([
-    ["productive", "productive"], ["distracting", "distracting"], ["other", "break or unclear"],
-  ]);
-  for (const [key] of parts) $(`seg-${key}`).style.width = `${split[key]}%`;
-  $("split-legend").replaceChildren(...parts.map(([key, caption]) =>
-    h("li", {}, h("span", { class: `dot dot-${key}` }), h("strong", {}, `${Math.round(split[key])}%`),
-      caption)));
+  $("result-split").replaceChildren(...splitView(split));
 }
 
 /** @param {{top: {name: string, minutes: number}|null, switches: number}} summary */
-function renderDistraction({ top, switches }) {
+function renderDistraction(summary) {
   const line = $("distraction-line");
-  const parts = [];
-  if (top) parts.push(`Biggest distraction: ${top.name} (${formatMinutes(top.minutes)})`);
-  if (switches) parts.push(`switched off-task ${switches === 1 ? "once" : `${switches} times`}`);
-  line.textContent = parts.join(" · ");
-  line.hidden = parts.length === 0;
+  line.textContent = distractionText(summary);
+  line.hidden = !line.textContent;
 }
 
 /** @param {import("./breakdown.js").AppTime[]} apps */
 function renderApps(apps) {
   $("apps-box").hidden = apps.length === 0;
-  $("app-list").replaceChildren(...apps.map((app) => {
-    const bar = h("span", { class: `app-bar-${app.label}` });
-    bar.style.width = `${app.pct}%`;
-    return h("li", { class: "app" },
-      h("span", { class: "app-name", title: app.name }, app.name),
-      h("span", { class: "app-time" },
-        `${formatMinutes(app.minutes)} · ${Math.round(app.pct)}% · ${LABEL_NAMES[app.label] || app.label}`),
-      h("div", { class: "app-track" }, bar));
-  }));
+  $("app-list").replaceChildren(...appRows(apps));
 }
 
 /** Growth as a percent, plus the on-task minutes left to full growth. @param {any} plant */
@@ -367,7 +388,7 @@ function statTile(value, caption) {
   return h("div", {}, h("div", { class: "stat" }, value), h("span", { class: "stat-label" }, caption));
 }
 
-$("done-btn").addEventListener("click", () => {
+$("close-btn").addEventListener("click", () => {
   shownSessionId = "";
   showStart();
 });
@@ -392,36 +413,23 @@ function plantLine(plant) {
   return `Your ${name} grew to ${Math.round(progress * 100)}% from on-task time.`;
 }
 
-/* ---------- Focus / Time tracker tabs ---------- */
-
-/** The tab is kept in the address (#tracker) so a reload stays on it. @param {"focus"|"tracker"} pane */
-function showPane(pane) {
-  $("nav-focus").setAttribute("aria-selected", String(pane === "focus"));
-  $("nav-tracker").setAttribute("aria-selected", String(pane === "tracker"));
-  $("focus-pane").hidden = pane !== "focus";
-  $("tracker-pane").hidden = pane !== "tracker";
-  history.replaceState(null, "", pane === "tracker" ? "#tracker" : location.pathname);
-  if (pane === "tracker") showTracker(showError);
-  else stopTracker();
-}
-
-$("nav-focus").addEventListener("click", () => showPane("focus"));
-$("nav-tracker").addEventListener("click", () => showPane("tracker"));
-
 /* ---------- Start up ---------- */
 
-// Another FocusGarden tab saved a session: refresh if it's the one on screen.
+// Another FocusGarden tab started or saved a session: refresh the running list and task stats,
+// and the result if it's the one on screen.
 sessionEvents.addEventListener("message", ({ data: msg }) => {
+  if (msg.type !== "sessionSaved" && msg.type !== "sessionStarted") return;
+  renderRunning().catch(showError);
+  refreshTracker();
   if (msg.type === "sessionSaved" && msg.session.id === shownSessionId) showResult(msg.session);
 });
 
 setMode("computer");
-showPane(location.hash === "#tracker" ? "tracker" : "focus");
+showTracker(showError);
 (async () => {
   try {
-    const active = await api.getActive();
-    if (active) showRunning(active);
-    else await showStart();
+    await renderRunning();
+    await showStart();
   } catch (err) {
     showError(err);
     show("view-start");

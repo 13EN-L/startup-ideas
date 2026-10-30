@@ -35,7 +35,7 @@ def test_started_computer_session_is_active_with_default_distracting_sites(tmp_p
     })
 
     assert started.status_code == 200
-    active = client.get("/api/active").json()
+    [active] = client.get("/api/active").json()
     assert active["kind"] == "computer"
     assert active["task"] == "finish chem ps4"
     assert active["allowlist"] == ["Instagram.com"]
@@ -54,7 +54,7 @@ def test_ending_a_computer_session_labels_its_activity_and_saves_it(tmp_path):
     client.post("/api/sessions", json={"task": "finish chem ps4"})
     clock.advance(minutes=60)
 
-    ended = client.post("/api/sessions/end")
+    ended = end_computer(client)
 
     assert ended.status_code == 200
     session = ended.json()
@@ -65,7 +65,7 @@ def test_ending_a_computer_session_labels_its_activity_and_saves_it(tmp_path):
     ]
     assert session["result"]["stats"]["on_task_minutes"] == 30
     assert [b["site"] for b in session["blocks"]] == ["docs.google.com", "www.instagram.com"]
-    assert client.get("/api/active").json() is None
+    assert client.get("/api/active").json() == []
     assert client.get("/api/history").json() == [session]
 
 
@@ -83,11 +83,11 @@ def test_plant_is_picked_at_start_and_grows_from_verified_on_task_minutes(tmp_pa
             browser_event(0, 30, "https://docs.google.com/document/d/1", "Chem PS4")),
     )
     client.post("/api/sessions", json={"task": "finish chem ps4"})
-    assert client.get("/api/active").json()["plant"] == {
+    assert client.get("/api/active").json()[0]["plant"] == {
         "name": "Fern", "gif": "plants/fern.gif", "minutesToFullGrowth": 40}
     clock.advance(minutes=30)
 
-    plant = client.post("/api/sessions/end").json()["plant"]
+    plant = end_computer(client).json()["plant"]
 
     assert plant == {"name": "Fern", "gif": "plants/fern.gif", "minutesToFullGrowth": 40,
                      "minutes": 30, "progress": 0.75, "percent": 75, "minutesLeft": 10}
@@ -103,7 +103,7 @@ def ended_session_needing_review(tmp_path):
     )
     client.post("/api/sessions", json={"task": "finish chem ps4"})
     clock.advance(minutes=30)
-    return client, client.post("/api/sessions/end").json()
+    return client, end_computer(client).json()
 
 
 def test_reviewing_an_unclear_block_recomputes_stats_and_plant(tmp_path):
@@ -141,22 +141,33 @@ def photo_verdict(code_word, notes=True, matches=True, confidence=0.9):
 PHOTO = {"imageBase64": "aGVsbG8=", "mediaType": "image/jpeg"}
 
 
+def end_computer(client, index=0):
+    """Ends a running computer session (the oldest one by default)."""
+    session_id = client.get("/api/active").json()[index]["id"]
+    return client.post(f"/api/sessions/{session_id}/end")
+
+
+def end_paper(client, index=0):
+    session_id = client.get("/api/active").json()[index]["id"]
+    return client.post(f"/api/paper-sessions/{session_id}/end", json=PHOTO)
+
+
 def test_paper_session_with_a_verified_photo_gets_full_credit(tmp_path):
     clock = FakeClock(START)
     reader = FakePhotoReader()
     client = make_client(tmp_path, now=clock, photo_reader=reader)
     code_word = client.post("/api/paper-sessions", json={"task": "chem notes"}).json()["codeWord"]
-    assert client.get("/api/active").json()["codeWord"] == code_word
+    assert client.get("/api/active").json()[0]["codeWord"] == code_word
     reader.outputs.append(photo_verdict(code_word))
     clock.advance(minutes=45)
 
-    session = client.post("/api/paper-sessions/end", json=PHOTO).json()
+    session = end_paper(client).json()
 
     assert session["kind"] == "paper"
     assert session["result"]["verified"] is True
     assert session["result"]["credited_minutes"] == 45
     assert session["plant"]["minutes"] == 45
-    assert client.get("/api/active").json() is None
+    assert client.get("/api/active").json() == []
 
 
 def test_failed_photo_keeps_paper_session_running_for_one_retry(tmp_path):
@@ -166,15 +177,15 @@ def test_failed_photo_keeps_paper_session_running_for_one_retry(tmp_path):
     client.post("/api/paper-sessions", json={"task": "chem notes"})
     clock.advance(minutes=45)
 
-    first = client.post("/api/paper-sessions/end", json=PHOTO).json()
+    first = end_paper(client).json()
     assert first["completed"] is False
     assert first["attemptsRemaining"] == 1
-    assert client.get("/api/active").json()["photoAttempts"] == 1
+    assert client.get("/api/active").json()[0]["photoAttempts"] == 1
 
-    second = client.post("/api/paper-sessions/end", json=PHOTO).json()
+    second = end_paper(client).json()
     assert second["result"]["verified"] is False
     assert second["result"]["credited_minutes"] == 0
-    assert client.get("/api/active").json() is None
+    assert client.get("/api/active").json() == []
 
 
 def test_photo_check_without_an_api_key_counts_as_a_failed_attempt(tmp_path):
@@ -183,7 +194,7 @@ def test_photo_check_without_an_api_key_counts_as_a_failed_attempt(tmp_path):
     client.post("/api/paper-sessions", json={"task": "chem notes"})
     clock.advance(minutes=45)
 
-    reply = client.post("/api/paper-sessions/end", json=PHOTO)
+    reply = end_paper(client)
 
     assert reply.status_code == 200
     assert reply.json()["completed"] is False
@@ -198,20 +209,56 @@ def test_llm_failure_keeps_the_computer_session_running_so_it_can_be_retried(tmp
     client.post("/api/sessions", json={"task": "finish chem ps4"})
     clock.advance(minutes=30)
 
-    ended = client.post("/api/sessions/end")
+    ended = end_computer(client)
 
     assert ended.status_code == 502
-    assert client.get("/api/active").json()["task"] == "finish chem ps4"
+    assert client.get("/api/active").json()[0]["task"] == "finish chem ps4"
 
 
-def test_a_second_session_cannot_start_while_one_is_running(tmp_path):
+def test_several_tasks_can_run_at_once_and_each_ends_on_its_own(tmp_path):
+    clock = FakeClock(START)
+    reader = FakePhotoReader()
+    client = make_client(
+        tmp_path, now=clock, photo_reader=reader,
+        labeler=FakeLabeler({"labels": [llm_label("b1", "on_task")]}),
+        activitywatch_manager=FakeActivityWatch(
+            browser_event(0, 30, "https://docs.google.com/document/d/1", "Chem PS4")))
+    computer = client.post("/api/sessions", json={"task": "finish chem ps4"}).json()
+    clock.advance(minutes=10)
+    paper = client.post("/api/paper-sessions", json={"task": "chem notes"}).json()
+    clock.advance(minutes=20)
+
+    assert [s["id"] for s in client.get("/api/active").json()] == [computer["id"], paper["id"]]
+    ended = client.post(f"/api/sessions/{computer['id']}/end")
+
+    assert ended.status_code == 200
+    assert ended.json()["id"] == computer["id"]
+    assert ended.json()["result"]["stats"]["on_task_minutes"] == 30
+    assert [s["id"] for s in client.get("/api/active").json()] == [paper["id"]]
+    reader.outputs.append(photo_verdict(paper["codeWord"]))
+    clock.advance(minutes=5)
+    assert end_paper(client).json()["result"]["credited_minutes"] == 25
+    assert client.get("/api/active").json() == []
+    assert [s["task"] for s in client.get("/api/history").json()] == ["finish chem ps4", "chem notes"]
+
+
+def test_the_same_task_cannot_run_twice_at_once(tmp_path):
     client = make_client(tmp_path)
     client.post("/api/sessions", json={"task": "finish chem ps4"})
 
-    second = client.post("/api/paper-sessions", json={"task": "chem notes"})
+    again = client.post("/api/paper-sessions", json={"task": "Finish Chem PS4"})
 
-    assert second.status_code == 409
-    assert second.json()["detail"] == "a session is already running"
+    assert again.status_code == 409
+    assert again.json()["detail"] == '"Finish Chem PS4" is already running'
+    assert len(client.get("/api/active").json()) == 1
+
+
+def test_ending_a_session_that_is_not_running_is_404(tmp_path):
+    client = make_client(tmp_path)
+    paper = client.post("/api/paper-sessions", json={"task": "chem notes"}).json()
+
+    assert client.post("/api/sessions/nope/end").status_code == 404
+    assert client.post(f"/api/sessions/{paper['id']}/end").status_code == 404  # it's a paper one
 
 
 def test_distracting_sites_setting_is_saved_and_used_for_new_sessions(tmp_path):
@@ -222,7 +269,7 @@ def test_distracting_sites_setting_is_saved_and_used_for_new_sessions(tmp_path):
     client.post("/api/sessions", json={"task": "finish chem ps4"})
 
     assert client.get("/api/settings").json() == {"distractingSites": ["reddit.com"]}
-    assert client.get("/api/active").json()["blocklist"] == ["reddit.com"]
+    assert client.get("/api/active").json()[0]["blocklist"] == ["reddit.com"]
 
 
 def test_other_websites_cannot_drive_the_session_api(tmp_path):
@@ -249,6 +296,6 @@ def test_session_blocks_show_away_time_as_idle_and_skip_active_afk_markers(tmp_p
     client.post("/api/sessions", json={"task": "finish chem ps4"})
     clock.advance(minutes=30)
 
-    session = client.post("/api/sessions/end").json()
+    session = end_computer(client).json()
 
     assert [(b["kind"], b["seconds"]) for b in session["blocks"]] == [("web", 1200), ("idle", 600)]

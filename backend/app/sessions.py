@@ -68,58 +68,58 @@ def save_settings(store: SessionStore, values: Settings) -> dict:
     return store.get_settings()
 
 
+def _start(store: SessionStore, now: datetime, active: dict) -> dict:
+    """Adds a running session. Other tasks' sessions keep running; one task runs once at a time."""
+    if any(s["task"].strip().casefold() == active["task"].strip().casefold()
+           for s in store.running()):
+        raise SessionError(409, f'"{active["task"]}" is already running')
+    active = {"id": str(uuid.uuid4()), **active, "start": now.isoformat(),
+              "trackerTaskId": tracker.track_session(store, now, active["task"])}
+    store.add_running(active)
+    return active
+
+
 def start_session(
     store: SessionStore, now: datetime, task: str, allowlist: list[str], blocklist: list[str],
     plant: dict | None,
 ) -> dict:
-    if store.get_active():
-        raise SessionError(409, "a session is already running")
-    active = {
+    return _start(store, now, {
         "kind": "computer",
         "task": task,
-        "start": now.isoformat(),
         "allowlist": allowlist,
         "blocklist": effective_blocklist(distracting_sites(store), blocklist, allowlist),
         "plant": plant,
-        "trackerTaskId": tracker.track_session(store, now, task),
-    }
-    store.set_active(active)
-    return active
+    })
 
 
 def start_paper_session(store: SessionStore, now: datetime, task: str, plant: dict | None) -> dict:
-    if store.get_active():
-        raise SessionError(409, "a session is already running")
-    active = {"kind": "paper", "task": task, "start": now.isoformat(),
-              "codeWord": secrets.choice(CODE_WORDS), "photoAttempts": 0, "plant": plant,
-              "trackerTaskId": tracker.track_session(store, now, task)}
-    store.set_active(active)
-    return active
+    return _start(store, now, {"kind": "paper", "task": task, "codeWord": secrets.choice(CODE_WORDS),
+                               "photoAttempts": 0, "plant": plant})
 
 
 def end_paper_session(
     store: SessionStore, end: datetime, check: Callable[[PhotoCheckRequest], PhotoCheckResponse],
-    body: EndPaperSession,
+    session_id: str, body: EndPaperSession,
 ) -> dict:
     """Checks the photo. A failed photo leaves the session running for one more try."""
-    active = require_active(store, "paper")
+    active = require_running(store, session_id, "paper")
     minutes = (end - datetime.fromisoformat(active["start"])).total_seconds() / 60
     request = PhotoCheckRequest(task=active["task"], code_word=active["codeWord"], minutes=minutes,
                                 image_base64=body.imageBase64, media_type=body.mediaType)
     result = check(request).model_dump()
     attempts = active.get("photoAttempts", 0) + 1
     if not result["verified"] and attempts < MAX_PAPER_PHOTO_ATTEMPTS:
-        store.set_active({**active, "photoAttempts": attempts})
+        store.update_running({**active, "photoAttempts": attempts})
         return {"completed": False, "retryable": True,
                 "attemptsRemaining": MAX_PAPER_PHOTO_ATTEMPTS - attempts, "result": result}
     return finish(store, active, end, result,
                   plant_for(active.get("plant"), result["credited_minutes"]))
 
 
-def require_active(store: SessionStore, kind: str) -> dict:
-    active = store.get_active()
+def require_running(store: SessionStore, session_id: str, kind: str) -> dict:
+    active = next((s for s in store.running() if s["id"] == session_id), None)
     if not active or active["kind"] != kind:
-        raise SessionError(409, f"no {kind} session is running")
+        raise SessionError(404, f"no running {kind} session with that id")
     return active
 
 
@@ -127,13 +127,15 @@ def finish(
     store: SessionStore, active: dict, end: datetime, result: dict, plant: dict,
     blocks: list[dict] | None = None,
 ) -> dict:
-    """Saves the validated result and clears the running session."""
-    session = {"id": str(uuid.uuid4()), "kind": active["kind"], "task": active["task"],
+    """Saves the validated result and removes the session from the running ones."""
+    session = {"id": active["id"], "kind": active["kind"], "task": active["task"],
                "start": active["start"], "end": end.isoformat(), "result": result, "plant": plant}
+    if active.get("trackerTaskId"):
+        session["taskId"] = active["trackerTaskId"]  # the task's stats combine its sessions
     if blocks is not None:
         session["blocks"] = blocks  # so the review screen can show what each block was
     store.save_session(session)
-    store.set_active(None)
+    store.remove_running(active["id"])
     if active.get("trackerTaskId"):
         try:
             tracker.stop_task(store, end, active["trackerTaskId"])
