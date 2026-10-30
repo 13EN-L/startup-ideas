@@ -8,7 +8,7 @@ than it looked while you were working.
 ## Adding a plant
 
 1. Put the GIF in this folder. The **first frame should be the seed** and the
-   **last frame fully grown**. The GIF doesn't play on its own: the extension picks
+   **last frame fully grown**. The GIF doesn't play on its own: the page picks
    which frame to show, so more frames means smoother growth.
 2. Add it to `plants.json`:
 
@@ -16,10 +16,10 @@ than it looked while you were working.
    { "name": "Fern", "file": "fern.gif" }
    ```
 
-3. Reload the extension in `chrome://extensions`.
+3. Reload the FocusGarden page. When running the packaged release, rebuild it
+   (`backend\build_release.py`) so the new GIF is bundled.
 
-Chrome extensions can't list a folder's files, which is why each GIF also has to be
-listed in `plants.json`.
+Only GIFs listed in `plants.json` are used, so you can keep drafts in this folder.
 
 ## Settings
 
@@ -30,4 +30,4 @@ listed in `plants.json`.
 `sample-sprout.gif` is a placeholder; remove it from `plants.json` once you've added
 your own.
 
-Transparent backgrounds look best, because the popup has light and dark modes.
+Transparent backgrounds look best, because the page has light and dark modes.

@@ -1,4 +1,4 @@
-google-genai>=1.0
+anthropic>=2.3,<3
 pillow>=10,<13
 pystray>=0.19,<1
 psutil>=6,<8

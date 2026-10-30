@@ -24,6 +24,7 @@ RELEASE_API = (
     f"{ACTIVITYWATCH_VERSION}"
 )
 ROOT = Path(__file__).resolve().parent
+WEB = ROOT.parent / "web"
 DIST = Path(
     os.environ.get(
         "FOCUSGARDEN_RELEASE_DIR",
@@ -123,7 +124,7 @@ def build() -> None:
                 "--hidden-import",
                 "app.server",
                 "--hidden-import",
-                "app.gemini",
+                "app.claude",
                 "--hidden-import",
                 "app.contracts",
                 "--hidden-import",
@@ -133,7 +134,18 @@ def build() -> None:
                 "--hidden-import",
                 "app.stats",
                 "--hidden-import",
+                "app.sessions",
+                "--hidden-import",
+                "app.store",
+                "--hidden-import",
+                "app.plants",
+                "--hidden-import",
                 "pystray",
+                # The FocusGarden page, served at http://127.0.0.1:8765/ (see config.default_web_root)
+                "--add-data",
+                f"{WEB / 'ui'}{os.pathsep}web/ui",
+                "--add-data",
+                f"{WEB / 'plants'}{os.pathsep}web/plants",
                 str(ROOT / "app" / "launcher.py"),
             ],
             cwd=ROOT,
@@ -150,7 +162,7 @@ def build() -> None:
         (DIST / "README.txt").write_text(
             "Run FocusGardenLocalBackend\\FocusGardenLocalBackend.exe.\n"
             "The app runs in the Windows system tray without a terminal.\n"
-            "Optional: pass --token TOKEN for Chrome-extension authentication.\n",
+            "Right-click the tray icon and choose Open FocusGarden to use it.\n",
             encoding="utf-8",
         )
         archive = shutil.make_archive(

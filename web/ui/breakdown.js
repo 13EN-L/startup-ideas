@@ -13,7 +13,7 @@ const TOP_APPS = 5;
 /**
  * Minutes per site (web) or app, largest first. Past the top five, the rest become "Other".
  * Each row's label is the label that covered most of its time.
- * @param {import("./backendClient.js").FinalLabel[]} labels
+ * @param {import("./api.js").FinalLabel[]} labels
  * @param {any[]} blocks
  * @returns {AppTime[]}
  */
@@ -49,7 +49,7 @@ export function breakdownByApp(labels, blocks) {
 /**
  * Percent of the session that was productive (on_task), distracting (off_task), or
  * other (break or unclear). The three add up to 100, or are all 0 for an empty session.
- * @param {import("./backendClient.js").FinalLabel[]} labels
+ * @param {import("./api.js").FinalLabel[]} labels
  * @returns {{productive: number, distracting: number, other: number}}
  */
 export function productivitySplit(labels) {
@@ -68,7 +68,7 @@ export function productivitySplit(labels) {
  * The off-task site or app that took the most time (null if nothing was off-task), and how
  * many times on-task work was followed by off-task time. Labels must be in time order;
  * break and unclear blocks between the two don't break up a switch.
- * @param {import("./backendClient.js").FinalLabel[]} labels
+ * @param {import("./api.js").FinalLabel[]} labels
  * @param {any[]} blocks
  * @returns {{top: {name: string, minutes: number}|null, switches: number}}
  */
@@ -87,6 +87,43 @@ export function distractionSummary(labels, blocks) {
   }
   const [worst] = Object.entries(offTask).sort((a, b) => b[1] - a[1]);
   return { top: worst ? { name: worst[0], minutes: worst[1] / 60 } : null, switches };
+}
+
+/**
+ * The productivity split from stats the program combined over several sessions
+ * (paper sessions included), in the same shape as productivitySplit.
+ * @param {import("./api.js").Stats} stats
+ */
+export function splitFromStats(stats) {
+  const total = stats.total_minutes;
+  const pct = (/** @type {number} */ minutes) => (total ? (100 * minutes) / total : 0);
+  const productive = pct(stats.on_task_minutes);
+  const distracting = pct(stats.off_task_minutes);
+  return { productive, distracting, other: total ? 100 - productive - distracting : 0 };
+}
+
+/**
+ * Time by site or app and the biggest distraction over several saved sessions (a task or a
+ * group). Only computer sessions have blocks; off-task switches are counted per session.
+ * @param {any[]} sessions saved sessions, oldest first
+ */
+export function combinedBreakdown(sessions) {
+  /** @type {import("./api.js").FinalLabel[]} */
+  const labels = [];
+  /** @type {any[]} */
+  const blocks = [];
+  let switches = 0;
+  for (const session of sessions) {
+    if (session.kind !== "computer") continue;
+    const own = session.blocks || [];
+    switches += distractionSummary(session.result.labels, own).switches;
+    // Block ids (b1, b2, ...) repeat across sessions, so they're made unique here.
+    labels.push(...session.result.labels.map(
+      (/** @type {any} */ l) => ({ ...l, block_id: `${session.id}/${l.block_id}` })));
+    blocks.push(...own.map((/** @type {any} */ b) => ({ ...b, id: `${session.id}/${b.id}` })));
+  }
+  return { apps: breakdownByApp(labels, blocks),
+           distraction: { top: distractionSummary(labels, blocks).top, switches } };
 }
 
 /** @param {Record<string, number>} byLabel @param {string} label @param {number} seconds */

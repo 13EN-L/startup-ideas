@@ -1,10 +1,9 @@
-﻿# Local Backend and Chrome Extension Testing and Demo Guide
+# FocusGarden Testing and Demo Guide
 
-This guide explains how to install, test, and demonstrate both local parts of
-FocusGarden on Windows: the packaged local backend and the Chrome extension.
-The backend connects the extension to ActivityWatch, collects local
-browser/desktop/idle activity, and returns formatted JSON for a requested time
-range.
+This guide explains how to install, test, and demonstrate FocusGarden on
+Windows. FocusGarden is one local program: it runs in the system tray, serves
+the FocusGarden page at `http://127.0.0.1:8765/`, connects to ActivityWatch to
+collect local browser/desktop/idle activity, and labels sessions with the LLM.
 
 ## What this guide tests
 
@@ -13,9 +12,9 @@ The complete flow is:
 ```text
 Computer activity
     -> ActivityWatch
-    -> FocusGarden local backend
+    -> FocusGarden local program
     -> Formatted JSON over localhost
-    -> Chrome extension or future LLM pipeline
+    -> LLM labeling, stats and the FocusGarden page
 ```
 
 The guide covers:
@@ -25,8 +24,8 @@ The guide covers:
 - Running the automated backend tests
 - Requesting real usage data
 - Checking privacy filtering and error handling
-- Configuring the extension to use the local backend
-- Demonstrating the end-to-end extension/local-backend flow
+- Opening the FocusGarden page from the tray
+- Demonstrating the end-to-end session flow
 
 ## Option 1: Test the packaged Windows release
 
@@ -64,8 +63,8 @@ FocusGardenLocalBackend.exe
 
 The executable is a system-tray application, so it does not open a terminal.
 Look for the FocusGarden leaf icon in the Windows notification area. Right-
-click it to set the Google API key, open the health page, or quit the
-application. Choose **Set Google API key** and enter the key once; it is
+click it to set the Claude API key, open the health page, or quit the
+application. Choose **Set Claude API key** and enter the key once; it is
 stored locally and takes effect without restarting the backend. The backend
 listens on:
 
@@ -101,59 +100,60 @@ demo, wait a few seconds after generating activity before selecting **Quit
 FocusGarden**. If the program was added to `shell:startup`, it will start again
 at the next Windows sign-in; remove that shortcut to disable automatic startup.
 
-### 3. Optional: configure extension authentication
+### 3. Optional: protect the direct API routes
 
-For a local demo without authentication, start the executable normally.
+For a local demo without authentication, start the executable normally. The
+FocusGarden page never needs a token.
 
-To require the extension shared secret, start it with:
+To require a shared secret on `/activity`, `/usage`, `/label`,
+`/photo-check` and `/claude-status` for direct callers, start it with:
 
 ```powershell
-.\FocusGardenLocalBackend.exe --token "local-extension-token"
+.\FocusGardenLocalBackend.exe --token "local-api-token"
 ```
 
-The Chrome extension must then send:
+Direct requests must then send:
 
 ```http
-X-Flora-Secret: local-extension-token
+X-Flora-Secret: local-api-token
 ```
 
-If you want LLM labeling or paper-photo checks, start it with your Google AI
-Studio API key:
+If you want LLM labeling or paper-photo checks, set your Claude API key with
+the tray's **Set Claude API key**, or start it with:
 
 ```powershell
 .\FocusGardenLocalBackend.exe `
-  --token "local-extension-token" `
-  --google-api-key "your-google-api-key"
+  --anthropic-api-key "your-claude-api-key"
 ```
 
-The key is for Google's Gemini 3.8 Flash model. Keep it in the local
-program; do not put it in the extension or commit it to Git.
+The key is for Claude (`claude-opus-5-5` by default; set `CLAUDE_MODEL` to change it). Keep it in the local
+program; do not commit it to Git. It never reaches the page.
 
-### 4. Test Gemini connectivity
+### 4. Test Claude connectivity
 
 After saving the key, restart the packaged program so it loads the current
 configuration. Then run:
 
 ```powershell
 Invoke-RestMethod `
-  -Uri "http://127.0.0.1:8765/gemini-status" `
+  -Uri "http://127.0.0.1:8765/claude-status" `
   -Method Get
 ```
 
-When Gemini is reachable, the response is:
+When Claude is reachable, the response is:
 
 ```json
-{"status":"ok","model":"gemini-3.8-flash"}
+{"status":"ok","model":"claude-opus-5-5"}
 ```
 
 If you started the backend with `--token`, add:
 
 ```powershell
--Headers @{ "X-Flora-Secret" = "local-extension-token" }
+-Headers @{ "X-Flora-Secret" = "local-api-token" }
 ```
 
 An HTTP 503 means the backend did not load an API key. An HTTP 502 means the
-request reached the Gemini integration but the provider rejected it or was
+request reached the Claude integration but the provider rejected it or was
 unreachable; inspect the response body for the provider's diagnostic detail.
 
 ## Option 2: Run from source
@@ -173,7 +173,7 @@ To run the server from source:
 ```powershell
 cd "C:\path\to\startup-ideas\backend"
 $env:ACTIVITYWATCH_EXECUTABLE = "C:\Program Files\ActivityWatch\aw-qt.exe"
-$env:FOCUSGARDEN_EXTENSION_TOKEN = "local-extension-token"
+$env:FOCUSGARDEN_EXTENSION_TOKEN = "local-api-token"
 uv run uvicorn app.server:app --host 127.0.0.1 --port 8765
 ```
 
@@ -249,7 +249,7 @@ If authentication is enabled:
 
 ```powershell
 $headers = @{
-    "X-Flora-Secret" = "local-extension-token"
+    "X-Flora-Secret" = "local-api-token"
 }
 
 Invoke-RestMethod `
@@ -303,7 +303,7 @@ With authentication:
 
 ```powershell
 $headers = @{
-    "X-Flora-Secret" = "local-extension-token"
+    "X-Flora-Secret" = "local-api-token"
 }
 
 Invoke-RestMethod `
@@ -474,7 +474,7 @@ Invoke-RestMethod `
 
 Explain:
 
-> This is the kind of request the Chrome extension will make. It asks the
+> This is the request FocusGarden makes when a computer session ends. It asks the
 > local backend for formatted activity during a particular period.
 
 #### 5. Highlight the formatted response
@@ -496,50 +496,37 @@ Point out:
 Explain:
 
 > The backend converts ActivityWatch events into compact, predictable JSON
-> that the extension or later LLM pipeline can consume.
+> that the LLM labeling pipeline consumes.
 
 #### 6. Show privacy filtering
 
 Point out that the normal response contains a hostname, title, and useful
 search text rather than the complete original URL.
 
-#### 7. Run the Chrome extension flow
+#### 7. Run a computer session on the FocusGarden page
 
-The extension uses the same local process for all computer-session requests:
-
-```text
-GET  http://127.0.0.1:8765/activity
-POST http://127.0.0.1:8765/label
-POST http://127.0.0.1:8765/photo-check
-```
-
-Set `backendUrl` and `activityUrl` to `http://127.0.0.1:8765`, and set the
-extension's `sharedSecret` to the token passed to the executable. Start a
-computer session in the extension, visit a productive page and an unrelated
-page, then end the session. The extension should request `/activity`, send
-the returned `blocks` to `/label`, and display the saved session's labels and
-stats.
-
-Load the extension from the repository's separate `extension` directory:
-open Chrome's **Developer mode** → **Load unpacked**, select `extension`,
-then configure its backend URL and optional shared secret in **Settings**.
-The extension's service worker owns the HTTP calls; the popup and options
-pages communicate with it through `chrome.runtime` messages.
+Right-click the tray icon and choose **Open FocusGarden** (or browse to
+`http://127.0.0.1:8765/`). Start a computer session, visit a productive page
+and an unrelated page, then end the session. The program reads the session's
+activity window (the same blocks `/activity` returns), labels them with the
+same pipeline as `/label`, and the page displays the saved session's labels
+and stats. Resolve an unclear block on the review screen to show the stats
+and plant update.
 
 #### 8. Demo a paper session and photo check
 
-With the extension loaded and the backend running with
-`--google-api-key`:
+With the program running and a Claude API key set:
 
 1. Start a paper session for a task, such as `finish chemistry problem set 4`.
 2. Write the returned code word at the top of a page.
 3. Write several notes related to the task.
 4. Wait long enough to create a meaningful session duration.
 5. Photograph the page so the code word and notes are readable.
-6. End the paper session and submit the JPEG, PNG, or WebP image.
+6. Choose **Upload photo of my notes** and pick the JPEG, PNG, or WebP image.
 
-The service worker sends `POST /photo-check` with `task`, `code_word`,
-`minutes`, `image_base64`, and `media_type`. A successful response resembles:
+The program checks it with the same logic as `POST /photo-check` (`task`,
+`code_word`, `minutes`, `image_base64`, `media_type`). A successful check
+resembles:
 
 ```json
 {
@@ -552,16 +539,16 @@ The service worker sends `POST /photo-check` with `task`, `code_word`,
 Use a wrong code word, a page without notes, or an unrelated page to
 demonstrate the rejection response. It should report `verified: false` and
 award 0% of the session minutes. Only an ambiguous image with a matching code
-word, visible notes, and task-related content can receive 50%. The extension
-allows two attempts: after the first failed attempt it returns
-`attemptsRemaining: 1` and keeps the paper session active. A missing Google API
-key produces HTTP 503 because the real Gemini reader is unavailable, and the
-extension does not finalize the session until the retry limit is reached.
+word, visible notes, and task-related content can receive 50%. FocusGarden
+allows two attempts: after the first failed attempt the page asks for another
+photo and keeps the paper session active. Without a Claude API key, the check
+counts as a failed attempt ("photo check unavailable"); calling `/photo-check`
+directly returns HTTP 503.
 
 For a direct PowerShell request, follow the base64 example in
 [`README.md`](../README.md#use-paper-session-photo-checks). The automated
-photo tests use fake readers and do not consume Google API credits; a real
-photo test requires a Google AI Studio API key.
+photo tests use fake readers and do not consume Claude API credits; a real
+photo test requires a Claude API key.
 
 #### 9. Show the interactive API documentation
 
@@ -571,8 +558,9 @@ Open:
 http://127.0.0.1:8765/docs
 ```
 
-The FastAPI documentation lets you inspect and execute `/health`, `/activity`,
-`/usage`, `/label`, and `/photo-check` requests interactively.
+The FastAPI documentation lets you inspect and execute the page's `/api/`
+routes and `/health`, `/activity`, `/usage`, `/label`, and `/photo-check`
+requests interactively.
 
 ## What this demonstrates
 
@@ -584,10 +572,6 @@ This test/demo proves that the local backend can:
 - Accept a time-range request over localhost.
 - Return structured, predictable JSON.
 - Reduce unnecessary URL details.
-- Provide data in the exact `ActivityWindow` format required by the Chrome
-  extension.
-
-When the extension package is available, the end-to-end demo also demonstrates
-the extension session flow and LLM labeling. The local-backend-only portion
-does not demonstrate the popup UI, review screen, garden updates, or
-paper-session behavior.
+- Provide data in the exact `ActivityWindow` format sessions are labeled from.
+- Serve the FocusGarden page and run the full session flow (labeling, review,
+  plant growth, paper photo checks) without a browser extension.

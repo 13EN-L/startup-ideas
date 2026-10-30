@@ -14,9 +14,9 @@ import uvicorn
 from PIL import Image, ImageDraw
 
 from app.config import (
-    delete_saved_google_api_key,
-    load_saved_google_api_key,
-    save_google_api_key,
+    delete_saved_claude_api_key,
+    load_saved_claude_api_key,
+    save_claude_api_key,
 )
 
 _api_key_window_lock = threading.Lock()
@@ -36,6 +36,13 @@ def _bundled_activitywatch() -> Path | None:
     return None
 
 
+def page_url(host: str, port: int) -> str:
+    """The FocusGarden page this program serves. 0.0.0.0 means "listen everywhere", not an address."""
+    if host in ("0.0.0.0", "::", ""):
+        host = "127.0.0.1"
+    return f"http://{host}:{port}/"
+
+
 def _tray_image() -> Image.Image:
     image = Image.new("RGBA", (64, 64), (39, 64, 54, 255))
     draw = ImageDraw.Draw(image)
@@ -44,20 +51,20 @@ def _tray_image() -> Image.Image:
     return image
 
 
-def _configure_google_api_key_window(app: object) -> None:
+def _configure_claude_api_key_window(app: object) -> None:
     root = tk.Tk()
-    root.title("FocusGarden API key")
+    root.title("FocusGarden Claude API key")
     root.resizable(False, False)
     root.geometry("460x165")
     root.protocol("WM_DELETE_WINDOW", root.destroy)
 
     tk.Label(
         root,
-        text="Google AI Studio API key",
+        text="Claude API key (from platform.claude.com)",
         anchor="w",
     ).pack(fill="x", padx=16, pady=(16, 4))
     key_entry = tk.Entry(root, show="*", width=58)
-    key_entry.insert(0, os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY", ""))
+    key_entry.insert(0, os.environ.get("ANTHROPIC_API_KEY", ""))
     key_entry.pack(padx=16, pady=(0, 12))
     key_entry.focus_force()
 
@@ -73,12 +80,12 @@ def _configure_google_api_key_window(app: object) -> None:
             messagebox.showerror("FocusGarden", "Enter an API key before saving.", parent=root)
             return
         try:
-            save_google_api_key(api_key)
-            os.environ["GOOGLE_API_KEY"] = api_key
-            from app.gemini import GeminiLabeler, GeminiPhotoReader
+            save_claude_api_key(api_key)
+            os.environ["ANTHROPIC_API_KEY"] = api_key
+            from app.claude import ClaudeLabeler, ClaudePhotoReader
 
-            app.state.labeler = GeminiLabeler()
-            app.state.photo_reader = GeminiPhotoReader()
+            app.state.labeler = ClaudeLabeler()
+            app.state.photo_reader = ClaudePhotoReader()
         except OSError as exc:
             messagebox.showerror("FocusGarden", f"Could not save the API key: {exc}", parent=root)
             return
@@ -86,9 +93,8 @@ def _configure_google_api_key_window(app: object) -> None:
 
     def remove() -> None:
         try:
-            delete_saved_google_api_key()
-            os.environ.pop("GOOGLE_API_KEY", None)
-            os.environ.pop("GEMINI_API_KEY", None)
+            delete_saved_claude_api_key()
+            os.environ.pop("ANTHROPIC_API_KEY", None)
             app.state.labeler = None
             app.state.photo_reader = None
         except OSError as exc:
@@ -102,14 +108,14 @@ def _configure_google_api_key_window(app: object) -> None:
     root.mainloop()
 
 
-def _configure_google_api_key(app: object) -> None:
+def _configure_claude_api_key(app: object) -> None:
     """Open the Tk window on its own UI thread, not inside the tray callback."""
     if not _api_key_window_lock.acquire(blocking=False):
         return
 
     def run_window() -> None:
         try:
-            _configure_google_api_key_window(app)
+            _configure_claude_api_key_window(app)
         finally:
             _api_key_window_lock.release()
 
@@ -117,13 +123,13 @@ def _configure_google_api_key(app: object) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the FocusGarden local backend.")
+    parser = argparse.ArgumentParser(description="Run the FocusGarden local program.")
     parser.add_argument("--host", default=os.getenv("FOCUSGARDEN_HOST", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.getenv("FOCUSGARDEN_PORT", "8765")))
     parser.add_argument("--token", default=os.getenv("FOCUSGARDEN_EXTENSION_TOKEN", ""))
     parser.add_argument(
-        "--google-api-key",
-        default=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", ""),
+        "--anthropic-api-key",
+        default=os.getenv("ANTHROPIC_API_KEY", ""),
     )
     parser.add_argument(
         "--console",
@@ -135,12 +141,12 @@ def main() -> None:
     if args.token:
         os.environ["FLORA_SHARED_SECRET"] = args.token
         os.environ["FOCUSGARDEN_EXTENSION_TOKEN"] = args.token
-    if args.google_api_key:
-        os.environ["GOOGLE_API_KEY"] = args.google_api_key
-    elif not (os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")):
-        saved_api_key = load_saved_google_api_key()
+    if args.anthropic_api_key:
+        os.environ["ANTHROPIC_API_KEY"] = args.anthropic_api_key
+    else:
+        saved_api_key = load_saved_claude_api_key()
         if saved_api_key:
-            os.environ["GOOGLE_API_KEY"] = saved_api_key
+            os.environ["ANTHROPIC_API_KEY"] = saved_api_key
     if "ACTIVITYWATCH_EXECUTABLE" not in os.environ:
         executable = _bundled_activitywatch()
         if executable is not None:
@@ -149,6 +155,7 @@ def main() -> None:
     from app.server import app
 
     if args.console:
+        print(f"FocusGarden is at {page_url(args.host, args.port)}")
         uvicorn.run(app, host=args.host, port=args.port, log_level="info")
         return
 
@@ -172,11 +179,14 @@ def main() -> None:
         if server_thread.is_alive():
             app.state.activitywatch.close()
 
+    def open_page() -> None:
+        webbrowser.open(page_url(args.host, args.port))
+
     def open_health() -> None:
-        webbrowser.open(f"http://{args.host}:{args.port}/health")
+        webbrowser.open(f"{page_url(args.host, args.port)}health")
 
     def configure_api_key() -> None:
-        _configure_google_api_key(app)
+        _configure_claude_api_key(app)
 
     def quit_application(icon: pystray.Icon, _: object) -> None:
         shutdown_server()
@@ -185,9 +195,11 @@ def main() -> None:
     icon = pystray.Icon(
         "FocusGarden",
         _tray_image(),
-        "FocusGarden local backend",
+        "FocusGarden",
         menu=pystray.Menu(
-            pystray.MenuItem("Set Google API key", lambda _icon, _item: configure_api_key()),
+            # default: also what clicking the tray icon does
+            pystray.MenuItem("Open FocusGarden", lambda _icon, _item: open_page(), default=True),
+            pystray.MenuItem("Set Claude API key", lambda _icon, _item: configure_api_key()),
             pystray.MenuItem("Open health status", lambda _icon, _item: open_health()),
             pystray.MenuItem("Quit FocusGarden", quit_application),
         ),

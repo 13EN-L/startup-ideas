@@ -1,15 +1,11 @@
-/* Popup layout only. Colors, sizes and components come from theme.css. */
+/* Main page layout only. Colors, sizes and components come from theme.css. */
 
+/* The original extension popup's narrow column, centered in the browser tab. */
 body {
-  width: var(--popup-width);
-  padding: var(--space-4);
-  font-size: var(--text-sm);
-}
-/* Opened in a full tab (for photo upload): center a popup-width column. */
-body.in-tab {
-  width: auto;
   max-width: var(--popup-width);
   margin: var(--space-6) auto;
+  padding: var(--space-4);
+  font-size: var(--text-sm);
 }
 
 .topbar {
@@ -115,7 +111,7 @@ summary { cursor: pointer; font-size: var(--text-xs); }
 .plant-canvas { width: 100%; max-width: 160px; height: auto; aspect-ratio: 1; }
 
 /* Session history and block lists */
-.history, .blocks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.history, .blocks, .running-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .history button {
   width: 100%;
   display: flex;
@@ -147,6 +143,25 @@ summary { cursor: pointer; font-size: var(--text-xs); }
 .block-meta { font-size: var(--text-xs); color: var(--color-text-muted); }
 .review-actions { display: flex; gap: var(--space-1); margin-top: var(--space-1); }
 .review-actions .btn { min-height: 30px; padding: 0 var(--space-3); font-size: var(--text-xs); }
+
+/* Tasks & groups: groups shown as neutral chips with a remove button, plus an add-group input. */
+.tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.chip-tag { background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.stack-tight { display: flex; flex-direction: column; }
+.tags { align-items: center; }
+.chip-remove {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.add-group { display: flex; gap: var(--space-1); flex: 1; min-width: 0; }
+.add-group .btn { min-height: 30px; padding: 0 var(--space-3); font-size: var(--text-xs); }
+.input-small { min-height: 30px; padding: var(--space-1) var(--space-2); font-size: var(--text-xs); }
+.breakdown[open] { display: flex; flex-direction: column; gap: var(--space-2); }
 
 /* Productive / distracting / other split. Colors match the label chips in theme.css. */
 .split { display: flex; flex-direction: column; gap: var(--space-2); }

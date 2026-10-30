@@ -5,17 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>FocusGarden</title>
   <link rel="stylesheet" href="theme.css">
-  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <header class="topbar">
     <span class="brand">🌱 FocusGarden</span>
-    <button class="link" id="open-settings" type="button">Settings</button>
+    <a class="link" id="open-settings" href="settings.html">Settings</a>
   </header>
 
   <p class="error" id="error" role="alert" hidden></p>
 
-  <!-- 1. Start a session -->
+  <div id="focus-pane">
+  <!-- Running sessions: several tasks can run at once; each card has its own Done button -->
+  <section id="running-box" hidden>
+    <h2 class="section-title">Running</h2>
+    <ul class="running-list" id="running-list"></ul>
+  </section>
+
+  <!-- 1. Start a session (the only place tasks are named), even while others run -->
   <section id="view-start" hidden>
     <div class="tabs" role="tablist">
       <button role="tab" class="tab" id="mode-computer" aria-selected="true" type="button">Computer</button>
@@ -39,7 +46,7 @@
         </label>
       </details>
       <p class="muted small" id="paper-hint" hidden>
-        You'll get a code word to write at the top of your page. Take a photo when you're done.
+        You'll get a code word to write at the top of your page. Press Done on it and take a photo when you finish.
       </p>
       <button class="btn" type="submit" id="start-btn">Start session</button>
     </form>
@@ -49,52 +56,13 @@
     <p class="muted small" id="history-empty">No sessions yet.</p>
   </section>
 
-  <!-- 2. A session is running -->
-  <section id="view-running" class="card stack" hidden>
-    <span class="stat-label" id="running-kind">Computer session</span>
-    <h1 id="running-task"></h1>
-    <div class="plant-stage" id="running-plant-box" hidden>
-      <canvas class="plant-canvas" id="running-plant"></canvas>
-      <span class="stat-label" id="running-plant-label"></span>
-    </div>
-    <div>
-      <div class="stat" id="timer">0:00</div>
-      <span class="stat-label">elapsed</span>
-    </div>
-    <div id="code-word-box" class="code-box" hidden>
-      <span class="stat-label">Write this at the top of your page</span>
-      <div class="code-word" id="code-word"></div>
-    </div>
-    <p class="muted small" id="running-hint">Work as you normally would. You can close this popup.</p>
-    <button class="btn" type="button" id="end-btn">End session</button>
-    <label class="btn" id="photo-label" hidden>
-      Upload photo of my notes
-      <input type="file" id="photo" accept="image/jpeg,image/png,image/webp" hidden>
-    </label>
-    <button class="btn" type="button" id="open-tab-btn" hidden>Continue in a tab to upload photo</button>
-  </section>
-
-  <!-- 3. Waiting for the LLM -->
-  <section id="view-working" class="card center" hidden>
-    <div class="sprout" aria-hidden="true">🌱</div>
-    <p id="working-text">Checking your session…</p>
-    <p class="muted small">This takes a few seconds.</p>
-  </section>
-
-  <!-- 4. Results and review -->
+  <!-- 2. A finished session's results and review (shown in place of the start form) -->
   <section id="view-result" hidden>
     <div class="card stack">
       <span class="stat-label" id="result-date"></span>
       <h1 id="result-task"></h1>
       <div class="stats" id="result-stats"></div>
-      <div class="split" id="result-split" hidden>
-        <div class="split-bar" aria-hidden="true">
-          <span class="seg seg-productive" id="seg-productive"></span>
-          <span class="seg seg-distracting" id="seg-distracting"></span>
-          <span class="seg seg-other" id="seg-other"></span>
-        </div>
-        <ul class="split-legend" id="split-legend"></ul>
-      </div>
+      <div class="split" id="result-split" hidden></div>
       <p class="muted small" id="distraction-line" hidden></p>
       <div class="plant-stage" id="result-plant-box" hidden>
         <canvas class="plant-canvas" id="result-plant-canvas"></canvas>
@@ -117,9 +85,32 @@
     <h2 class="section-title" id="blocks-title">What you did</h2>
     <ul class="blocks" id="block-list"></ul>
     <p class="muted small" id="paper-reason" hidden></p>
-    <button class="btn btn-secondary full" type="button" id="done-btn">Done</button>
+    <button class="btn btn-secondary full" type="button" id="close-btn">Close</button>
+  </section>
+  </div>
+
+  <!-- Tasks & groups: every session's task, with its stats; the user assigns groups here -->
+  <section id="tracker-pane">
+    <h2 class="section-title">Tasks &amp; groups</h2>
+    <div class="card stack">
+      <span class="stat-label">Today, all tasks</span>
+      <div class="stats" id="tracker-total"></div>
+      <div id="tracker-total-lines" class="stack-tight"></div>
+    </div>
+    <datalist id="tracker-group-names"></datalist>
+    <p class="muted small" id="tracker-aw-warning" hidden>
+      ActivityWatch isn't reachable, so idle time can't be told apart from work right now.</p>
+
+    <div id="tracker-groups-box" hidden>
+      <h2 class="section-title">Groups</h2>
+      <ul class="blocks" id="tracker-groups"></ul>
+    </div>
+    <h2 class="section-title">Tasks</h2>
+    <ul class="blocks" id="tracker-tasks"></ul>
+    <p class="muted small" id="tracker-empty">No tasks yet. Start a session above and its task shows up
+      here, ready to put in a group.</p>
   </section>
 
-  <script type="module" src="popup.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

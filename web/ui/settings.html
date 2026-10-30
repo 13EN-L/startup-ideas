@@ -5,7 +5,7 @@
   <title>FocusGarden settings</title>
   <link rel="stylesheet" href="theme.css">
   <style>
-    body { padding: var(--space-4); font-size: var(--text-sm); min-width: 360px; }
+    body { max-width: 520px; margin: var(--space-6) auto; padding: var(--space-4); font-size: var(--text-sm); }
     form { display: flex; flex-direction: column; gap: var(--space-4); max-width: 480px; }
     label { display: flex; flex-direction: column; gap: var(--space-1); font-weight: var(--weight-medium); }
     .row { display: flex; align-items: center; gap: var(--space-3); }
@@ -13,18 +13,8 @@
   </style>
 </head>
 <body>
+  <p><a class="muted" href="./">← Back to FocusGarden</a></p>
   <form id="settings" class="card">
-    <h2>Backend connection</h2>
-    <label>
-      Backend address
-      <input class="input" id="backendUrl" type="url" required placeholder="http://127.0.0.1:8765">
-      <span class="muted">The FocusGarden backend running on this computer.</span>
-    </label>
-    <label>
-      Shared secret
-      <input class="input" id="sharedSecret" type="password" autocomplete="off">
-      <span class="muted">Only needed if the backend was started with a secret (--token). Otherwise leave blank.</span>
-    </label>
     <h2>Distracting sites</h2>
     <label>
       Always count as off-task
@@ -34,7 +24,7 @@
     </label>
     <div class="row">
       <button class="btn" type="submit">Save</button>
-      <button class="btn btn-secondary" type="button" id="test">Test connection</button>
+      <button class="btn btn-secondary" type="button" id="test">Check activity tracking</button>
     </div>
     <p id="status" class="muted" role="status"></p>
   </form>
