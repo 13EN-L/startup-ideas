@@ -80,6 +80,18 @@ export function SetupDialog({
               </h3>
               {status.activityWatchRunning ? (
                 <p>ActivityWatch is running. FocusGarden can see which apps and sites you use during a task.</p>
+              ) : status.activityWatchBundled ? (
+                <>
+                  <p>
+                    ActivityWatch comes with FocusGarden but couldn't be started. FocusGarden needs it to see which apps
+                    and sites you use during a task.
+                  </p>
+                  <div className="setup-step__actions">
+                    <button type="button" className="btn" onClick={recheck} disabled={checking}>
+                      {checking ? 'Starting…' : 'Try again'}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <>
                   <p>

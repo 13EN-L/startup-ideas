@@ -8,7 +8,7 @@ const KEY = 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz';
 
 function setup(overrides: Partial<SetupDialogProps> = {}) {
   const props: SetupDialogProps = {
-    status: { activityWatchRunning: true, apiKey: 'missing' },
+    status: { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'missing' },
     onRecheck: vi.fn(async () => {}),
     onSaveApiKey: vi.fn(async () => ({ ok: true as const })),
     onClearApiKey: vi.fn(async () => {}),
@@ -22,17 +22,27 @@ function setup(overrides: Partial<SetupDialogProps> = {}) {
 
 describe('SetupDialog: ActivityWatch', () => {
   it('confirms when ActivityWatch is running', () => {
-    setup({ status: { activityWatchRunning: true, apiKey: 'saved' } });
+    setup({ status: { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' } });
     expect(screen.getByText(/ActivityWatch is running/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Download ActivityWatch' })).not.toBeInTheDocument();
   });
 
   it('offers a download link and a re-check when it is not running', async () => {
-    const props = setup({ status: { activityWatchRunning: false, apiKey: 'saved' } });
+    const props = setup({ status: { activityWatchRunning: false, activityWatchBundled: false, apiKey: 'saved' } });
     expect(screen.getByText(/ActivityWatch isn't running/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Download ActivityWatch' }));
     expect(props.onOpenLink).toHaveBeenCalledWith('activityWatchDownload');
     await userEvent.click(screen.getByRole('button', { name: 'Check again' }));
+    expect(props.onRecheck).toHaveBeenCalled();
+  });
+});
+
+describe('SetupDialog: bundled ActivityWatch', () => {
+  it('offers to start it again instead of a download when it ships with FocusGarden', async () => {
+    const props = setup({ status: { activityWatchRunning: false, activityWatchBundled: true, apiKey: 'saved' } });
+    expect(screen.getByText(/comes with FocusGarden but couldn't be started/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Download ActivityWatch' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(props.onRecheck).toHaveBeenCalled();
   });
 });
@@ -74,7 +84,7 @@ describe('SetupDialog: API key', () => {
   });
 
   it('can remove a saved key', async () => {
-    const props = setup({ status: { activityWatchRunning: true, apiKey: 'saved' } });
+    const props = setup({ status: { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' } });
     expect(screen.getByText(/API key saved/i)).toBeInTheDocument();
     expect(screen.queryByLabelText('Anthropic API key')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Remove saved key' }));
@@ -82,7 +92,7 @@ describe('SetupDialog: API key', () => {
   });
 
   it('explains when the key comes from the environment, and still allows saving one', () => {
-    setup({ status: { activityWatchRunning: true, apiKey: 'environment' } });
+    setup({ status: { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'environment' } });
     expect(screen.getByText(/ANTHROPIC_API_KEY/)).toBeInTheDocument();
     expect(screen.getByLabelText('Anthropic API key')).toBeInTheDocument();
   });
@@ -90,13 +100,13 @@ describe('SetupDialog: API key', () => {
 
 describe('SetupDialog: closing', () => {
   it('says "Start" when everything is ready', async () => {
-    const props = setup({ status: { activityWatchRunning: true, apiKey: 'saved' } });
+    const props = setup({ status: { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' } });
     await userEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(props.onClose).toHaveBeenCalled();
   });
 
   it('says "Skip for now" while something is missing', async () => {
-    const props = setup({ status: { activityWatchRunning: false, apiKey: 'missing' } });
+    const props = setup({ status: { activityWatchRunning: false, activityWatchBundled: false, apiKey: 'missing' } });
     await userEvent.click(screen.getByRole('button', { name: 'Skip for now' }));
     expect(props.onClose).toHaveBeenCalled();
   });

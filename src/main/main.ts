@@ -1,10 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
+import { existsSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
 import path from 'node:path';
 import { loadState, saveState } from '../core/persistence';
 import { EXTERNAL_LINKS, IPC, type ExternalLink, type SetupStatus } from '../shared/bridge';
 import type { ActiveTask, AppState } from '../shared/types';
 import { ActivityWatchClient } from './activitywatch/client';
+import {
+  bundledActivityWatchExecutable,
+  ensureActivityWatchRunning,
+  type LaunchOutcome,
+} from './activitywatch/launcher';
 import { createAnthropicClassifierModel } from './classifier/anthropicModel';
 import { fakeProcessCompletedTask } from './fakeServices';
 import { processCompletedTask } from './pipeline';
@@ -25,6 +32,32 @@ function registerIpc() {
   const settings = createSettingsStore(createFileStore(path.join(userData, 'settings.json')), safeStorage);
   const activityWatch = new ActivityWatchClient();
 
+  // Packaged builds keep ActivityWatch in resources/; `npm run dev` uses the
+  // copy fetched into vendor/ by scripts/fetch-activitywatch.mjs.
+  const resourcesDir = app.isPackaged
+    ? process.resourcesPath
+    : path.join(app.getAppPath(), 'vendor', process.platform);
+  const bundledExecutable = bundledActivityWatchExecutable(resourcesDir, process.platform);
+  const bundled = bundledExecutable !== null && existsSync(bundledExecutable);
+
+  // One start attempt at a time; later callers share it.
+  let starting: Promise<LaunchOutcome> | null = null;
+  const ensureActivityWatch = () =>
+    (starting ??= ensureActivityWatchRunning({
+      isRunning: () => activityWatch.isAvailable(),
+      executable: bundledExecutable,
+      exists: existsSync,
+      // Opened the way a double-click would: independent of FocusGarden, so it
+      // keeps tracking (from the tray) after FocusGarden closes, and it inherits
+      // none of FocusGarden's handles. Failures surface via the health check.
+      launch: (executable) => void shell.openPath(executable),
+      sleep: (ms) => sleep(ms),
+    }).finally(() => {
+      starting = null;
+    }));
+
+  if (!useFakeServices) void ensureActivityWatch();
+
   const currentApiKey = async () =>
     resolveApiKey(await settings.getApiKey(), process.env.ANTHROPIC_API_KEY);
 
@@ -32,9 +65,13 @@ function registerIpc() {
   ipcMain.handle(IPC.saveState, (_event, state: AppState) => saveState(store, state));
 
   ipcMain.handle(IPC.getSetupStatus, async (): Promise<SetupStatus> => {
-    if (useFakeServices) return { activityWatchRunning: true, apiKey: 'environment' };
+    if (useFakeServices) {
+      return { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'environment' };
+    }
+    const outcome = await ensureActivityWatch();
     return {
-      activityWatchRunning: await activityWatch.isAvailable(),
+      activityWatchRunning: outcome === 'already-running' || outcome === 'started',
+      activityWatchBundled: bundled,
       apiKey: (await currentApiKey()).source,
     };
   });
@@ -54,6 +91,8 @@ function registerIpc() {
     if (!key) {
       throw new Error('No Anthropic API key is set. Add one in Settings on the main page.');
     }
+    // Restart ActivityWatch if it was quit from the tray since FocusGarden opened.
+    await ensureActivityWatch();
     const classifier = createAnthropicClassifierModel(new Anthropic({ apiKey: key }));
     return processCompletedTask({ activityWatch, classifier }, task, endedAt);
   });

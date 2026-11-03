@@ -5,6 +5,8 @@ export type ApiKeySource = 'saved' | 'environment' | 'missing';
 
 export interface SetupStatus {
   activityWatchRunning: boolean;
+  /** True when this build ships its own ActivityWatch and starts it automatically. */
+  activityWatchBundled: boolean;
   apiKey: ApiKeySource;
 }
 

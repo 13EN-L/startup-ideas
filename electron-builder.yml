@@ -15,6 +15,11 @@ files:
   - package.json
 
 win:
+  # ActivityWatch ships inside the app (fetched by scripts/fetch-activitywatch.mjs)
+  # and FocusGarden starts it automatically; see src/main/activitywatch/launcher.ts.
+  extraResources:
+    - from: vendor/win32/activitywatch
+      to: activitywatch
   target:
     # Setup.exe: double-click and it installs for the current user (no admin
     # prompt), adds Start menu and desktop shortcuts, and opens the app.
@@ -29,6 +34,9 @@ win:
   artifactName: FocusGarden-${version}-Windows.${ext}
 
 nsis:
+  # Stops the bundled ActivityWatch before upgrading or uninstalling, so its
+  # files are not locked.
+  include: build/installer.nsh
   oneClick: true
   perMachine: false
   createDesktopShortcut: always
