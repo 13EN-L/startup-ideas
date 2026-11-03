@@ -30,6 +30,12 @@ titles can be read.
 For website-level tracking, install the ActivityWatch browser extension
 (aw-watcher-web) in your browser. Without it, browsers show up by app and window title.
 
+**Building on your own Mac:** run `npm run setup:mac-signing` once. It creates a
+self-signed "FocusGarden Dev" code-signing certificate in your login keychain (macOS asks for
+your password to trust it), and every build is then signed with it. Without it, each build gets a
+new ad-hoc signature and macOS asks again for Accessibility and keychain access after every
+rebuild. To share the app with others, sign it with an Apple Developer ID instead.
+
 **VS Code terminal:** if `npm run dev` fails with
 `Cannot read properties of undefined (reading 'isPackaged')`, run
 `unset ELECTRON_RUN_AS_NODE` first. VS Code sets it in its terminals.
@@ -47,6 +53,7 @@ For website-level tracking, install the ActivityWatch browser extension
 | `npm run make:art`                                | Regenerate placeholder pixel art (keeps real art)  |
 | `npm run build:mac` / `build:win` / `build:linux` | Package the app, with ActivityWatch bundled        |
 | `npm run build:unpack`                            | Package without an installer, for a quick check    |
+| `npm run setup:mac-signing`                       | One-time: stable signing identity for local builds |
 
 Preview a page with sample data: build with `npx electron-vite build`, then
 `node scripts/screenshot.mjs garden garden.png` (`main`, `task`, or `garden`).

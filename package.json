@@ -18,14 +18,15 @@
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "install-electron && electron-builder install-app-deps",
-    "build:unpack": "npm run fetch:aw && npm run build && electron-builder --dir",
-    "build:win": "node scripts/fetch-activitywatch.mjs --platform windows-x86_64 && npm run build && electron-builder --win",
-    "build:mac": "npm run fetch:aw && npm run build && electron-builder --mac",
-    "build:linux": "node scripts/fetch-activitywatch.mjs --platform linux-x86_64 && npm run build && electron-builder --linux",
+    "build:unpack": "npm run fetch:aw && npm run build && node scripts/package.mjs --dir",
+    "build:win": "node scripts/fetch-activitywatch.mjs --platform windows-x86_64 && npm run build && node scripts/package.mjs --win",
+    "build:mac": "npm run fetch:aw && npm run build && node scripts/package.mjs --mac",
+    "build:linux": "node scripts/fetch-activitywatch.mjs --platform linux-x86_64 && npm run build && node scripts/package.mjs --linux",
     "test": "vitest run --passWithNoTests",
     "test:mutation": "stryker run",
     "fetch:aw": "node scripts/fetch-activitywatch.mjs",
-    "make:art": "node scripts/make-placeholders.cjs"
+    "make:art": "node scripts/make-placeholders.cjs",
+    "setup:mac-signing": "node scripts/setup-mac-signing.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
