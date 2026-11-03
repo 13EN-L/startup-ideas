@@ -1,0 +1,9 @@
+/* A pixel-art box: a 4px outline drawn with hard shadows, so the corners stay notched. */
+.box {
+  border: none;
+  box-shadow:
+    0 -4px 0 0 var(--color-dark-brown),
+    0 4px 0 0 var(--color-dark-brown),
+    -4px 0 0 0 var(--color-dark-brown),
+    4px 0 0 0 var(--color-dark-brown);
+}

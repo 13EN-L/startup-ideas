@@ -1,0 +1,25 @@
+import { ui } from '../../assets/manifest'
+import styles from './HomeSign.module.css'
+
+// A fence sign labeled "home". Deactivated (greyed, not clickable) while tasks are active.
+export function HomeSign(props: {
+  active: boolean
+  onClick: () => void
+  className?: string
+}): React.JSX.Element {
+  const state = props.active ? 'active' : 'inactive'
+  return (
+    <button
+      type="button"
+      aria-label="home"
+      data-state={state}
+      disabled={!props.active}
+      onClick={props.onClick}
+      className={[styles.sign, styles[state], props.className].filter(Boolean).join(' ')}
+    >
+      <img className={styles.art} src={ui.homeSign[state]} alt="" />
+      <span className={styles.board}>home</span>
+      <span className={styles.post} />
+    </button>
+  )
+}

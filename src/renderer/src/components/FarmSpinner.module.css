@@ -1,0 +1,19 @@
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+/* Turns in quarter steps, like a pixel sprite, instead of a smooth spin. */
+.art {
+  width: 24px;
+  height: 24px;
+  animation: spin 800ms steps(4) infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

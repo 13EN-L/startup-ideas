@@ -1,0 +1,35 @@
+.button {
+  composes: box from '../styles/pixel.module.css';
+  padding: 8px 20px;
+  background: var(--color-dark-brown);
+  color: var(--color-beige);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:not(:disabled):active {
+  transform: translateY(4px);
+}
+
+.button:disabled {
+  background: var(--color-sign-post-inactive);
+  color: var(--color-sign-inactive);
+  cursor: not-allowed;
+}
+
+.input {
+  composes: box from '../styles/pixel.module.css';
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--color-input-white);
+  color: var(--color-dark-brown);
+}
+
+.input::placeholder {
+  color: var(--color-sign-inactive);
+}
+
+.select {
+  appearance: none;
+  cursor: pointer;
+}

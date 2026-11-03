@@ -1,0 +1,46 @@
+/* Pixel-art base styles. Colors come from theme.ts via CSS variables (see applyTheme). */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  font-family: 'Pixelify Sans', monospace;
+  font-size: 16px;
+  color: var(--color-dark-brown);
+  background: var(--color-sky);
+  -webkit-font-smoothing: none;
+  user-select: none;
+}
+
+img {
+  image-rendering: pixelated;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+:focus-visible {
+  outline: 4px dashed var(--color-dark-brown);
+  outline-offset: 4px;
+}

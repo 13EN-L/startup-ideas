@@ -27,6 +27,24 @@ The front end must follow this spec exactly. Ask before changing layout or behav
   real art exists. Swapping in real art must only mean replacing the file.
 - **Recent-task clouds.** On the main and task pages, 5 clouds show the names of the
   5 most recently completed tasks.
+- **Pixel-art style.** Everything looks like farm pixel art: the bundled Pixelify Sans
+  font, hard 4px dark-brown outlines with notched corners, no rounded corners,
+  gradients, blur, or soft shadows, images scaled with `image-rendering: pixelated`,
+  and motion in whole steps (`steps()` timing).
+
+### API key popup
+
+A small beige popup titled "Connect Claude" that asks for the user's Claude API key.
+
+- **When it shows:** on launch, over whichever page opens, if no key is saved.
+- **Contents, top to bottom:** the title; one sentence on why the key is needed and
+  that it's stored encrypted on this computer; a password-masked text box labeled
+  "Claude API key"; "cancel" and "save" buttons ("save" is greyed out while the box
+  is empty).
+- **Save:** sends the key to the main process (stored with `safeStorage`), clears the
+  box, and closes. If saving fails, an error line appears and the popup stays open.
+- **Cancel** (or Esc / the close button): closes without saving. Tasks still run and
+  wait for results; the popup asks again on the next launch.
 
 ## Main page
 
@@ -78,7 +96,9 @@ A vertical rectangle, top to bottom:
 
 1. **Title:** the task name.
 2. **Time bar:** a horizontal bar divided into on-task, off-task, and idle, each
-   section labeled with its percentage.
+   section labeled with its percentage. Colors: on-task green (`#7ab85f`), off-task
+   light brown (`#8c4c0c`, beige label), idle light grey (`#b7b7b7`); labels dark
+   brown. Empty sections are hidden; percentages always add up to 100.
 3. **"What you did:"** subtitle.
 4. **Scrollable list** of the apps and sites/searches visited. Each row shows the
    name, total time spent, and whether it was on-task or off-task.
