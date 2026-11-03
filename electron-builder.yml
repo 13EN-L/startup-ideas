@@ -29,6 +29,16 @@ nsis:
   createDesktopShortcut: always
 mac:
   entitlementsInherit: build/entitlements.mac.plist
+  # Ad-hoc sign the whole bundle (no Apple account needed). Without it the app keeps
+  # Electron's placeholder signature, macOS can't match it to its Accessibility permission,
+  # and ActivityWatch's window watcher keeps prompting. Replace '-' with a Developer ID
+  # identity to distribute the app; the hardened runtime is only needed for notarization.
+  identity: '-'
+  hardenedRuntime: false
+  # ActivityWatch's binaries are already signed, and re-signing its PyInstaller Python
+  # framework fails. The app's own signature still seals these files.
+  signIgnore:
+    - 'Resources/activitywatch/'
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
