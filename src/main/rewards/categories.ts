@@ -27,3 +27,19 @@ export const PLANT_FOR_CATEGORY = {
 } as const satisfies Record<Category, string>
 
 export type Plant = (typeof PLANT_FOR_CATEGORY)[Category]
+
+// The animal pool from docs/ui-spec.md. Each active task gets a different one.
+export const ANIMALS = [
+  'Cow',
+  'Horse',
+  'Pig',
+  'Sheep',
+  'Dog',
+  'Duck',
+  'Chicken',
+  'Donkey',
+  'Goat',
+  'Cat'
+] as const
+
+export type Animal = (typeof ANIMALS)[number]
