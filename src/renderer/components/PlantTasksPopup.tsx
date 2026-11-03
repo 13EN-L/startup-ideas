@@ -1,13 +1,20 @@
-// Garden plot click: a scrollable history of every completed task in that
-// plant's category, newest first. Picking one opens its result popup on top.
+// Garden plot click: the plant's growth (focus time, stage, growth, prestige),
+// a short description of the plant, then a scrollable history of every
+// completed task in its category, newest first. Picking a task opens its
+// result popup on top.
 import { useId } from 'react';
-import { formatDuration } from '../../core/tasks';
-import { CATEGORIES } from '../../shared/constants';
+import { getPlantGrowth } from '../../core/growth';
+import { formatDuration, formatFocusTime } from '../../core/tasks';
+import { CATEGORIES, GROWTH_STAGES } from '../../shared/constants';
 import type { CategoryId, CompletedTask } from '../../shared/types';
 import { useEscape } from './useEscape';
 
 export interface PlantTasksPopupProps {
   category: CategoryId;
+  /** The plant's accumulated productive minutes. */
+  totalMinutes: number;
+  /** From assets/plants/<plant>/about.txt; null when there is none, undefined while loading. */
+  about?: string | null;
   /** Already ordered newest first. */
   tasks: CompletedTask[];
   onSelectTask: (taskId: string) => void;
@@ -19,10 +26,20 @@ export interface PlantTasksPopupProps {
 const formatDate = (epochMs: number) =>
   new Date(epochMs).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
-export function PlantTasksPopup({ category, tasks, onSelectTask, onClose, active = true }: PlantTasksPopupProps) {
+export function PlantTasksPopup({
+  category,
+  totalMinutes,
+  about,
+  tasks,
+  onSelectTask,
+  onClose,
+  active = true,
+}: PlantTasksPopupProps) {
   const titleId = useId();
   useEscape(onClose, active);
   const plant = CATEGORIES.find((c) => c.id === category)!;
+  const growth = getPlantGrowth(totalMinutes);
+  const growthPercent = Math.floor(growth.cycleProgress * 100);
 
   return (
     <div className="overlay">
@@ -33,6 +50,39 @@ export function PlantTasksPopup({ category, tasks, onSelectTask, onClose, active
         <p className="popup__meta">
           {plant.plantLabel} · {tasks.length} completed
         </p>
+
+        <dl className="plant-stats" aria-label={`${plant.plantLabel} growth`}>
+          <div className="plant-stats__item">
+            <dt>Focus time</dt>
+            <dd>{formatFocusTime(totalMinutes)}</dd>
+          </div>
+          <div className="plant-stats__item">
+            <dt>Stage</dt>
+            <dd>
+              {growth.stage} of {GROWTH_STAGES}
+            </dd>
+          </div>
+          <div className="plant-stats__item">
+            <dt>Growth</dt>
+            <dd>{growthPercent}%</dd>
+          </div>
+          <div className="plant-stats__item">
+            <dt>Prestige</dt>
+            <dd>{growth.prestige}</dd>
+          </div>
+        </dl>
+        <div
+          className="growth-bar"
+          role="progressbar"
+          aria-label="Growth this cycle"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={growthPercent}
+        >
+          <div className="growth-bar__fill" style={{ width: `${growthPercent}%` }} />
+        </div>
+
+        {about && <p className="plant-about">{about}</p>}
 
         {tasks.length > 0 ? (
           <ul className="task-history" aria-label={`${plant.label} tasks`}>

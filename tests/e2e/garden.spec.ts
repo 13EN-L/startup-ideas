@@ -46,6 +46,9 @@ test('clicking a plant lists its tasks, including ones no longer in a cloud, and
     await page.getByRole('button', { name: 'Pine: Work tasks' }).click();
     const history = page.getByRole('dialog', { name: 'Work tasks' });
     await expect(history.getByRole('listitem')).toHaveCount(6);
+    // Read from public/assets/plants/pine/about.txt in the built app.
+    await expect(history.getByText(/^Pines are evergreen conifers/)).toBeVisible();
+    await expect(history.getByText('Stage', { exact: true })).toBeVisible();
 
     await history.getByRole('button', { name: /Report 1/ }).click();
     const result = page.getByRole('dialog', { name: 'Report 1' });

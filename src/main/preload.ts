@@ -11,6 +11,7 @@ const IPC: typeof SharedIPC = {
   saveApiKey: 'setup:save-api-key',
   clearApiKey: 'setup:clear-api-key',
   openExternal: 'app:open-external',
+  getPlantAbout: 'plants:about',
 };
 
 const bridge: FocusGardenBridge = {
@@ -21,6 +22,7 @@ const bridge: FocusGardenBridge = {
   saveApiKey: (key) => ipcRenderer.invoke(IPC.saveApiKey, key),
   clearApiKey: () => ipcRenderer.invoke(IPC.clearApiKey),
   openExternal: (link) => ipcRenderer.invoke(IPC.openExternal, link),
+  getPlantAbout: (category) => ipcRenderer.invoke(IPC.getPlantAbout, category),
 };
 
 contextBridge.exposeInMainWorld('focusGarden', bridge);

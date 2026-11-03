@@ -53,3 +53,28 @@ test('#19 stopping a task walks the animal out and creates a result cloud', asyn
   await expect(popup.getByText('What you did:')).toBeVisible();
   await expect(popup.getByRole('list', { name: 'What you did' }).getByRole('listitem')).not.toHaveCount(0);
 });
+
+test('#19 the gate and walk-out take 4 seconds in total', async () => {
+  const { page } = launched;
+  await page.getByRole('button', { name: 'Tasks' }).click();
+  await startTask(page, 'Slow exit', 'Home');
+
+  const animal = page.getByRole('button', { name: /^Slow exit \(/ });
+  const gate = page.getByTestId('pen-gate');
+  await animal.click();
+  await page.getByRole('button', { name: 'Stop' }).click();
+
+  const seconds = (value: string) => parseFloat(value);
+  const walk = seconds(await animal.evaluate((el) => getComputedStyle(el).animationDuration));
+  const swing = seconds(await gate.evaluate((el) => getComputedStyle(el).transitionDuration));
+  expect(walk).toBe(3.2);
+  expect(swing).toBe(0.8);
+  // The gate swings shut after the animal has left, so the whole thing is walk + closing swing.
+  expect(walk + swing).toBeCloseTo(4);
+
+  await expect(gate).toHaveAttribute('data-open', 'true');
+  await page.waitForTimeout(2500);
+  await expect(animal).toBeVisible(); // still walking out
+  await expect(animal).toHaveCount(0, { timeout: 3000 });
+  await expect(gate).toHaveAttribute('data-open', 'false');
+});

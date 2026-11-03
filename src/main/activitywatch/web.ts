@@ -1,6 +1,7 @@
-// Turns browser data into named activities: a website (hostname or page
-// title) or a search ("Google search: cats"). Search words are kept because
-// they say a lot about whether a search was on task.
+// Turns browser data into named activities: a web page ("github.com — org/repo",
+// or just the page title without the extension) or a search ("Google search:
+// cats"). Page titles and search words are kept because they say a lot about
+// whether the page was on task.
 import type { ActivitySource } from '../../shared/types';
 
 export interface NamedActivity {
@@ -56,8 +57,11 @@ const SEARCH_URLS: { engine: string; host: RegExp; path: RegExp; param: string }
   { engine: 'YouTube', host: /^(www\.|m\.)?youtube\.com$/, path: /^\/results/, param: 'search_query' },
 ];
 
-/** From the aw-watcher-web extension: a search, or the site's hostname. */
-export function activityFromUrl(url: string): NamedActivity {
+/**
+ * From the aw-watcher-web extension: a search, or one page as
+ * "<hostname> — <page title>" (just the hostname when the tab has no title).
+ */
+export function activityFromUrl(url: string, title = ''): NamedActivity {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -71,7 +75,9 @@ export function activityFromUrl(url: string): NamedActivity {
       return search(engine.engine, query);
     }
   }
-  return { name: host.replace(/^www\./, '') || shorten(url), source: 'web' };
+  const site = host.replace(/^www\./, '') || shorten(url);
+  const page = title.trim();
+  return { name: page ? `${site} — ${shorten(page)}` : site, source: 'web' };
 }
 
 // "<page> - Google Chrome", "<page> — Mozilla Firefox", "<page> - Microsoft​ Edge" (with a zero-width space).

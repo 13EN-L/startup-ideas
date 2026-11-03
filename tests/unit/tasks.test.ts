@@ -5,6 +5,7 @@ import {
   completeTask,
   elapsedSeconds,
   formatDuration,
+  formatFocusTime,
   homeButtonState,
   pickAnimal,
   startTask,
@@ -176,5 +177,19 @@ describe('#19 homeButtonState', () => {
       signColor: COLORS.darkGrey,
       postColor: COLORS.lightGrey,
     });
+  });
+});
+
+describe('formatFocusTime', () => {
+  it.each([
+    [0, '0 min'],
+    [0.9, '0 min'],
+    [45, '45 min'],
+    [60, '1 h 0 min'],
+    [125.7, '2 h 5 min'],
+    [-3, '0 min'],
+    [Number.NaN, '0 min'],
+  ])('%s minutes -> %s', (minutes, text) => {
+    expect(formatFocusTime(minutes)).toBe(text);
   });
 });

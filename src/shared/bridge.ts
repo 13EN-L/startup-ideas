@@ -1,4 +1,4 @@
-import type { ActiveTask, AppState, CompletedTask } from './types';
+import type { ActiveTask, AppState, CategoryId, CompletedTask } from './types';
 
 /** Where the Anthropic API key comes from; a key saved in the app wins. */
 export type ApiKeySource = 'saved' | 'environment' | 'missing';
@@ -38,6 +38,8 @@ export interface FocusGardenBridge {
   saveApiKey(key: string): Promise<SaveApiKeyResult>;
   clearApiKey(): Promise<void>;
   openExternal(link: ExternalLink): Promise<void>;
+  /** The plant's description from assets/plants/<plant>/about.txt, or null if there is none. */
+  getPlantAbout(category: CategoryId): Promise<string | null>;
 }
 
 export const IPC = {
@@ -48,4 +50,5 @@ export const IPC = {
   saveApiKey: 'setup:save-api-key',
   clearApiKey: 'setup:clear-api-key',
   openExternal: 'app:open-external',
+  getPlantAbout: 'plants:about',
 } as const;

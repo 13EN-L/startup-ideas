@@ -27,9 +27,32 @@ describe('activityFromUrl', () => {
     expect(activityFromUrl(url)).toEqual({ name, source: 'search' });
   });
 
-  it('uses the hostname without www for other pages', () => {
+  it('names other pages by hostname (without www) and page title', () => {
+    expect(activityFromUrl('https://github.com/13EN-L/startup-ideas', 'GitHub - 13EN-L/startup-ideas')).toEqual({
+      name: 'github.com — GitHub - 13EN-L/startup-ideas',
+      source: 'web',
+    });
+    expect(activityFromUrl('https://www.youtube.com/watch?v=x', '  Lofi beats - YouTube ')).toEqual({
+      name: 'youtube.com — Lofi beats - YouTube',
+      source: 'web',
+    });
+  });
+
+  it('uses just the hostname when the tab has no title', () => {
     expect(activityFromUrl('https://www.github.com/org/repo?q=ignored')).toEqual({ name: 'github.com', source: 'web' });
-    expect(activityFromUrl('https://www.youtube.com/watch?v=x')).toEqual({ name: 'youtube.com', source: 'web' });
+    expect(activityFromUrl('https://www.github.com/org/repo', '   ')).toEqual({ name: 'github.com', source: 'web' });
+  });
+
+  it('shortens very long page titles', () => {
+    const { name } = activityFromUrl('https://example.com/', 'x'.repeat(300));
+    expect(name).toBe(`example.com — ${'x'.repeat(119)}…`);
+  });
+
+  it('names searches by query, not by the results page title', () => {
+    expect(activityFromUrl('https://www.google.com/search?q=cats', 'cats - Google Search')).toEqual({
+      name: 'Google search: cats',
+      source: 'search',
+    });
   });
 
   it('treats an engine page without a query as the website', () => {

@@ -19,11 +19,11 @@ const endedAt = T0 + 30 * MINUTE;
 describe('#17 processCompletedTask', () => {
   const statuses = {
     'app:Code': 'on-task',
-    'web:github.com': 'on-task',
+    'web:github.com — Login fails on Safari · Issue #1 · org/repo': 'on-task',
     'web:Pull request #2 · org/repo': 'on-task',
     'search:Google search: fix login bug': 'on-task',
     'app:Slack': 'off-task',
-    'web:youtube.com': 'off-task',
+    'web:youtube.com — Lofi beats to study to - YouTube': 'off-task',
     'search:Google search: cats': 'off-task',
   } as const;
 
@@ -43,8 +43,8 @@ describe('#17 processCompletedTask', () => {
       metrics: { productiveSeconds: 1200, unproductiveSeconds: 360, idleSeconds: 240 },
     });
     expect(done.activities).toContainEqual({
-      id: 'web:youtube.com',
-      name: 'youtube.com',
+      id: 'web:youtube.com — Lofi beats to study to - YouTube',
+      name: 'youtube.com — Lofi beats to study to - YouTube',
       source: 'web',
       seconds: 120,
       status: 'off-task',
@@ -67,7 +67,7 @@ describe('#17 processCompletedTask', () => {
 
     const sent = JSON.stringify(classifier.complete.mock.calls[0]);
     expect(sent).toContain('Google search: fix login bug');
-    expect(sent).toContain('github.com');
+    expect(sent).toContain('Login fails on Safari · Issue #1 · org/repo');
     expect(sent).not.toMatch(/afk|idle/i);
     expect(sent).not.toContain('chrome.exe');
   });

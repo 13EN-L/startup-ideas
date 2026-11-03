@@ -19,6 +19,7 @@ function fakeBridge(initial: AppState, finished?: CompletedTask, setup: SetupSta
     saveApiKey: vi.fn(async (_key: string) => ({ ok: true as const })),
     clearApiKey: vi.fn(async () => {}),
     openExternal: vi.fn(async () => {}),
+    getPlantAbout: vi.fn(async (): Promise<string | null> => 'Pines are evergreen conifers.'),
   } satisfies FocusGardenBridge;
 }
 

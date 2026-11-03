@@ -113,6 +113,14 @@ export function formatDuration(seconds: number): string {
   return hours > 0 ? `${hours}:${pad2(minutes)}:${pad2(secs)}` : `${pad2(minutes)}:${pad2(secs)}`;
 }
 
+/** Whole minutes as "45 min" or "2 h 5 min"; "0 min" for under a minute. */
+export function formatFocusTime(minutes: number): string {
+  const total = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes)) : 0;
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  return hours > 0 ? `${hours} h ${rest} min` : `${rest} min`;
+}
+
 export function homeButtonState(activeTasks: ActiveTask[]): HomeButtonState {
   const disabled = activeTasks.length > 0;
   return disabled

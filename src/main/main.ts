@@ -16,6 +16,7 @@ import {
 import { createAnthropicClassifierModel } from './classifier/anthropicModel';
 import { fakeProcessCompletedTask } from './fakeServices';
 import { processCompletedTask } from './pipeline';
+import { readPlantAbout } from './plantAbout';
 import { createSettingsStore, resolveApiKey, saveApiKey } from './settings';
 import { createFileStore } from './storage/fileStore';
 import { verifyAnthropicApiKey } from './verifyApiKey';
@@ -93,6 +94,12 @@ function registerIpc() {
     // Only named links, so the renderer can never open an arbitrary URL.
     if (Object.hasOwn(EXTERNAL_LINKS, link)) await shell.openExternal(EXTERNAL_LINKS[link]);
   });
+
+  // Vite serves public/ in development and copies it into dist/ for builds.
+  const assetsRoot = process.env.VITE_DEV_SERVER_URL
+    ? path.join(app.getAppPath(), 'public', 'assets')
+    : path.join(__dirname, '../../dist/assets');
+  ipcMain.handle(IPC.getPlantAbout, (_event, category: string) => readPlantAbout(assetsRoot, String(category)));
 
   ipcMain.handle(IPC.finishTask, async (_event, task: ActiveTask, endedAt: number) => {
     if (useFakeServices) return fakeProcessCompletedTask(task, endedAt);

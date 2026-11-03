@@ -4,7 +4,7 @@
 - **Continuous Tracking**: ActivityWatch tracks user activity (apps, websites, searches) continuously in the background.
 - **Task Indexing**: The app indexes the timestamp between when a user starts a task and ends it.
 - **Idle Removal (local)**: Idle time comes from ActivityWatch's AFK watcher (no keyboard/mouse input for 3 minutes, its default `timeout`). It is computed locally, removed from the app/website time it overlaps, and **never sent to Claude**.
-- **Websites & Searches**: Browser time is split into websites and searches and the browser itself is not listed (no double counting). Sources, in order of preference: the `aw-watcher-web` browser extension (site hostname; searches with their query, e.g. `Google search: react hooks`), otherwise the browser window's page title (Google/DuckDuckGo/Brave results titles become searches). Settings shows whether the extension is connected and links to it; it is optional.
+- **Websites & Searches**: Browser time is split into websites and searches and the browser itself is not listed (no double counting). Sources, in order of preference: the `aw-watcher-web` browser extension (one entry per page as `"hostname — page title"`, e.g. `github.com — 13EN-L/startup-ideas`; searches with their query, e.g. `Google search: react hooks`), otherwise the browser window's page title (Google/DuckDuckGo/Brave results titles become searches). Settings shows whether the extension is connected and links to it; it is optional.
 - **AI Classification**: Upon task completion, the remaining apps, websites and searches are bundled into a prompt sent to the **Claude API** to classify each item as *on-task* or *off-task*. Claude is used only for this on/off-task decision.
 - **Metrics Calculation**: The app computes total productive time, unproductive time, and idle time; together they add up to the session length.
 
@@ -34,7 +34,7 @@
   - Max **3 animals** active at once. The "start task" button grays out when 3 animals are active.
   - Each active task spawns 1 random animal from the 10-animal pool in the center of its 1/3rd region, featuring a nametag with the task name and a subtle left/right walking/flipping animation.
   - **Home Button**: Dark brown (`#4c2802`) when 0 active tasks (allowing navigation home). Grayed out (`#b7b7b7` / `#666666`) when 1 to 3 tasks are active.
-  - **Completing Tasks**: Clicking an animal opens a popup showing elapsed time and a `"Stop"` button. Clicking Stop opens the fence door, and the animal walks out into the horizon and disappears, freeing up a slot.
+  - **Completing Tasks**: Clicking an animal opens a popup showing elapsed time and a `"Stop"` button. Clicking Stop opens the fence door, and the animal walks out into the horizon and disappears, freeing up a slot; the door then swings shut. The whole sequence takes **4 seconds**: gate opens (0.8 s) as the animal sets off, the walk-out lasts 3.2 s, and the gate closes (0.8 s) after it.
 
 ### C. Garden Page
 - **Layout**:
@@ -45,7 +45,9 @@
   - If < 5 plants, centered and symmetric. If > 5 plants, plots 1–5 are in the upper half, and plots 6–10 are in the lower half.
 - **Task History (plant click)**:
   - Every completed task is stored, not only the 5 shown as clouds.
-  - Clicking a plot opens a vertical popup titled `"<Category> tasks"` (e.g. `"Work tasks"` for the Pine) with a scrollable list of **all** completed tasks in that category, newest first. Each row shows the task name, completion date and on-task time.
+  - Clicking a plot opens a vertical popup titled `"<Category> tasks"` (e.g. `"Work tasks"` for the Pine). Above the list it shows the plant's total productive (focus) time, growth stage (`"N of 6"`), growth percentage through the current 36-minute cycle (number and bar), the plant's own prestige, and a sentence or two about the plant.
+  - The plant description is plain text in `public/assets/plants/<plant>/about.txt`, beside the stage images, so developers edit it the same way they swap art. A missing or empty file just hides the description.
+  - Below that, a scrollable list of **all** completed tasks in that category, newest first. Each row shows the task name, completion date and on-task time.
   - Clicking a row opens that task's result popup (same as clicking a cloud: title, breakdown bar, `"What you did:"`) on top of the list. Closing it (Close or Esc) returns to the list.
 - **Trophy & Prestige System**:
   - Global prestige counter sums up all individual plant prestiges.

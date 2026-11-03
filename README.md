@@ -95,7 +95,7 @@ An animal (one of cow, horse, pig, sheep, dog, duck, chicken, donkey, goat or ca
 ### Finishing a task
 
 1. **Click the task's animal.** A popup shows how long the task has been running.
-2. Click **Stop**. The gate swings open and the animal walks out of the pen.
+2. Click **Stop**. The gate swings open, the animal walks out of the pen, and the gate swings shut behind it (about 4 seconds in all).
 3. FocusGarden analyses the session (this takes a few seconds). When it's done, a new cloud with the task's name appears in the sky.
 
 Click **Close** (or press Esc) to dismiss the popup without stopping the task.
@@ -119,7 +119,7 @@ To change the 3 minutes, edit `timeout` (in seconds) in ActivityWatch's `aw-watc
 
 Time in a web browser is split into the sites and searches you used, and the browser itself isn't listed, so nothing is counted twice:
 
-- **With the ActivityWatch browser extension** (see [First launch](#first-launch)), each site appears by its address, such as `github.com`, and searches on Google, Bing, DuckDuckGo, Brave, Ecosia, Yahoo and YouTube appear with what you searched for, such as `Google search: react hooks`.
+- **With the ActivityWatch browser extension** (see [First launch](#first-launch)), each page appears with its site and title, such as `github.com — 13EN-L/startup-ideas: Pull request #2`, and is classified on its own. Searches on Google, Bing, DuckDuckGo, Brave, Ecosia, Yahoo and YouTube appear with what you searched for, such as `Google search: react hooks`.
 - **Without it**, FocusGarden uses the browser window's page title, such as `Pull request #2 · org/repo`. Google, DuckDuckGo and Brave searches are still recognised from their titles.
 
 Each site and search is classified on-task or off-task on its own, so an on-topic search counts toward your plant even if the next video doesn't.
@@ -159,7 +159,12 @@ The clouds drifting across the Garden sky are decoration only: they carry no tas
 
 ### Task history
 
-Click a plant in the Garden to see **every completed task in its category**, newest first. For example, clicking the Pine lists all your Work tasks. Each row shows the task name, the date you finished it and its on-task time. The list scrolls when it gets long.
+Click a plant in the Garden to see how it's doing and **every completed task in its category**. For example, clicking the Pine shows:
+
+- **Focus time:** all the productive time that has gone into the plant.
+- **Stage** (1 to 6), **Growth** (how far through its current 36-minute cycle, also shown as a bar) and the plant's **Prestige**.
+- A sentence or two about the plant.
+- All your Work tasks, newest first. Each row shows the task name, the date you finished it and its on-task time. The list scrolls when it gets long.
 
 Click a task in the list to open its results (the same breakdown bar and **What you did:** list as a cloud). **Close** or Esc closes the results and returns you to the list; press it again to close the list.
 
@@ -186,7 +191,7 @@ Your API key in `settings.json` is encrypted with your operating system's creden
 ## Privacy
 
 - ActivityWatch data stays on your computer. FocusGarden reads it only for the time between starting and stopping a task.
-- For each completed task, FocusGarden sends Claude the **task name, its category, and the list of app names, websites and searches** with time spent on each. Websites are sent as their domain (for example `github.com`) when the browser extension is installed, or as the browser's **page title** without it. Searches are sent with the **words you searched for** (for example `Google search: react hooks`).
+- For each completed task, FocusGarden sends Claude the **task name, its category, and the list of app names, websites and searches** with time spent on each. Web pages are sent as their domain and **page title** (for example `github.com — 13EN-L/startup-ideas`) when the browser extension is installed, or as the page title alone without it. Searches are sent with the **words you searched for** (for example `Google search: react hooks`).
 - It does **not** send full URLs, page contents, window titles of apps other than your browser, or idle time. Idle time is worked out on your computer.
 - When you save an API key, FocusGarden makes one request to Anthropic to check that the key works.
 
@@ -212,11 +217,14 @@ Animals, plants, clouds and trophies currently use transparent placeholder image
 public/assets/
 ├── animals/<animal>.png              cow.png, horse.png, …
 ├── plants/<plant>/stage-1.png … stage-6.png
+├── plants/<plant>/about.txt          the plant's description
 ├── clouds/cloud.png
 └── trophies/bronze.png, silver.png, gold.png
 ```
 
 `npm run assets:placeholders` recreates any missing placeholders and never overwrites real art.
+
+**Plant descriptions** work the same way: edit the plain text in `public/assets/plants/<plant>/about.txt` (for example `pine/about.txt`), then rebuild. It appears above the task list when that plant is clicked in the Garden. Keep it to a sentence or two. If the file is missing or empty, the popup simply leaves the description out.
 
 ## For developers
 

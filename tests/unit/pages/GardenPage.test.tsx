@@ -8,9 +8,16 @@ import { GardenPage } from '../../../src/renderer/pages/GardenPage';
 import { CATEGORIES } from '../../../src/shared/constants';
 import { makeCompletedTask } from '../../fixtures';
 
-function renderGarden(plants: Plants, onNavigateHome = vi.fn(), completedTasks = [makeCompletedTask({ name: 'Essay' })]) {
-  render(<GardenPage plants={plants} completedTasks={completedTasks} onNavigateHome={onNavigateHome} />);
-  return { onNavigateHome };
+function renderGarden(
+  plants: Plants,
+  onNavigateHome = vi.fn(),
+  completedTasks = [makeCompletedTask({ name: 'Essay' })],
+  loadPlantAbout = vi.fn(async (category: string): Promise<string | null> => `About the ${category} plant.`),
+) {
+  render(
+    <GardenPage plants={plants} completedTasks={completedTasks} loadPlantAbout={loadPlantAbout} onNavigateHome={onNavigateHome} />,
+  );
+  return { onNavigateHome, loadPlantAbout };
 }
 
 const allPlants = Object.fromEntries(
@@ -129,6 +136,22 @@ describe('GardenPage plant task history', () => {
 
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows the plant\'s growth and its description above the list', async () => {
+    const { loadPlantAbout } = renderGarden({ work: { category: 'work', totalMinutes: 36 + 9 } }, vi.fn(), tasks);
+    await userEvent.click(screen.getByRole('button', { name: 'Pine: Work tasks' }));
+    const dialog = screen.getByRole('dialog', { name: 'Work tasks' });
+    expect(within(dialog).getByText('45 min')).toBeInTheDocument();
+    expect(within(dialog).getByText('Prestige').nextSibling).toHaveTextContent('1');
+    expect(await within(dialog).findByText('About the work plant.')).toBeInTheDocument();
+    expect(loadPlantAbout).toHaveBeenCalledWith('work');
+  });
+
+  it('still opens the list when the description can\'t be loaded', async () => {
+    renderGarden(plants, vi.fn(), tasks, vi.fn(async () => Promise.reject(new Error('missing'))));
+    await userEvent.click(screen.getByRole('button', { name: 'Pine: Work tasks' }));
+    expect(await screen.findByRole('list', { name: 'Work tasks' })).toBeInTheDocument();
   });
 
   it('starts with no task open when the list is reopened', async () => {

@@ -15,8 +15,8 @@ export interface AnimalPenProps {
   onStopTask: (taskId: string, endedAt: number) => void;
 }
 
-/** Longer than the CSS exit animation; frees the slot if animationend never fires. */
-const EXIT_FALLBACK_MS = 4000;
+/** Longer than the CSS exit walk (--exit-walk); frees the slot if animationend never fires. */
+const EXIT_FALLBACK_MS = 5000;
 
 export function AnimalPen({ activeTasks, now, onStopTask }: AnimalPenProps) {
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);

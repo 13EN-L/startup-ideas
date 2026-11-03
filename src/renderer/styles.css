@@ -9,6 +9,12 @@
   --light-grey: #b7b7b7;
   --dark-grey: #666666;
 
+  /* Stopping a task takes 4 s in all: the gate swings open while the animal
+     sets off, the animal walks out, then the gate swings shut behind it.
+     Keep EXIT_FALLBACK_MS in AnimalPen.tsx longer than --exit-walk. */
+  --gate-swing: 0.8s;
+  --exit-walk: 3.2s; /* --exit-walk + --gate-swing (closing) = 4 s */
+
   --radius: 10px;
   --outline: 4px solid var(--dark-brown);
   --font: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
@@ -384,7 +390,7 @@ button.cloud__body:hover {
     linear-gradient(var(--beige), var(--beige)) 0 22px / 100% 6px no-repeat,
     linear-gradient(90deg, var(--beige) 0 8px, transparent 8px calc(100% - 8px), var(--beige) calc(100% - 8px));
   transform-origin: left center;
-  transition: transform 0.6s ease;
+  transition: transform var(--gate-swing) ease-in-out;
   pointer-events: none;
 }
 
@@ -448,7 +454,7 @@ button.cloud__body:hover {
 
 /* Stop: walk to the open gate, then off towards the horizon. */
 .animal[data-state='exiting'] {
-  animation: walk-out 2.6s ease-in forwards;
+  animation: walk-out var(--exit-walk) ease-in forwards;
   pointer-events: none;
 }
 
@@ -615,8 +621,56 @@ button.cloud__body:hover {
 }
 
 .popup--plant-tasks {
-  width: min(420px, 92vw);
-  height: min(620px, 86vh);
+  width: min(460px, 92vw);
+  height: min(720px, 90vh);
+}
+
+.plant-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.plant-stats__item {
+  padding: 8px 6px;
+  border: 2px solid var(--dark-brown);
+  border-radius: 8px;
+  background: var(--input-white);
+  text-align: center;
+}
+
+.plant-stats dt {
+  color: var(--dark-grey);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plant-stats dd {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.growth-bar {
+  height: 12px;
+  margin-top: -4px;
+  border: 2px solid var(--dark-brown);
+  border-radius: 999px;
+  background: var(--input-white);
+  overflow: hidden;
+}
+
+.growth-bar__fill {
+  height: 100%;
+  background: var(--grass);
+}
+
+.plant-about {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 .task-history {

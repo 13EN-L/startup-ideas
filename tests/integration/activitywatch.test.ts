@@ -66,11 +66,11 @@ describe('#17 collectTaskActivity', () => {
     const { activities } = await collect();
     expect(activities).toEqual([
       { id: 'app:Code', name: 'Code', source: 'app', seconds: 600 },
-      { id: 'web:github.com', name: 'github.com', source: 'web', seconds: 240 },
+      { id: 'web:github.com — Login fails on Safari · Issue #1 · org/repo', name: 'github.com — Login fails on Safari · Issue #1 · org/repo', source: 'web', seconds: 240 },
       { id: 'web:Pull request #2 · org/repo', name: 'Pull request #2 · org/repo', source: 'web', seconds: 240 },
       { id: 'app:Slack', name: 'Slack', source: 'app', seconds: 180 },
       { id: 'search:Google search: fix login bug', name: 'Google search: fix login bug', source: 'search', seconds: 120 },
-      { id: 'web:youtube.com', name: 'youtube.com', source: 'web', seconds: 120 },
+      { id: 'web:youtube.com — Lofi beats to study to - YouTube', name: 'youtube.com — Lofi beats to study to - YouTube', source: 'web', seconds: 120 },
       { id: 'search:Google search: cats', name: 'Google search: cats', source: 'search', seconds: 60 },
     ]);
   });
@@ -135,9 +135,9 @@ describe('#17 collectTaskActivity', () => {
     const buckets = BUCKETS.filter((b) => b.type !== 'currentwindow');
     const { activities, idleSeconds } = await collect(buckets, EVENTS);
     expect(activities.map((a) => [a.name, a.seconds])).toEqual([
-      ['github.com', 240],
+      ['github.com — Login fails on Safari · Issue #1 · org/repo', 240],
       ['Google search: fix login bug', 120],
-      ['youtube.com', 120],
+      ['youtube.com — Lofi beats to study to - YouTube', 120],
     ]);
     expect(idleSeconds).toBe(240);
   });

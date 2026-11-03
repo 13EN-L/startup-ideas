@@ -15,7 +15,7 @@ export const BUCKETS: AWBucket[] = [
  *
  * Minute by minute:
  *  0-5   Code (an event that started 5 minutes before the task)
- *  5-15  Chrome: extension saw github.com 5-9 and youtube.com 9-11; nothing 11-15,
+ *  5-15  Chrome: extension saw a GitHub issue 5-9 and a YouTube video 9-11; nothing 11-15,
  *        so the window title "Pull request #2 · org/repo" fills in
  * 15-20  Code
  * 20-23  Slack
@@ -23,8 +23,8 @@ export const BUCKETS: AWBucket[] = [
  *        after, so the title "cats - Google Search" fills in 25-26
  * 26-30  away from the keyboard (the AFK event runs on past the task's end)
  *
- * Expected: Code 600 s, github.com 240, Pull request 240, Slack 180,
- * "Google search: fix login bug" 120, youtube.com 120, "Google search: cats" 60,
+ * Expected: Code 600 s, the GitHub issue 240, Pull request 240, Slack 180,
+ * "Google search: fix login bug" 120, the YouTube video 120, "Google search: cats" 60,
  * idle 240. Together that is exactly the 1800-second session.
  */
 export const EVENTS: Record<string, AWEvent[]> = {
@@ -38,8 +38,8 @@ export const EVENTS: Record<string, AWEvent[]> = {
   ],
   'aw-watcher-web-chrome_desk': [
     { timestamp: at(23), duration: 120, data: { url: 'https://www.google.com/search?q=fix+login+bug', title: 'fix login bug - Google Search' } },
-    { timestamp: at(9), duration: 120, data: { url: 'https://www.youtube.com/watch?v=x', title: 'Video' } },
-    { timestamp: at(5), duration: 240, data: { url: 'https://github.com/org/repo/issues/1', title: 'Bug' } },
+    { timestamp: at(9), duration: 120, data: { url: 'https://www.youtube.com/watch?v=x', title: 'Lofi beats to study to - YouTube' } },
+    { timestamp: at(5), duration: 240, data: { url: 'https://github.com/org/repo/issues/1', title: 'Login fails on Safari · Issue #1 · org/repo' } },
   ],
   'aw-watcher-afk_desk': [
     { timestamp: at(26), duration: 360, data: { status: 'afk' } },

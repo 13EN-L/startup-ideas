@@ -21,7 +21,7 @@ import type {
 import { activityFromPageTitle, activityFromUrl, isBrowserApp } from './web';
 
 export interface TaskActivity {
-  /** Apps by app name, websites by hostname or page title, and searches; sorted by time spent, descending. */
+  /** Apps by app name, web pages ("hostname — title", or the title alone), and searches; sorted by time spent, descending. */
   activities: ActivityItem[];
   idleSeconds: number;
 }
@@ -119,7 +119,7 @@ export async function collectTaskActivity(
   };
 
   const web = webEvents
-    .map((e) => ({ span: clip(e, range), activity: activityFromUrl(e.data.url) }))
+    .map((e) => ({ span: clip(e, range), activity: activityFromUrl(e.data.url, e.data.title) }))
     .filter((w): w is { span: Span; activity: ReturnType<typeof activityFromUrl> } => w.span !== null)
     .sort((a, b) => a.span[0] - b.span[0]);
 

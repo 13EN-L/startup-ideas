@@ -1,7 +1,7 @@
 // Issue #18: decorative conveyor-belt clouds (top 1/3), grass with category
 // plots (bottom 2/3), trophies and global prestige under the logo. Clicking a
 // plot lists that category's completed tasks; clicking one shows its results.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   earnedTrophies,
   getPlantGrowth,
@@ -24,6 +24,8 @@ export interface GardenPageProps {
   plants: Plants;
   /** Every completed task, in any order. */
   completedTasks: CompletedTask[];
+  /** Reads assets/plants/<plant>/about.txt; resolves null when there is none. */
+  loadPlantAbout: (category: CategoryId) => Promise<string | null>;
   onNavigateHome: () => void;
 }
 
@@ -33,9 +35,25 @@ const TROPHY_LABELS: Record<Trophy, string> = {
   gold: 'Gold trophy',
 };
 
-export function GardenPage({ plants, completedTasks, onNavigateHome }: GardenPageProps) {
+export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateHome }: GardenPageProps) {
   const [openCategory, setOpenCategory] = useState<CategoryId>();
   const [resultTaskId, setResultTaskId] = useState<string>();
+  const [about, setAbout] = useState<{ category: CategoryId; text: string | null }>();
+
+  useEffect(() => {
+    if (!openCategory) return;
+    let cancelled = false;
+    loadPlantAbout(openCategory)
+      // A missing description just leaves the popup without one.
+      .catch(() => null)
+      .then((text) => {
+        if (!cancelled) setAbout({ category: openCategory, text });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openCategory, loadPlantAbout]);
+
   const prestige = globalPrestige(plants);
   const rows = plotRows(visiblePlots(plants));
   const categoryTasks = openCategory ? tasksInCategory(completedTasks, openCategory) : [];
@@ -76,6 +94,8 @@ export function GardenPage({ plants, completedTasks, onNavigateHome }: GardenPag
       {openCategory && (
         <PlantTasksPopup
           category={openCategory}
+          totalMinutes={plants[openCategory]?.totalMinutes ?? 0}
+          about={about?.category === openCategory ? about.text : undefined}
           tasks={categoryTasks}
           onSelectTask={setResultTaskId}
           onClose={() => {

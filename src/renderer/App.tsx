@@ -178,6 +178,7 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
         <GardenPage
           plants={state.plants}
           completedTasks={state.completedTasks}
+          loadPlantAbout={bridge.getPlantAbout}
           onNavigateHome={() => navigate('main')}
         />
       )}
