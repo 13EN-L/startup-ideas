@@ -19,7 +19,8 @@ export interface ActiveTask {
   startedAt: number;
 }
 
-export type ActivitySource = 'app' | 'web';
+export const ACTIVITY_SOURCES = ['app', 'web', 'search'] as const;
+export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];
 export type ActivityStatus = 'on-task' | 'off-task';
 
 /** One app or website, aggregated over a task session. */

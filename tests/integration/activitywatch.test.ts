@@ -59,38 +59,106 @@ describe('#17 ActivityWatchClient', () => {
 });
 
 describe('#17 collectTaskActivity', () => {
-  it('aggregates apps by name and websites by hostname, clipped to the task window', async () => {
-    const client = new ActivityWatchClient({ fetch: fakeActivityWatchFetch() });
-    const { activities } = await collectTaskActivity(client, TASK_RANGE);
+  const collect = (buckets = BUCKETS, events = EVENTS) =>
+    collectTaskActivity(new ActivityWatchClient({ fetch: fakeActivityWatchFetch(buckets, events) }), TASK_RANGE);
 
+  it('splits browser time into websites and searches, clipped to the task window', async () => {
+    const { activities } = await collect();
     expect(activities).toEqual([
       { id: 'app:Code', name: 'Code', source: 'app', seconds: 600 },
-      { id: 'web:github.com', name: 'github.com', source: 'web', seconds: 300 },
+      { id: 'web:github.com', name: 'github.com', source: 'web', seconds: 240 },
+      { id: 'web:Pull request #2 · org/repo', name: 'Pull request #2 · org/repo', source: 'web', seconds: 240 },
       { id: 'app:Slack', name: 'Slack', source: 'app', seconds: 180 },
+      { id: 'search:Google search: fix login bug', name: 'Google search: fix login bug', source: 'search', seconds: 120 },
       { id: 'web:youtube.com', name: 'youtube.com', source: 'web', seconds: 120 },
+      { id: 'search:Google search: cats', name: 'Google search: cats', source: 'search', seconds: 60 },
     ]);
   });
 
-  it('counts AFK time inside the window as idle', async () => {
-    const client = new ActivityWatchClient({ fetch: fakeActivityWatchFetch() });
-    const { idleSeconds } = await collectTaskActivity(client, TASK_RANGE);
+  it('never lists the browser itself, so its time is not counted twice', async () => {
+    const { activities } = await collect();
+    expect(activities.map((a) => a.name)).not.toContain('chrome.exe');
+  });
+
+  it('counts AFK time inside the window as idle, and only as idle', async () => {
+    const { activities, idleSeconds } = await collect();
+    expect(idleSeconds).toBe(240);
+    // Everything adds up to the 30-minute session, with nothing counted twice.
+    expect(activities.reduce((sum, a) => sum + a.seconds, 0) + idleSeconds).toBe(30 * 60);
+  });
+
+  it('takes idle time out of the app that was in front', async () => {
+    const { activities, idleSeconds } = await collect(BUCKETS, {
+      'aw-watcher-window_desk': [{ timestamp: TASK_RANGE.start.toISOString(), duration: 1800, data: { app: 'Code', title: '' } }],
+      'aw-watcher-web-chrome_desk': [],
+      // Away for minutes 10-25 with Code still focused.
+      'aw-watcher-afk_desk': [{ timestamp: new Date(TASK_RANGE.start.getTime() + 600_000).toISOString(), duration: 900, data: { status: 'afk' } }],
+    });
+    expect(activities).toEqual([{ id: 'app:Code', name: 'Code', source: 'app', seconds: 900 }]);
+    expect(idleSeconds).toBe(900);
+  });
+
+  it('ignores websites the extension reports while another app is in front', async () => {
+    const { activities } = await collect(BUCKETS, {
+      'aw-watcher-window_desk': [{ timestamp: TASK_RANGE.start.toISOString(), duration: 1800, data: { app: 'Code', title: '' } }],
+      'aw-watcher-web-chrome_desk': [{ timestamp: TASK_RANGE.start.toISOString(), duration: 1800, data: { url: 'https://youtube.com/', title: '' } }],
+      'aw-watcher-afk_desk': [],
+    });
+    expect(activities.map((a) => a.name)).toEqual(['Code']);
+  });
+
+  it('does not double count when two browser extensions report at once', async () => {
+    const buckets = [...BUCKETS, { id: 'aw-watcher-web-firefox_desk', type: 'web.tab.current', client: 'aw-client-web', hostname: 'desk' }];
+    const start = TASK_RANGE.start.toISOString();
+    const { activities } = await collect(buckets, {
+      'aw-watcher-window_desk': [{ timestamp: start, duration: 600, data: { app: 'chrome.exe', title: 'Docs - Google Chrome' } }],
+      'aw-watcher-web-chrome_desk': [{ timestamp: start, duration: 600, data: { url: 'https://docs.google.com/d/1', title: '' } }],
+      'aw-watcher-web-firefox_desk': [{ timestamp: start, duration: 600, data: { url: 'https://reddit.com/', title: '' } }],
+      'aw-watcher-afk_desk': [],
+    });
+    expect(activities.reduce((sum, a) => sum + a.seconds, 0)).toBe(600);
+  });
+
+  it('uses browser page titles when the extension is not installed', async () => {
+    const buckets = BUCKETS.filter((b) => b.type !== 'web.tab.current');
+    const { activities } = await collect(buckets, EVENTS);
+    expect(activities).toEqual([
+      { id: 'app:Code', name: 'Code', source: 'app', seconds: 600 },
+      { id: 'web:Pull request #2 · org/repo', name: 'Pull request #2 · org/repo', source: 'web', seconds: 600 },
+      // Equal times are listed alphabetically.
+      { id: 'search:Google search: cats', name: 'Google search: cats', source: 'search', seconds: 180 },
+      { id: 'app:Slack', name: 'Slack', source: 'app', seconds: 180 },
+    ]);
+  });
+
+  it('uses the extension alone, minus idle time, when there is no window watcher', async () => {
+    const buckets = BUCKETS.filter((b) => b.type !== 'currentwindow');
+    const { activities, idleSeconds } = await collect(buckets, EVENTS);
+    expect(activities.map((a) => [a.name, a.seconds])).toEqual([
+      ['github.com', 240],
+      ['Google search: fix login bug', 120],
+      ['youtube.com', 120],
+    ]);
     expect(idleSeconds).toBe(240);
   });
 
-  it('still works when the browser watcher is not installed', async () => {
-    const buckets = BUCKETS.filter((b) => b.type !== 'web.tab.current');
-    const client = new ActivityWatchClient({ fetch: fakeActivityWatchFetch(buckets, EVENTS) });
-    const { activities } = await collectTaskActivity(client, TASK_RANGE);
-    expect(activities.every((a) => a.source === 'app')).toBe(true);
+  it('returns empty activity for a window with no events', async () => {
+    await expect(
+      collect(BUCKETS, { 'aw-watcher-window_desk': [], 'aw-watcher-web-chrome_desk': [], 'aw-watcher-afk_desk': [] }),
+    ).resolves.toEqual({ activities: [], idleSeconds: 0 });
   });
 
-  it('returns empty activity for a window with no events', async () => {
-    const client = new ActivityWatchClient({ fetch: fakeActivityWatchFetch(BUCKETS, {
+  it('counts overlapping AFK events once', async () => {
+    const start = TASK_RANGE.start.toISOString();
+    const { idleSeconds } = await collect(BUCKETS, {
       'aw-watcher-window_desk': [],
       'aw-watcher-web-chrome_desk': [],
-      'aw-watcher-afk_desk': [],
-    }) });
-    await expect(collectTaskActivity(client, TASK_RANGE)).resolves.toEqual({ activities: [], idleSeconds: 0 });
+      'aw-watcher-afk_desk': [
+        { timestamp: start, duration: 300, data: { status: 'afk' } },
+        { timestamp: start, duration: 120, data: { status: 'afk' } },
+      ],
+    });
+    expect(idleSeconds).toBe(300);
   });
 
   it('fails loudly when ActivityWatch is unreachable', async () => {

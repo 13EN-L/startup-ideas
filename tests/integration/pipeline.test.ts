@@ -17,13 +17,18 @@ const task = makeActiveTask({ id: 't1', name: 'Fix login bug', category: 'work',
 const endedAt = T0 + 30 * MINUTE;
 
 describe('#17 processCompletedTask', () => {
+  const statuses = {
+    'app:Code': 'on-task',
+    'web:github.com': 'on-task',
+    'web:Pull request #2 · org/repo': 'on-task',
+    'search:Google search: fix login bug': 'on-task',
+    'app:Slack': 'off-task',
+    'web:youtube.com': 'off-task',
+    'search:Google search: cats': 'off-task',
+  } as const;
+
   it('produces a CompletedTask with classified activities and metrics', async () => {
-    const classifier = classifierFrom({
-      'app:Code': 'on-task',
-      'web:github.com': 'on-task',
-      'app:Slack': 'off-task',
-      'web:youtube.com': 'off-task',
-    });
+    const classifier = classifierFrom(statuses);
     const activityWatch = new ActivityWatchClient({ fetch: fakeActivityWatchFetch() });
 
     const done = await processCompletedTask({ activityWatch, classifier }, task, endedAt);
@@ -34,7 +39,8 @@ describe('#17 processCompletedTask', () => {
       category: 'work',
       startedAt: T0,
       endedAt,
-      metrics: { productiveSeconds: 900, unproductiveSeconds: 300, idleSeconds: 240 },
+      // 600 + 240 + 240 + 120 on, 180 + 120 + 60 off, 240 idle: exactly the 30 minutes.
+      metrics: { productiveSeconds: 1200, unproductiveSeconds: 360, idleSeconds: 240 },
     });
     expect(done.activities).toContainEqual({
       id: 'web:youtube.com',
@@ -46,17 +52,24 @@ describe('#17 processCompletedTask', () => {
   });
 
   it('triggers exactly one Claude call that names the task', async () => {
-    const classifier = classifierFrom({
-      'app:Code': 'on-task',
-      'web:github.com': 'on-task',
-      'app:Slack': 'on-task',
-      'web:youtube.com': 'off-task',
-    });
+    const classifier = classifierFrom(statuses);
     const activityWatch = new ActivityWatchClient({ fetch: fakeActivityWatchFetch() });
     await processCompletedTask({ activityWatch, classifier }, task, endedAt);
 
     expect(classifier.complete).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(classifier.complete.mock.calls[0])).toContain('Fix login bug');
+  });
+
+  it('sends Claude websites and searches but never idle time', async () => {
+    const classifier = classifierFrom(statuses);
+    const activityWatch = new ActivityWatchClient({ fetch: fakeActivityWatchFetch() });
+    await processCompletedTask({ activityWatch, classifier }, task, endedAt);
+
+    const sent = JSON.stringify(classifier.complete.mock.calls[0]);
+    expect(sent).toContain('Google search: fix login bug');
+    expect(sent).toContain('github.com');
+    expect(sent).not.toMatch(/afk|idle/i);
+    expect(sent).not.toContain('chrome.exe');
   });
 
   it('rejects when ActivityWatch is unreachable so the UI can report it', async () => {

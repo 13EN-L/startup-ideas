@@ -3,8 +3,14 @@
 import { useId } from 'react';
 import { breakdown } from '../../core/persistence';
 import { formatDuration } from '../../core/tasks';
-import type { CompletedTask } from '../../shared/types';
+import type { ActivitySource, CompletedTask } from '../../shared/types';
 import { useEscape } from './useEscape';
+
+const SOURCE_LABELS: Record<ActivitySource, string> = {
+  app: 'App',
+  web: 'Website',
+  search: 'Search',
+};
 
 export interface TaskResultPopupProps {
   task: CompletedTask;
@@ -45,7 +51,12 @@ export function TaskResultPopup({ task, onClose }: TaskResultPopupProps) {
           <ul className="activity-list" aria-label="What you did" style={{ overflowY: 'auto' }}>
             {activities.map((a) => (
               <li key={a.id} className="activity">
-                <span className="activity__name">{a.name}</span>
+                <span className="activity__label">
+                  <span className="activity__name" title={a.name}>
+                    {a.name}
+                  </span>
+                  <span className="activity__source">{SOURCE_LABELS[a.source]}</span>
+                </span>
                 <span className="activity__time">{formatDuration(a.seconds)}</span>
                 <span className={`activity__status activity__status--${a.status}`}>
                   {a.status === 'on-task' ? 'On task' : 'Off task'}

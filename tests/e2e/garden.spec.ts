@@ -50,6 +50,8 @@ test('clicking a plant lists its tasks, including ones no longer in a cloud, and
     await history.getByRole('button', { name: /Report 1/ }).click();
     const result = page.getByRole('dialog', { name: 'Report 1' });
     await expect(result.getByText('What you did:')).toBeVisible();
+    await expect(result.getByText('Google search: Report 1')).toBeVisible();
+    await expect(result.getByText('Search', { exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(result).toHaveCount(0);
     await expect(history).toBeVisible();

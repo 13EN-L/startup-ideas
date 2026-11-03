@@ -12,6 +12,7 @@ import type {
   PlantState,
   TaskMetrics,
 } from '../../src/shared/types';
+import { ACTIVITY_SOURCES } from '../../src/shared/types';
 
 export const categoryIds = CATEGORIES.map((c) => c.id) as CategoryId[];
 
@@ -40,7 +41,7 @@ export const metricsArb: fc.Arbitrary<TaskMetrics> = fc.record({
 export const activityItemArb: fc.Arbitrary<ActivityItem> = fc
   .record({
     name: fc.string({ minLength: 1, maxLength: 60 }),
-    source: fc.constantFrom('app' as const, 'web' as const),
+    source: fc.constantFrom(...ACTIVITY_SOURCES),
     seconds: fc.nat(36_000),
   })
   .map(({ name, source, seconds }) => ({ id: `${source}:${name}`, name, source, seconds }));

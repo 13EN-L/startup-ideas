@@ -8,7 +8,7 @@ import type { AppState, CompletedTask } from '../../src/shared/types';
 import { makeActiveTask, makeCompletedTask, makeState, T0 } from '../fixtures';
 
 const NOW = T0 + 20 * 60_000;
-const READY: SetupStatus = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' };
+const READY: SetupStatus = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved', websiteTracking: 'page-titles' };
 
 function fakeBridge(initial: AppState, finished?: CompletedTask, setup: SetupStatus = READY) {
   return {
@@ -61,7 +61,7 @@ describe('#20 launch restore', () => {
 
 describe('first-run setup', () => {
   it('opens the setup window on launch when something is missing', async () => {
-    renderApp(fakeBridge(makeState(), undefined, { activityWatchRunning: false, activityWatchBundled: false, apiKey: 'missing' }));
+    renderApp(fakeBridge(makeState(), undefined, { activityWatchRunning: false, activityWatchBundled: false, apiKey: 'missing', websiteTracking: 'page-titles' }));
     expect(await screen.findByRole('dialog', { name: 'Set up FocusGarden' })).toBeInTheDocument();
   });
 
@@ -73,7 +73,7 @@ describe('first-run setup', () => {
 
   it('re-checks after a key is saved and can be closed to use the app', async () => {
     const user = userEvent.setup();
-    const bridge = fakeBridge(makeState(), undefined, { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'missing' });
+    const bridge = fakeBridge(makeState(), undefined, { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'missing', websiteTracking: 'page-titles' });
     renderApp(bridge);
 
     await user.type(await screen.findByLabelText('Anthropic API key'), 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz');
@@ -81,7 +81,7 @@ describe('first-run setup', () => {
     await user.click(screen.getByRole('button', { name: 'Save key' }));
 
     expect(bridge.saveApiKey).toHaveBeenCalledWith('sk-ant-api03-abcdefghijklmnopqrstuvwxyz');
-    await user.click(await screen.findByRole('button', { name: 'Start' }));
+    await user.click(await screen.findByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 

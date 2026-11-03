@@ -6,10 +6,11 @@ You tell it what you're working on, and an animal walks into your pen to keep yo
 
 ## How it works
 
-1. **[ActivityWatch](https://activitywatch.net)**, a free app, runs in the background and records which app and browser tab are active, plus when you're away from the keyboard.
+1. **[ActivityWatch](https://activitywatch.net)**, a free app, runs in the background and records which app is in front (with its window title), which website your browser shows, and when you're away from the keyboard.
 2. When you **start a task**, FocusGarden notes the time. When you **stop** it, FocusGarden reads your ActivityWatch history for exactly that window.
-3. The list of apps and websites goes to **Claude**, which labels each one *on-task* or *off-task* for the task you named. Every answer is checked before it's used; incomplete or malformed answers are sent back to Claude to correct, up to three attempts.
-4. FocusGarden splits the session into **productive**, **unproductive** and **idle** time, shows you the breakdown, and grows the plant for that task's category by the productive minutes.
+3. On your computer, FocusGarden takes out the time you were away (**idle**), then splits browser time into the **websites** and **searches** you used. See [What counts as idle](#what-counts-as-idle) and [Websites and searches](#websites-and-searches).
+4. The remaining list of apps, websites and searches goes to **Claude**, which labels each one *on-task* or *off-task* for the task you named. Idle time is never sent. Every answer is checked before it's used; incomplete or malformed answers are sent back to Claude to correct, up to three attempts.
+5. FocusGarden splits the session into **productive**, **unproductive** and **idle** time, which add up to the length of the session, shows you the breakdown, and grows the plant for that task's category by the productive minutes.
 
 Everything is stored on your computer. See [Privacy](#privacy) for what is sent to Claude.
 
@@ -51,10 +52,9 @@ The first time FocusGarden opens, a **Set up FocusGarden** window shows two step
 
 1. **ActivityWatch.** On Windows this is already done: FocusGarden has started it, and the step shows a check mark after a few seconds. On macOS and Linux, click **Download ActivityWatch**, install and start it, then click **Check again**.
 2. **Claude API key.** Click **Get an API key** if you don't have one, paste it into the box and click **Save key**. FocusGarden checks the key with Anthropic and stores it encrypted on your computer.
+3. **Website tracking (optional).** FocusGarden already sees websites and Google searches from your browser's page titles. For exact websites and searches on every search engine, click **Chrome / Edge extension** or **Firefox add-on** to install the ActivityWatch browser extension (**aw-watcher-web**), browse for a moment, then click **Check for the extension**. Browsers only let you install extensions yourself, so this can't be done for you.
 
-Click **Start** when both steps show a check mark. You can click **Skip for now** to look around first, and reopen this window any time with **Settings** on the main page.
-
-**Optional, for website tracking:** FocusGarden sees which *apps* you use out of the box. To also see which *websites*, add the ActivityWatch browser extension (**aw-watcher-web**) from the Chrome Web Store or Firefox Add-ons. Browsers only let you install extensions yourself, so this can't be done for you.
+Click **Close** when the first two steps show a check mark. You can click **Skip for now** to look around first, and reopen this window any time with **Settings** on the main page.
 
 ### ActivityWatch in the background
 
@@ -105,7 +105,24 @@ Click **Close** (or press Esc) to dismiss the popup without stopping the task.
 Click any cloud on the Main or Task page to open that task's results:
 
 - A **bar** showing the split between on-task (green), off-task (brown) and idle (grey) time.
-- **What you did:** every app and website from the session, with time spent and whether it counted as on-task or off-task, longest first.
+- **What you did:** every app, website and search from the session, labelled **App**, **Website** or **Search**, with time spent (not counting idle time) and whether it counted as on-task or off-task, longest first.
+
+### What counts as idle
+
+You're **idle** once ActivityWatch sees no keyboard or mouse input for **3 minutes**. The whole stretch counts from your last input, so a 10-minute break is 10 idle minutes, and a 2-minute pause isn't idle at all.
+
+Idle time is worked out on your computer and is never sent to Claude. It is taken out of whatever app or website was in front, so leaving a work app open while you're away doesn't grow your plant. On-task, off-task and idle together add up to the length of the session.
+
+To change the 3 minutes, edit `timeout` (in seconds) in ActivityWatch's `aw-watcher-afk.toml`: on Windows, `%LOCALAPPDATA%\activitywatch\activitywatch\aw-watcher-afk\aw-watcher-afk.toml`. Remove the `#` in front of `timeout = 180`, change the number, then quit ActivityWatch from its tray icon and reopen FocusGarden.
+
+### Websites and searches
+
+Time in a web browser is split into the sites and searches you used, and the browser itself isn't listed, so nothing is counted twice:
+
+- **With the ActivityWatch browser extension** (see [First launch](#first-launch)), each site appears by its address, such as `github.com`, and searches on Google, Bing, DuckDuckGo, Brave, Ecosia, Yahoo and YouTube appear with what you searched for, such as `Google search: react hooks`.
+- **Without it**, FocusGarden uses the browser window's page title, such as `Pull request #2 · org/repo`. Google, DuckDuckGo and Brave searches are still recognised from their titles.
+
+Each site and search is classified on-task or off-task on its own, so an on-topic search counts toward your plant even if the next video doesn't.
 
 The clouds only show your five newest tasks, but FocusGarden keeps every task you complete. To find an older one, open the Garden and click the plant for its category (see [Task history](#task-history)).
 
@@ -169,7 +186,8 @@ Your API key in `settings.json` is encrypted with your operating system's creden
 ## Privacy
 
 - ActivityWatch data stays on your computer. FocusGarden reads it only for the time between starting and stopping a task.
-- For each completed task, FocusGarden sends Claude the **task name, its category, and the list of app names and website domains** (for example `Code` or `github.com`) with time spent on each. It does **not** send window titles, full URLs or page contents.
+- For each completed task, FocusGarden sends Claude the **task name, its category, and the list of app names, websites and searches** with time spent on each. Websites are sent as their domain (for example `github.com`) when the browser extension is installed, or as the browser's **page title** without it. Searches are sent with the **words you searched for** (for example `Google search: react hooks`).
+- It does **not** send full URLs, page contents, window titles of apps other than your browser, or idle time. Idle time is worked out on your computer.
 - When you save an API key, FocusGarden makes one request to Anthropic to check that the key works.
 
 ## Troubleshooting
@@ -180,7 +198,9 @@ Your API key in `settings.json` is encrypted with your operating system's creden
 
 **"Anthropic rejected this key."** The key was mistyped, revoked or belongs to a disabled account. Create a new key in the [Claude Console](https://console.anthropic.com/settings/keys) and paste it again.
 
-**Websites never appear in "What you did:".** Install the ActivityWatch browser extension (aw-watcher-web) for your browser.
+**A browser shows up as one page title instead of the sites you visited.** Without the extension, FocusGarden only sees the tab that was showing in the browser window. Install the ActivityWatch browser extension (**Settings → Chrome / Edge extension** or **Firefox add-on**) for exact websites.
+
+**Idle time looks too high or too low.** See [What counts as idle](#what-counts-as-idle) to change the 3-minute threshold.
 
 **Opening FocusGarden again just brings up the existing window.** That's intentional: only one copy runs at a time so two windows can't overwrite each other's garden.
 

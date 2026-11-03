@@ -10,22 +10,38 @@ export const BUCKETS: AWBucket[] = [
   { id: 'aw-watcher-afk_desk', type: 'afkstatus', client: 'aw-watcher-afk', hostname: 'desk' },
 ];
 
-/** A 30-minute task from T0 to T0+30min. Events are newest first, like aw-server. */
+/**
+ * A 30-minute task from T0 to T0+30min. Events are newest first, like aw-server.
+ *
+ * Minute by minute:
+ *  0-5   Code (an event that started 5 minutes before the task)
+ *  5-15  Chrome: extension saw github.com 5-9 and youtube.com 9-11; nothing 11-15,
+ *        so the window title "Pull request #2 · org/repo" fills in
+ * 15-20  Code
+ * 20-23  Slack
+ * 23-30  Chrome: extension saw a Google search for "fix login bug" 23-25; nothing
+ *        after, so the title "cats - Google Search" fills in 25-26
+ * 26-30  away from the keyboard (the AFK event runs on past the task's end)
+ *
+ * Expected: Code 600 s, github.com 240, Pull request 240, Slack 180,
+ * "Google search: fix login bug" 120, youtube.com 120, "Google search: cats" 60,
+ * idle 240. Together that is exactly the 1800-second session.
+ */
 export const EVENTS: Record<string, AWEvent[]> = {
   'aw-watcher-window_desk': [
     { timestamp: at(31), duration: 120, data: { app: 'Code', title: 'after the task' } },
+    { timestamp: at(23), duration: 420, data: { app: 'chrome.exe', title: 'cats - Google Search - Google Chrome' } },
     { timestamp: at(20), duration: 180, data: { app: 'Slack', title: 'general' } },
-    { timestamp: at(10), duration: 300, data: { app: 'Code', title: 'login.ts' } },
-    // Started 5 minutes before the task: only 5 of its 10 minutes count.
+    { timestamp: at(15), duration: 300, data: { app: 'Code', title: 'login.ts' } },
+    { timestamp: at(5), duration: 600, data: { app: 'chrome.exe', title: 'Pull request #2 · org/repo - Google Chrome' } },
     { timestamp: at(-5), duration: 600, data: { app: 'Code', title: 'auth.ts' } },
   ],
   'aw-watcher-web-chrome_desk': [
-    { timestamp: at(25), duration: 60, data: { url: 'https://github.com/org/repo/pull/2', title: 'PR' } },
-    { timestamp: at(15), duration: 120, data: { url: 'https://www.youtube.com/watch?v=x', title: 'Video' } },
+    { timestamp: at(23), duration: 120, data: { url: 'https://www.google.com/search?q=fix+login+bug', title: 'fix login bug - Google Search' } },
+    { timestamp: at(9), duration: 120, data: { url: 'https://www.youtube.com/watch?v=x', title: 'Video' } },
     { timestamp: at(5), duration: 240, data: { url: 'https://github.com/org/repo/issues/1', title: 'Bug' } },
   ],
   'aw-watcher-afk_desk': [
-    // Runs 2 minutes past the end: only 4 of 6 minutes count as idle.
     { timestamp: at(26), duration: 360, data: { status: 'afk' } },
     { timestamp: at(0), duration: 26 * 60, data: { status: 'not-afk' } },
   ],

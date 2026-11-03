@@ -8,6 +8,11 @@ export interface SetupStatus {
   /** True when this build ships its own ActivityWatch and starts it automatically. */
   activityWatchBundled: boolean;
   apiKey: ApiKeySource;
+  /**
+   * How websites are seen: exact sites and searches from the aw-watcher-web
+   * browser extension, or page titles from browser windows without it.
+   */
+  websiteTracking: 'extension' | 'page-titles';
 }
 
 export type SaveApiKeyResult = { ok: true; warning?: string } | { ok: false; error: string };
@@ -16,6 +21,8 @@ export type SaveApiKeyResult = { ok: true; warning?: string } | { ok: false; err
 export const EXTERNAL_LINKS = {
   activityWatchDownload: 'https://activitywatch.net/downloads/',
   anthropicApiKeys: 'https://console.anthropic.com/settings/keys',
+  webWatcherChrome: 'https://chromewebstore.google.com/detail/activitywatch-web-watcher/nglaklhklhcoonedhgnpgddginnjdadi',
+  webWatcherFirefox: 'https://addons.mozilla.org/en-US/firefox/addon/aw-watcher-web/',
 } as const;
 
 export type ExternalLink = keyof typeof EXTERNAL_LINKS;

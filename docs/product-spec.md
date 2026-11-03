@@ -3,8 +3,10 @@
 ## 1. Core Workflow & ActivityWatch Integration
 - **Continuous Tracking**: ActivityWatch tracks user activity (apps, websites, searches) continuously in the background.
 - **Task Indexing**: The app indexes the timestamp between when a user starts a task and ends it.
-- **AI Classification**: Upon task completion, ActivityWatch logs are bundled into a prompt sent to the **Claude API** to classify each item as *on-task* or *off-task*.
-- **Metrics Calculation**: The app computes total productive time, unproductive time, and idle time.
+- **Idle Removal (local)**: Idle time comes from ActivityWatch's AFK watcher (no keyboard/mouse input for 3 minutes, its default `timeout`). It is computed locally, removed from the app/website time it overlaps, and **never sent to Claude**.
+- **Websites & Searches**: Browser time is split into websites and searches and the browser itself is not listed (no double counting). Sources, in order of preference: the `aw-watcher-web` browser extension (site hostname; searches with their query, e.g. `Google search: react hooks`), otherwise the browser window's page title (Google/DuckDuckGo/Brave results titles become searches). Settings shows whether the extension is connected and links to it; it is optional.
+- **AI Classification**: Upon task completion, the remaining apps, websites and searches are bundled into a prompt sent to the **Claude API** to classify each item as *on-task* or *off-task*. Claude is used only for this on/off-task decision.
+- **Metrics Calculation**: The app computes total productive time, unproductive time, and idle time; together they add up to the session length.
 
 ---
 
@@ -15,7 +17,7 @@
   - Top 3/4ths: Blue sky background (`#c9ecf9`) with a rectangular window in the center. Title `"FocusGarden"` in top center of the window. A `"Tasks"` button inside takes the user to the Task Page.
   - Outside the window: 5 clouds displaying the names of the 5 most recently completed tasks. Clicking a cloud opens the Task Page and automatically triggers that task's result popup.
   - Bottom 1/4th: Simplified garden representation.
-  - A `"Settings"` button opens the setup window (ActivityWatch status, Claude API key). It also offers `"Reset all data"`, which after a confirmation (`"Yes, erase everything"` / `"Cancel"`) erases all tasks, plants, prestige and trophies. The saved API key is kept.
+  - A `"Settings"` button opens the setup window (ActivityWatch status, Claude API key, optional website-tracking extension status), closed with `"Close"` (or `"Skip for now"` while a required step is missing). It also offers `"Reset all data"`, which after a confirmation (`"Yes, erase everything"` / `"Cancel"`) erases all tasks, plants, prestige and trophies. The saved API key is kept.
 
 ### B. Task Page
 - **Layout & State**:
@@ -26,7 +28,7 @@
   - Outside the window: 5 clouds showing recent completed tasks. Clicking a cloud opens a vertical rectangular popup containing:
     - Task Title at top.
     - Horizontal breakdown bar (% split between on-task, off-task, idle).
-    - Subtitle `"What you did:"` followed by a scrollable region of visited sites/pages (showing name, total time, and on/off-task status).
+    - Subtitle `"What you did:"` followed by a scrollable region of apps, visited sites/pages and searches (showing name, its type — App / Website / Search, total non-idle time, and on/off-task status).
   - Bottom 1/3rd: Animal pen (dirt/straw field with a fenced gate).
 - **Animal Pen Logic**:
   - Max **3 animals** active at once. The "start task" button grays out when 3 animals are active.

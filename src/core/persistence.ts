@@ -9,6 +9,7 @@ import type {
   Route,
   TaskMetrics,
 } from '../shared/types';
+import { ACTIVITY_SOURCES } from '../shared/types';
 
 /** Where the serialized AppState lives (a JSON file in Electron's userData). */
 export interface StateStore {
@@ -43,7 +44,7 @@ const CompletedTaskSchema = z.object({
     z.object({
       id: z.string(),
       name: z.string(),
-      source: z.enum(['app', 'web']),
+      source: z.enum(ACTIVITY_SOURCES),
       seconds,
       status: z.enum(['on-task', 'off-task']),
     }),

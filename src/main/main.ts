@@ -7,6 +7,7 @@ import { loadState, saveState } from '../core/persistence';
 import { EXTERNAL_LINKS, IPC, type ExternalLink, type SetupStatus } from '../shared/bridge';
 import type { ActiveTask, AppState } from '../shared/types';
 import { ActivityWatchClient } from './activitywatch/client';
+import { isWebBucket } from './activitywatch/collect';
 import {
   bundledActivityWatchExecutable,
   ensureActivityWatchRunning,
@@ -66,13 +67,22 @@ function registerIpc() {
 
   ipcMain.handle(IPC.getSetupStatus, async (): Promise<SetupStatus> => {
     if (useFakeServices) {
-      return { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'environment' };
+      return {
+        activityWatchRunning: true,
+        activityWatchBundled: false,
+        apiKey: 'environment',
+        websiteTracking: 'page-titles',
+      };
     }
     const outcome = await ensureActivityWatch();
+    const running = outcome === 'already-running' || outcome === 'started';
+    // The extension creates its bucket the first time it reports a tab.
+    const extension = running && (await activityWatch.getBuckets().catch(() => [])).some((b) => isWebBucket(b.type));
     return {
-      activityWatchRunning: outcome === 'already-running' || outcome === 'started',
+      activityWatchRunning: running,
       activityWatchBundled: bundled,
       apiKey: (await currentApiKey()).source,
+      websiteTracking: extension ? 'extension' : 'page-titles',
     };
   });
   ipcMain.handle(IPC.saveApiKey, (_event, key: string) =>

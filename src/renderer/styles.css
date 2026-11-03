@@ -576,11 +576,22 @@ button.cloud__body:hover {
   border-bottom: 1px solid rgba(76, 40, 2, 0.15);
 }
 
+.activity__label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .activity__name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+
+.activity__source {
+  color: var(--dark-grey);
+  font-size: 12px;
 }
 
 .activity__time {
@@ -852,6 +863,11 @@ button.cloud__body:hover {
 
 .setup-step__mark--ok { background: var(--grass); color: var(--dark-brown); }
 .setup-step__mark--todo { background: var(--dark-brown); color: var(--beige); }
+.setup-step__mark--optional { border: 2px solid var(--dark-brown); color: var(--dark-brown); }
+
+.setup-step__recheck {
+  align-self: center;
+}
 
 .setup-step__actions {
   display: flex;

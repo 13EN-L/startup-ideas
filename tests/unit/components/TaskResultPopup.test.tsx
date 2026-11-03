@@ -21,6 +21,19 @@ describe('#20 TaskResultPopup', () => {
     expect(within(dialog).getByRole('heading', { name: 'Write essay' })).toBeInTheDocument();
   });
 
+  it('says whether each entry is an app, a website or a search', () => {
+    const mixed = makeCompletedTask({
+      activities: [
+        makeActivity({ name: 'Word', source: 'app', seconds: 300 }),
+        makeActivity({ name: 'github.com', source: 'web', seconds: 200 }),
+        makeActivity({ name: 'Google search: essay tips', source: 'search', seconds: 100 }),
+      ],
+    });
+    render(<TaskResultPopup task={mixed} onClose={() => {}} />);
+    const rows = within(screen.getByRole('list', { name: 'What you did' })).getAllByRole('listitem');
+    expect(rows.map((r) => r.querySelector('.activity__source')?.textContent)).toEqual(['App', 'Website', 'Search']);
+  });
+
   it('shows the on-task / off-task / idle split as a horizontal bar', () => {
     render(<TaskResultPopup task={task} onClose={() => {}} />);
     expect(screen.getByTestId('breakdown-on-task')).toHaveStyle({ width: '60%' });

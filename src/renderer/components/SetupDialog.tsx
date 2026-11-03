@@ -170,12 +170,43 @@ export function SetupDialog({
               )}
             </section>
 
+            <section className="setup-step">
+              <h3 className="setup-step__title">
+                <span className={`setup-step__mark setup-step__mark--${status.websiteTracking === 'extension' ? 'ok' : 'optional'}`} aria-hidden="true">
+                  {status.websiteTracking === 'extension' ? '✓' : '3'}
+                </span>
+                Website tracking (optional)
+              </h3>
+              {status.websiteTracking === 'extension' ? (
+                <p>The ActivityWatch browser extension is connected. FocusGarden sees the exact websites and searches you use.</p>
+              ) : (
+                <>
+                  <p>
+                    FocusGarden reads page titles from your browser window, so it already sees websites and Google searches.
+                    For exact websites and searches on every search engine, add the ActivityWatch browser extension, browse
+                    for a moment, then click Check for the extension.
+                  </p>
+                  <div className="setup-step__actions">
+                    <button type="button" className="btn btn--secondary" onClick={() => onOpenLink('webWatcherChrome')}>
+                      Chrome / Edge extension
+                    </button>
+                    <button type="button" className="btn btn--secondary" onClick={() => onOpenLink('webWatcherFirefox')}>
+                      Firefox add-on
+                    </button>
+                    <button type="button" className="link-button setup-step__recheck" onClick={recheck} disabled={checking}>
+                      {checking ? 'Checking…' : 'Check for the extension'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+
             {onResetData && <ResetDataStep onReset={onResetData} />}
           </>
         )}
 
         <button type="button" className="btn" onClick={onClose}>
-          {isSetupComplete(status) ? 'Start' : 'Skip for now'}
+          {isSetupComplete(status) ? 'Close' : 'Skip for now'}
         </button>
       </div>
     </div>
