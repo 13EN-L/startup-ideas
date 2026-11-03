@@ -1,0 +1,6 @@
+{
+  "testRunner": "vitest",
+  "mutate": ["src/main/rewards/**/*.ts", "!src/main/rewards/**/*.test.ts"],
+  "reporters": ["clear-text", "progress", "html"],
+  "coverageAnalysis": "perTest"
+}
