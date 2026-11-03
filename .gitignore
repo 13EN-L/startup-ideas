@@ -22,3 +22,6 @@ reports/
 .stryker-tmp/
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Downloaded by npm run fetch:aw
+resources/activitywatch/

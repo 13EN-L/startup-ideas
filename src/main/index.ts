@@ -5,7 +5,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import type { DatabaseSync } from 'node:sqlite'
 import { IPC } from '../shared/ipc'
-import { createActivityReader } from './activity'
+import {
+  createActivityReader,
+  createActivityWatchLauncher,
+  type ActivityWatchLauncher
+} from './activity'
+import { adoptProcess, createPidFile, startDetached } from './activity/processes'
 import { createClassifier } from './classifier'
 import { openDatabase } from './db'
 import { registerIpcHandlers } from './ipc'
@@ -14,12 +19,13 @@ import { createTaskService, getGardenState, type TaskService } from './tasks'
 
 let db: DatabaseSync | undefined
 let service: TaskService | undefined
+let activityWatch: ActivityWatchLauncher | undefined
 
 function sendToAllWindows(channel: string, ...args: unknown[]): void {
   BrowserWindow.getAllWindows().forEach((window) => window.webContents.send(channel, ...args))
 }
 
-function startBackend(): TaskService {
+function startBackend(): { tasks: TaskService; launcher: ActivityWatchLauncher } {
   const userData = app.getPath('userData')
   const database = openDatabase(join(userData, 'focusgarden.db'))
   db = database
@@ -44,10 +50,20 @@ function startBackend(): TaskService {
     apiKeys,
     getGardenState: () => getGardenState(database)
   })
-  void activity.isServerRunning().then((running) => {
-    if (!running) console.warn('ActivityWatch is not running; task activity will be retried')
+  // The bundled ActivityWatch: packaged under Resources, or fetched by `npm run fetch:aw` in dev.
+  const binDir = app.isPackaged
+    ? join(process.resourcesPath, 'activitywatch')
+    : join(app.getAppPath(), 'resources', 'activitywatch')
+  const launcher = createActivityWatchLauncher({
+    reader: activity,
+    binDir,
+    platform: process.platform,
+    exists: existsSync,
+    spawn: startDetached,
+    adopt: (pid) => adoptProcess(pid, binDir),
+    savedPids: createPidFile(join(userData, 'activitywatch-pids.json'))
   })
-  return tasks
+  return { tasks, launcher }
 }
 
 function createWindow(): void {
@@ -87,9 +103,11 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.focusgarden.app')
 
-  service = startBackend()
+  const backend = startBackend()
+  service = backend.tasks
+  activityWatch = backend.launcher
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -99,7 +117,12 @@ app.whenReady().then(() => {
   })
 
   createWindow()
-  void service.retryPending()
+  void activityWatch.ensureRunning().then((result) => {
+    if (result === 'unavailable') {
+      console.warn('ActivityWatch could not be started; task activity will be retried')
+    }
+    return service?.retryPending()
+  })
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the
@@ -117,7 +140,13 @@ app.on('window-all-closed', () => {
   }
 })
 
+// Quit cleanly on SIGTERM/SIGINT (logout, shutdown, Ctrl+C) so will-quit can decide whether
+// ActivityWatch keeps running.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) process.on(signal, () => app.quit())
+
 app.on('will-quit', () => {
+  // With tasks still running, ActivityWatch keeps recording while the app is closed.
+  activityWatch?.stopIfIdle((service?.listActive().length ?? 0) > 0)
   service?.dispose()
   service = undefined
   db?.close()
