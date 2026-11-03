@@ -29,7 +29,10 @@ small app size).
 Build tool: electron-vite. Tests: Vitest.
 
 - `npm install` — install dependencies
-- `npm run dev` — run the app with hot reload
+- `npm run fetch:aw` — download the bundled ActivityWatch parts (once, before `dev`)
+- `npm run dev` — run the app with hot reload (unset `ELECTRON_RUN_AS_NODE` first in
+  VS Code terminals)
+- `npm run make:art` — regenerate placeholder pixel art (never overwrites real art)
 - `npm test` — run all Vitest tests
 - `npm run lint` — ESLint
 - `npm run format` — Prettier

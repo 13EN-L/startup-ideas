@@ -42,6 +42,24 @@ user actions through the preload bridge.
   active, keep ActivityWatch running so tracking continues while the app is closed.
 - `src/main/activity/` is the only code that talks to ActivityWatch.
 
+**How it's bundled and launched**
+
+- `npm run fetch:aw` (`scripts/fetch-activitywatch.mjs`) downloads the pinned
+  ActivityWatch release for the platform, checks its SHA-256 digest, and keeps only
+  `aw-server-rust`, `aw-watcher-afk`, and `aw-watcher-window` (about 110 MB) plus the
+  MPL-2.0 license, in `resources/activitywatch/` (gitignored). The `build:*` scripts run
+  it, and electron-builder copies the folder to the app's Resources (`extraResources`).
+- `launcher.ts` runs on launch: if a server answers on port 5600 it's reused;
+  otherwise it starts the server, waits for it, then starts both watchers.
+- Each part runs detached under a small shell that waits for it (`processes.ts`),
+  because `aw-watcher-afk` exits when its parent process does.
+- On quit, with no active tasks, the app stops the parts it started. With active
+  tasks it leaves them running and saves their process ids
+  (`userData/activitywatch-pids.json`); the next launch takes them back, after checking
+  each pid is still our ActivityWatch, so they can be stopped once no tasks remain. An
+  ActivityWatch the user started themselves is never stopped.
+- Only this computer's buckets are read (matched by the server's hostname).
+
 ## Task lifecycle
 
 ```

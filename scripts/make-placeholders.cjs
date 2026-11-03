@@ -8,7 +8,8 @@ const fs = require('fs')
 const path = require('path')
 const zlib = require('zlib')
 
-const OUT = path.join(__dirname, '..', 'src', 'renderer', 'assets')
+const ROOT = path.join(__dirname, '..')
+const OUT = path.join(ROOT, 'src', 'renderer', 'assets')
 const MARKER = 'focusgarden-placeholder'
 
 // ---------- PNG encoding ----------
@@ -521,6 +522,48 @@ function trophy(metal, dark) {
   return cv.outline()
 }
 
+// A seedling in a clay pot on a sky tile with a grass strip, framed like a pixel-art badge.
+function appIcon() {
+  const cv = new Canvas(16, 16)
+  const sky = rgb('#c9ecf9')
+  cv.rect(1, 1, 14, 14, sky)
+  cv.rect(1, 12, 14, 3, rgb('#7ab85f'))
+  cv.rect(5, 9, 6, 4, C.wood)
+  cv.rect(4, 8, 8, 1, C.woodLight)
+  cv.line(8, 8, 8, 4, C.green)
+  cv.rect(5, 3, 3, 2, C.greenLight)
+  cv.set(5, 3, sky)
+  cv.rect(9, 2, 3, 2, C.green)
+  cv.set(11, 3, sky)
+  for (let i = 0; i < 16; i++) {
+    for (const [x, y] of [
+      [i, 0],
+      [i, 15],
+      [0, i],
+      [15, i]
+    ])
+      cv.set(x, y, C.outline)
+  }
+  // Notched corners, like the app's pixel boxes.
+  for (const [x, y] of [
+    [0, 0],
+    [15, 0],
+    [0, 15],
+    [15, 15]
+  ])
+    cv.set(x, y, null)
+  return cv
+}
+
+// Nearest-neighbor upscale, so each sprite pixel becomes an n x n block.
+function scaled(src, n) {
+  const cv = new Canvas(src.w * n, src.h * n)
+  for (let y = 0; y < cv.h; y++)
+    for (let x = 0; x < cv.w; x++)
+      cv.px[y * cv.w + x] = src.px[Math.floor(y / n) * src.w + Math.floor(x / n)]
+  return cv
+}
+
 function logo() {
   const cv = new Canvas(58, 11)
   // seedling in a pot
@@ -598,7 +641,11 @@ const sprites = {
   'ui/home-sign-active.png': () => homeSign(C.wood, C.woodDark),
   'ui/home-sign-inactive.png': () => homeSign(C.grey, C.greyLight),
   'ui/fence.png': fence,
-  'ui/gate.png': gate
+  'ui/gate.png': gate,
+  // App icon: electron-builder makes the .icns/.ico from build/icon.png; Linux windows use
+  // resources/icon.png.
+  [path.join(ROOT, 'build', 'icon.png')]: () => scaled(appIcon(), 32),
+  [path.join(ROOT, 'resources', 'icon.png')]: () => scaled(appIcon(), 32)
 }
 
 // Real art is never overwritten: only missing files, blank 1x1 PNGs, or our own output.
@@ -612,7 +659,7 @@ function writeAll() {
   let written = 0
   let kept = 0
   for (const [rel, draw] of Object.entries(sprites)) {
-    const file = path.join(OUT, rel)
+    const file = path.resolve(OUT, rel)
     fs.mkdirSync(path.dirname(file), { recursive: true })
     if (!replaceable(file)) {
       kept++
