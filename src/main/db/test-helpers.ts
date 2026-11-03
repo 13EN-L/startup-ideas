@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { openDatabase } from './connection'
 import { insertActiveTask, type TaskRow } from './tasks'
-import type { Animal, Category } from '../rewards'
+import type { Animal, Category } from '../../shared/domain'
 
 export const T0 = Date.UTC(2026, 10, 2, 14, 0)
 

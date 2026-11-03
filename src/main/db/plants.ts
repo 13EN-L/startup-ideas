@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { Category, Interval } from '../rewards'
+import type { Category, Interval } from '../../shared/domain'
 import { withTransaction } from './transaction'
 
 export interface PlantRow {

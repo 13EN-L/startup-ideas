@@ -1,7 +1,8 @@
+import type { Trophy } from '../../shared/domain'
 import { TROPHY_THRESHOLDS } from './constants'
 import { plantState } from './plant'
 
-export type Trophy = keyof typeof TROPHY_THRESHOLDS
+export type { Trophy }
 
 const TROPHY_ORDER: readonly Trophy[] = ['bronze', 'silver', 'gold']
 

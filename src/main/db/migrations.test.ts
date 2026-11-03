@@ -1,7 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
 import { MIGRATIONS, runMigrations, userVersion } from './migrations'
-import { ANIMALS, CATEGORIES } from '../rewards'
+import { ANIMALS, CATEGORIES } from '../../shared/domain'
 
 const tableNames = (db: DatabaseSync): string[] =>
   db

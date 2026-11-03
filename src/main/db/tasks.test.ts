@@ -8,7 +8,7 @@ import {
   stopTask
 } from './tasks'
 import { freshDb, startTask, T0 } from './test-helpers'
-import type { Animal } from '../rewards'
+import type { Animal } from '../../shared/domain'
 
 describe('tasks', () => {
   it('saves an active task with its exact UTC start time', () => {

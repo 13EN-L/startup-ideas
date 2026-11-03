@@ -1,18 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { Animal, Category } from '../rewards'
+import type { Animal, Category, Task, TaskStatus } from '../../shared/domain'
 
-export type TaskStatus = 'active' | 'pending' | 'done'
-
-// Times are UTC epoch milliseconds.
-export interface TaskRow {
-  id: number
-  name: string
-  category: Category
-  animal: Animal
-  startedAt: number
-  stoppedAt: number | null
-  status: TaskStatus
-}
+export type { TaskStatus }
+export type TaskRow = Task
 
 const COLUMNS = 'id, name, category, animal, started_at, stopped_at, status'
 

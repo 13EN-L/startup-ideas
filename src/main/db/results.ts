@@ -1,18 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { Interval, Label } from '../rewards'
+import type { ActivityItem } from '../../shared/activity'
+import type { Interval, Label } from '../../shared/domain'
 import { withTransaction } from './transaction'
 
-// One app or website/search from a task's activity summary.
-export interface NewTaskItem {
-  name: string
-  app: string
-  title: string
-  domain: string | null
-  seconds: number
-  intervals: Interval[]
-}
-
-export interface TaskItem extends NewTaskItem {
+export interface TaskItem extends ActivityItem {
   id: number
   label: Label | null // null until Claude's results arrive
 }
@@ -23,7 +14,11 @@ export interface TaskBuckets {
   unproductiveSeconds: number | null
 }
 
-export function saveTaskItems(db: DatabaseSync, taskId: number, items: NewTaskItem[]): void {
+export function saveTaskItems(
+  db: DatabaseSync,
+  taskId: number,
+  items: readonly ActivityItem[]
+): void {
   const insert = db.prepare(
     `INSERT INTO task_items (task_id, name, app, title, domain, seconds, intervals_json)
      VALUES (?, ?, ?, ?, ?, ?, ?)`

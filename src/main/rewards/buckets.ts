@@ -1,6 +1,7 @@
+import type { Label } from '../../shared/domain'
 import { type Interval, mergeIntervals, subtractIntervals, totalSeconds } from './intervals'
 
-export type Label = 'on-task' | 'off-task'
+export type { Label }
 
 export interface LabeledItem {
   label: Label

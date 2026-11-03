@@ -1,8 +1,6 @@
-// A span of time in UTC epoch milliseconds, end exclusive.
-export interface Interval {
-  start: number
-  end: number
-}
+import type { Interval } from '../../shared/domain'
+
+export type { Interval }
 
 function assertValid(interval: Interval): void {
   const { start, end } = interval
