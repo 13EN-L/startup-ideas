@@ -3,9 +3,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 136px;
-  height: 72px;
-  padding: 0 12px;
+  /* 32x16 sprite drawn at 5x, so the pixels stay square. */
+  width: 160px;
+  height: 80px;
+  padding: 8px 22px 0;
   background: none;
   border: none;
 }
@@ -25,13 +26,19 @@ button.cloud:hover .label {
   height: 100%;
 }
 
+/* Task names wrap onto a second line before being cut off. */
 .label {
   position: relative;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  font-size: 14px;
   font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
   color: var(--color-dark-brown);
 }
 
