@@ -1,9 +1,9 @@
 // Issue #17: classify activities with a validate-and-retry loop.
 import type Anthropic from '@anthropic-ai/sdk';
 import { CLASSIFIER_MAX_ATTEMPTS } from '../../shared/constants';
-import { notImplemented } from '../../shared/notImplemented';
 import type { ActivityItem, ClassifiedActivity } from '../../shared/types';
-import type { ClassificationTask } from './prompt';
+import { buildClassificationPrompt, buildCorrectionMessage, type ClassificationTask } from './prompt';
+import { validateClassification } from './schema';
 
 /**
  * One model call. Returns the parsed structured output, or null when the
@@ -39,7 +39,30 @@ export async function classifyActivities(
   activities: ActivityItem[],
   { maxAttempts = CLASSIFIER_MAX_ATTEMPTS }: ClassifyOptions = {},
 ): Promise<ClassifiedActivity[]> {
-  return notImplemented(
-    `classifyActivities(${typeof model}, ${task.name}, ${activities.length}, ${maxAttempts})`,
+  if (activities.length === 0) return [];
+
+  const { system, user } = buildClassificationPrompt(task, activities);
+  const messages: Anthropic.MessageParam[] = [{ role: 'user', content: user }];
+  let lastErrors: string[] = [];
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // A copy, so later retries don't change what earlier calls were sent.
+    const output = await model.complete({ system, messages: [...messages] });
+    const result = validateClassification(output, activities);
+    if (result.ok) {
+      return activities.map((a) => ({ ...a, status: result.statuses.get(a.id)! }));
+    }
+
+    lastErrors = result.errors;
+    messages.push(
+      { role: 'assistant', content: output == null ? '(no answer)' : JSON.stringify(output) },
+      { role: 'user', content: buildCorrectionMessage(result.errors) },
+    );
+  }
+
+  throw new ClassificationError(
+    `Claude did not return a valid classification after ${maxAttempts} attempt(s).`,
+    maxAttempts,
+    lastErrors,
   );
 }

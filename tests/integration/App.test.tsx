@@ -3,17 +3,22 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/renderer/App';
-import type { FocusGardenBridge } from '../../src/shared/bridge';
+import type { FocusGardenBridge, SetupStatus } from '../../src/shared/bridge';
 import type { AppState, CompletedTask } from '../../src/shared/types';
 import { makeActiveTask, makeCompletedTask, makeState, T0 } from '../fixtures';
 
 const NOW = T0 + 20 * 60_000;
+const READY: SetupStatus = { activityWatchRunning: true, apiKey: 'saved' };
 
-function fakeBridge(initial: AppState, finished?: CompletedTask) {
+function fakeBridge(initial: AppState, finished?: CompletedTask, setup: SetupStatus = READY) {
   return {
     loadState: vi.fn(async () => initial),
     saveState: vi.fn(async (_state: AppState) => {}),
     finishTask: vi.fn(async () => finished ?? makeCompletedTask()),
+    getSetupStatus: vi.fn(async (): Promise<SetupStatus> => setup),
+    saveApiKey: vi.fn(async (_key: string) => ({ ok: true as const })),
+    clearApiKey: vi.fn(async () => {}),
+    openExternal: vi.fn(async () => {}),
   } satisfies FocusGardenBridge;
 }
 
@@ -51,6 +56,39 @@ describe('#20 launch restore', () => {
     const completed = [makeCompletedTask({ name: 'Old essay', endedAt: T0 })];
     renderApp(fakeBridge(makeState({ completedTasks: completed })));
     expect(await screen.findByRole('button', { name: 'Old essay' })).toBeInTheDocument();
+  });
+});
+
+describe('first-run setup', () => {
+  it('opens the setup window on launch when something is missing', async () => {
+    renderApp(fakeBridge(makeState(), undefined, { activityWatchRunning: false, apiKey: 'missing' }));
+    expect(await screen.findByRole('dialog', { name: 'Set up FocusGarden' })).toBeInTheDocument();
+  });
+
+  it('stays out of the way when everything is ready', async () => {
+    renderApp(fakeBridge(makeState()));
+    await screen.findByRole('button', { name: 'Tasks' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('re-checks after a key is saved and can be closed to use the app', async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge(makeState(), undefined, { activityWatchRunning: true, apiKey: 'missing' });
+    renderApp(bridge);
+
+    await user.type(await screen.findByLabelText('Anthropic API key'), 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz');
+    bridge.getSetupStatus.mockResolvedValue(READY);
+    await user.click(screen.getByRole('button', { name: 'Save key' }));
+
+    expect(bridge.saveApiKey).toHaveBeenCalledWith('sk-ant-api03-abcdefghijklmnopqrstuvwxyz');
+    await user.click(await screen.findByRole('button', { name: 'Start' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('reopens from Settings on the Main page', async () => {
+    renderApp(fakeBridge(makeState()));
+    await userEvent.click(await screen.findByRole('button', { name: 'Settings' }));
+    expect(screen.getByRole('dialog', { name: 'Set up FocusGarden' })).toBeInTheDocument();
   });
 });
 

@@ -1,6 +1,5 @@
 // Issue #17: thin client for the local ActivityWatch REST API (aw-server, /api/0).
 import { ACTIVITYWATCH_URL } from '../../shared/constants';
-import { notImplemented } from '../../shared/notImplemented';
 
 export type BucketType = 'currentwindow' | 'web.tab.current' | 'afkstatus' | (string & {});
 
@@ -67,16 +66,45 @@ export class ActivityWatchClient {
 
   /** True when aw-server answers; never throws. */
   async isAvailable(): Promise<boolean> {
-    return notImplemented(`isAvailable(${this.baseUrl})`);
+    try {
+      await this.request('/api/0/info');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** GET /api/0/buckets/ */
   async getBuckets(): Promise<AWBucket[]> {
-    return notImplemented(`getBuckets(${typeof this.fetchImpl})`);
+    const buckets = await this.request<Record<string, AWBucket>>('/api/0/buckets/');
+    return Object.values(buckets);
   }
 
   /** GET /api/0/buckets/{id}/events?start=&end=&limit=-1 */
   async getEvents<TData>(bucketId: string, range: TimeRange): Promise<AWEvent<TData>[]> {
-    return notImplemented(`getEvents(${bucketId}, ${range.start.toISOString()})`);
+    const query = new URLSearchParams({
+      start: range.start.toISOString(),
+      end: range.end.toISOString(),
+      limit: '-1',
+    });
+    return this.request(`/api/0/buckets/${encodeURIComponent(bucketId)}/events?${query}`);
+  }
+
+  private async request<T>(path: string): Promise<T> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}${path}`);
+    } catch (error) {
+      throw new ActivityWatchError(
+        `ActivityWatch is not running at ${this.baseUrl} (${(error as Error).message}).`,
+      );
+    }
+    if (!response.ok) {
+      throw new ActivityWatchError(
+        `ActivityWatch request ${path} failed with HTTP ${response.status}.`,
+        response.status,
+      );
+    }
+    return (await response.json()) as T;
   }
 }

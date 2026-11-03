@@ -1,4 +1,4 @@
-/* Design tokens from docs/design-tokens.md */
+/* Layout and colours follow docs/product-spec.md and docs/design-tokens.md. */
 :root {
   --dark-brown: #4c2802;
   --light-brown: #8c4c0c;
@@ -8,6 +8,10 @@
   --sky: #c9ecf9;
   --light-grey: #b7b7b7;
   --dark-grey: #666666;
+
+  --radius: 10px;
+  --outline: 4px solid var(--dark-brown);
+  --font: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
 }
 
 * {
@@ -24,5 +28,809 @@ body,
 body {
   background: var(--sky);
   color: var(--dark-brown);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font);
+  overflow: hidden;
+}
+
+button {
+  font: inherit;
+}
+
+/* ---------- Shared ---------- */
+
+.page {
+  position: relative;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sky {
+  position: relative;
+  background: var(--sky);
+  overflow: hidden;
+}
+
+.window {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, 44%);
+  min-height: 46%;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: var(--beige);
+  border: var(--outline);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 6px var(--sky), inset 0 0 0 10px var(--dark-brown);
+  z-index: 2;
+}
+
+.logo {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--dark-brown);
+}
+
+.btn {
+  padding: 10px 22px;
+  border: none;
+  border-radius: var(--radius);
+  background: var(--dark-brown);
+  color: var(--beige);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--light-brown);
+}
+
+.btn:focus-visible,
+.cloud__body:focus-visible,
+.animal:focus-visible,
+.garden-strip:focus-visible,
+.home-sign__board:focus-visible {
+  outline: 3px solid var(--light-brown);
+  outline-offset: 3px;
+}
+
+.btn:disabled {
+  background: var(--light-grey);
+  color: var(--dark-grey);
+  cursor: not-allowed;
+}
+
+.btn--large {
+  padding: 14px 44px;
+  font-size: 20px;
+}
+
+.btn--secondary {
+  background: transparent;
+  color: var(--dark-brown);
+  border: 2px solid var(--dark-brown);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--dark-brown);
+  color: var(--beige);
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 20px;
+}
+
+/* ---------- Clouds ---------- */
+
+.clouds {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.cloud {
+  position: absolute;
+  pointer-events: auto;
+}
+
+/* Static skies: five spots around the central window. */
+.clouds--static .cloud:nth-child(1) { left: 5%; top: 10%; }
+.clouds--static .cloud:nth-child(2) { right: 5%; top: 8%; }
+.clouds--static .cloud:nth-child(3) { left: 3%; top: 56%; }
+.clouds--static .cloud:nth-child(4) { right: 3%; top: 52%; }
+.clouds--static .cloud:nth-child(5) { left: 50%; top: 3%; transform: translateX(-50%); }
+
+.cloud__body {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 170px;
+  height: 74px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 40px;
+  background: #ffffff;
+  color: var(--dark-brown);
+  box-shadow: 0 4px 0 rgba(76, 40, 2, 0.12);
+}
+
+/* Two bumps make the pill read as a cloud. */
+.cloud__body::before,
+.cloud__body::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.cloud__body::before { width: 70px; height: 70px; left: 26px; top: -30px; }
+.cloud__body::after { width: 54px; height: 54px; right: 30px; top: -20px; }
+
+button.cloud__body {
+  cursor: pointer;
+}
+
+button.cloud__body:hover {
+  transform: translateY(-2px);
+}
+
+/* Placeholder art sits behind the label; real cloud art replaces the CSS shape. */
+.cloud__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.cloud__label {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+/* Garden sky: clouds drift across like a conveyor belt. */
+.clouds--conveyor .cloud {
+  left: 0;
+  top: calc(18% + (var(--cloud-index) * 13%));
+  animation: conveyor 45s linear infinite;
+  animation-delay: calc(var(--cloud-index) * -9s);
+}
+
+.clouds--conveyor .cloud:nth-child(even) {
+  top: calc(12% + (var(--cloud-index) * 10%));
+}
+
+@keyframes conveyor {
+  from { transform: translateX(-220px); }
+  to { transform: translateX(100vw); }
+}
+
+/* ---------- Main page ---------- */
+
+.sky--main {
+  flex: 0 0 75%;
+}
+
+.garden-strip {
+  flex: 1 1 25%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3%;
+  padding: 0 6% 2.5%;
+  border: none;
+  border-top: 6px solid var(--dark-brown);
+  background: var(--grass);
+  cursor: pointer;
+}
+
+.garden-strip__plot {
+  width: 7%;
+  height: 70%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--dark-brown);
+}
+
+.garden-strip__plot img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+/* ---------- Task page ---------- */
+
+.sky--task {
+  flex: 0 0 66.667%;
+}
+
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
+
+.task-form__input,
+.task-form__select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 3px solid var(--dark-brown);
+  border-radius: var(--radius);
+  background: var(--input-white);
+  color: var(--dark-brown);
+  font: inherit;
+  font-size: 17px;
+}
+
+.task-form__input::placeholder {
+  color: var(--dark-grey);
+}
+
+.task-form .btn {
+  align-self: center;
+  padding: 12px 36px;
+  font-size: 18px;
+}
+
+/* Home sign: a board on a post, standing on the pen's edge. */
+.home-sign {
+  position: absolute;
+  left: 3%;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+.home-sign__board {
+  min-width: 110px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.home-sign__board:disabled {
+  cursor: not-allowed;
+}
+
+.home-sign__post {
+  width: 14px;
+  height: 44px;
+}
+
+.sky--garden .home-sign {
+  left: auto;
+  right: 3%;
+}
+
+/* ---------- Animal pen ---------- */
+
+.pen {
+  position: relative;
+  flex: 1 1 33.333%;
+  border-top: 6px solid var(--dark-brown);
+  /* Dirt with straw strokes. */
+  background:
+    repeating-linear-gradient(115deg, rgba(247, 243, 236, 0.16) 0 3px, transparent 3px 22px),
+    repeating-linear-gradient(65deg, rgba(140, 76, 12, 0.55) 0 2px, transparent 2px 17px),
+    var(--dark-brown);
+  overflow: hidden;
+}
+
+.pen__fence {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 8px;
+  height: 34px;
+  background:
+    linear-gradient(var(--light-brown), var(--light-brown)) 0 6px / 100% 6px no-repeat,
+    linear-gradient(var(--light-brown), var(--light-brown)) 0 22px / 100% 6px no-repeat,
+    repeating-linear-gradient(90deg, var(--light-brown) 0 10px, transparent 10px 70px);
+  pointer-events: none;
+}
+
+.pen__gate {
+  position: absolute;
+  right: 4%;
+  top: 8px;
+  width: 90px;
+  height: 34px;
+  background:
+    linear-gradient(var(--beige), var(--beige)) 0 6px / 100% 6px no-repeat,
+    linear-gradient(var(--beige), var(--beige)) 0 22px / 100% 6px no-repeat,
+    linear-gradient(90deg, var(--beige) 0 8px, transparent 8px calc(100% - 8px), var(--beige) calc(100% - 8px));
+  transform-origin: left center;
+  transition: transform 0.6s ease;
+  pointer-events: none;
+}
+
+.pen__gate[data-open='true'] {
+  transform: perspective(300px) rotateY(-75deg);
+}
+
+.animal {
+  position: absolute;
+  bottom: 14%;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transform: translateX(-50%);
+}
+
+/* Each animal walks in the centre of its third of the pen. */
+.animal--slot-0 { left: calc(100% / 6); }
+.animal--slot-1 { left: 50%; }
+.animal--slot-2 { left: calc(500% / 6); }
+
+.animal__sprite {
+  width: clamp(64px, 9vw, 104px);
+  height: clamp(64px, 9vw, 104px);
+  object-fit: contain;
+  /* Visible placement while the art is still a transparent placeholder. */
+  outline: 2px dashed rgba(247, 243, 236, 0.45);
+  border-radius: 8px;
+}
+
+.animal[data-state='walking'] .animal__sprite {
+  animation: walk 5s ease-in-out infinite;
+}
+
+.animal__nametag {
+  max-width: 160px;
+  padding: 3px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 2px solid var(--dark-brown);
+  border-radius: 6px;
+  background: var(--beige);
+  color: var(--dark-brown);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@keyframes walk {
+  0% { transform: translateX(-26px) scaleX(1); }
+  45% { transform: translateX(26px) scaleX(1); }
+  50% { transform: translateX(26px) scaleX(-1); }
+  95% { transform: translateX(-26px) scaleX(-1); }
+  100% { transform: translateX(-26px) scaleX(1); }
+}
+
+/* Stop: walk to the open gate, then off towards the horizon. */
+.animal[data-state='exiting'] {
+  animation: walk-out 2.6s ease-in forwards;
+  pointer-events: none;
+}
+
+@keyframes walk-out {
+  55% {
+    left: 93%;
+    bottom: 14%;
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    left: 96%;
+    bottom: 110%;
+    transform: translateX(-50%) scale(0.25);
+    opacity: 0;
+  }
+}
+
+/* ---------- Popups ---------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(76, 40, 2, 0.35);
+  z-index: 10;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border: var(--outline);
+  border-radius: 14px;
+  background: var(--beige);
+  color: var(--dark-brown);
+}
+
+.popup__title {
+  margin: 0;
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
+.popup__subtitle {
+  margin: 4px 0 0;
+  font-size: 17px;
+}
+
+.popup__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.popup--stop {
+  width: min(320px, 90vw);
+  text-align: center;
+}
+
+.popup__elapsed {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.popup--result {
+  width: min(380px, 92vw);
+  height: min(620px, 86vh);
+}
+
+.breakdown {
+  display: flex;
+  height: 24px;
+  border: 3px solid var(--dark-brown);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--input-white);
+}
+
+.breakdown__segment--on { background: var(--grass); }
+.breakdown__segment--off { background: var(--light-brown); }
+.breakdown__segment--idle { background: var(--light-grey); }
+
+.breakdown__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: -4px 0 0;
+  font-size: 13px;
+}
+
+.legend::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 2px;
+}
+
+.legend--on::before { background: var(--grass); }
+.legend--off::before { background: var(--light-brown); }
+.legend--idle::before { background: var(--light-grey); }
+
+.activity-list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 2px solid var(--dark-brown);
+  border-bottom: 2px solid var(--dark-brown);
+}
+
+.activity {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid rgba(76, 40, 2, 0.15);
+}
+
+.activity__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.activity__time {
+  font-variant-numeric: tabular-nums;
+}
+
+.activity__status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.activity__status--on-task { background: var(--grass); color: var(--dark-brown); }
+.activity__status--off-task { background: var(--light-brown); color: var(--beige); }
+
+.activity-list--empty {
+  flex: 1;
+  margin: 0;
+  color: var(--dark-grey);
+}
+
+/* ---------- Garden page ---------- */
+
+.sky--garden {
+  flex: 0 0 33.333%;
+}
+
+/* A beige panel keeps the logo readable as conveyor clouds drift behind it. */
+.garden-logo {
+  position: absolute;
+  left: 3%;
+  top: 8%;
+  padding: 10px 16px;
+  border: 3px solid var(--dark-brown);
+  border-radius: var(--radius);
+  background: var(--beige);
+  z-index: 2;
+}
+
+.trophies {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.trophy {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+/* Tinted discs until trophy art replaces the placeholders. */
+.trophy--bronze { background: #b07a3f; }
+.trophy--silver { background: var(--light-grey); }
+.trophy--gold { background: #e3b53c; }
+
+.garden-logo__prestige {
+  margin: 6px 0 0;
+  font-weight: 700;
+}
+
+.grass {
+  flex: 1 1 66.667%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4%;
+  padding: 0 4%;
+  border-top: 6px solid var(--dark-brown);
+  background: var(--grass);
+}
+
+.grass__empty {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* Plots fill 90% of the grass height, split across one or two rows. */
+.plot-row {
+  display: flex;
+  justify-content: center;
+  gap: 3%;
+}
+
+.plot-row--of-1 { height: 90%; }
+.plot-row--of-2 { height: 43%; }
+
+.plot {
+  position: relative;
+  width: 15%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 6px 10px;
+  border-radius: 8px;
+  background: var(--dark-brown);
+}
+
+.plot__plant {
+  flex: 1;
+  width: 80%;
+  min-height: 0;
+  object-fit: contain;
+  transform-origin: bottom center;
+  outline: 2px dashed rgba(247, 243, 236, 0.35);
+  border-radius: 6px;
+}
+
+.plot__label {
+  margin-top: 6px;
+  color: var(--beige);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.plot__prestige {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--beige);
+  color: var(--dark-brown);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ---------- Setup ---------- */
+
+.settings-button {
+  position: absolute;
+  right: 2%;
+  bottom: 5%;
+  z-index: 2;
+  background: var(--beige);
+}
+
+.popup--setup {
+  width: min(520px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.setup-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 0;
+  border-top: 2px solid rgba(76, 40, 2, 0.2);
+}
+
+.setup-step p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.setup-step__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 18px;
+}
+
+.setup-step__mark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.setup-step__mark--ok { background: var(--grass); color: var(--dark-brown); }
+.setup-step__mark--todo { background: var(--dark-brown); color: var(--beige); }
+
+.setup-step__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.setup-key {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setup-key__label {
+  font-weight: 700;
+}
+
+.setup-key__row {
+  display: flex;
+  gap: 10px;
+}
+
+.setup-key__row .task-form__input {
+  flex: 1;
+  min-width: 0;
+}
+
+.link-button {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--light-brown);
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.setup-message {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.setup-message--error { background: var(--light-brown); color: var(--beige); }
+.setup-message--info { background: var(--input-white); border: 2px solid var(--light-grey); }
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, 92vw);
+  padding: 12px 16px;
+  border: 3px solid var(--dark-brown);
+  border-radius: var(--radius);
+  background: var(--beige);
+  z-index: 20;
+}
+
+/* Keep animations short rather than off, so the exit still fires animationend. */
+@media (prefers-reduced-motion: reduce) {
+  .animal[data-state='walking'] .animal__sprite,
+  .clouds--conveyor .cloud {
+    animation: none;
+  }
+
+  .clouds--conveyor .cloud {
+    left: calc(22% + var(--cloud-index) * 15%);
+  }
+
+  .animal[data-state='exiting'] {
+    animation-duration: 0.01s;
+  }
+
+  .pen__gate {
+    transition: none;
+  }
 }

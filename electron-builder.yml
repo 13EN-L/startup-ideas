@@ -1,0 +1,52 @@
+# Packages FocusGarden for people who just want to download and run it.
+# `npm run dist:win` (or :mac / :linux) writes the files to release/.
+appId: com.focusgarden.app
+productName: FocusGarden
+copyright: Copyright © 2026 FocusGarden
+
+directories:
+  output: release
+
+# Only the built app ships; React is already bundled into dist/ by Vite, and
+# electron-builder adds the production dependencies the main process needs.
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+
+win:
+  target:
+    # Setup.exe: double-click and it installs for the current user (no admin
+    # prompt), adds Start menu and desktop shortcuts, and opens the app.
+    - target: nsis
+      arch: [x64]
+    # No-install option: unzip and run FocusGarden.exe inside the folder.
+    # (A "portable" single exe was tried, but it unpacks itself on every
+    # launch and took ~35 s to open.)
+    - target: zip
+      arch: [x64]
+  # Used by the zip; the installer names itself below.
+  artifactName: FocusGarden-${version}-Windows.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false
+  artifactName: FocusGarden-${version}-Windows-Setup.exe
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [universal]
+  artifactName: FocusGarden-${version}-macOS.${ext}
+
+linux:
+  category: Utility
+  target:
+    - target: AppImage
+      arch: [x64]
+  artifactName: FocusGarden-${version}-Linux.${ext}

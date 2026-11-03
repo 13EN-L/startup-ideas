@@ -30,7 +30,8 @@ export async function makeUserDataDir(): Promise<string> {
 }
 
 export async function removeUserDataDir(dir: string): Promise<void> {
-  await rm(dir, { recursive: true, force: true });
+  // Chromium can hold profile files for a moment after the app closes (EBUSY on Windows).
+  await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
 }
 
 export async function startTask(page: Page, name: string, category: string): Promise<void> {

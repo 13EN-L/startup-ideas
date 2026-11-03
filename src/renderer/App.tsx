@@ -1,7 +1,14 @@
 // Issue #20: loads persisted state, restores the launch route, routes between
 // pages and saves after every change.
-import { notImplemented } from '../shared/notImplemented';
-import type { FocusGardenBridge } from '../shared/bridge';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { recentTasks, resolveLaunchRoute } from '../core/persistence';
+import { completeTask, startTask, stopTask, type StartTaskInput } from '../core/tasks';
+import type { FocusGardenBridge, SetupStatus } from '../shared/bridge';
+import type { AppState, Route } from '../shared/types';
+import { isSetupComplete, SetupDialog } from './components/SetupDialog';
+import { GardenPage } from './pages/GardenPage';
+import { MainPage } from './pages/MainPage';
+import { TaskPage } from './pages/TaskPage';
 
 export interface AppProps {
   bridge: FocusGardenBridge;
@@ -11,6 +18,180 @@ export interface AppProps {
   createId?: () => string;
 }
 
-export function App({ bridge }: AppProps) {
-  return notImplemented(`App(${typeof bridge})`);
+const defaultCreateId = () => crypto.randomUUID();
+
+/** Current time, refreshed every second for elapsed-time displays. */
+function useNow(clock: () => number): number {
+  const [now, setNow] = useState(clock);
+  useEffect(() => {
+    const id = setInterval(() => setNow(clock()), 1000);
+    return () => clearInterval(id);
+  }, [clock]);
+  return now;
+}
+
+export function App({ bridge, clock = Date.now, random = Math.random, createId = defaultCreateId }: AppProps) {
+  const [state, setState] = useState<AppState | null>(null);
+  const [resultTaskId, setResultTaskId] = useState<string>();
+  const [error, setError] = useState<string | null>(null);
+  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const now = useNow(clock);
+
+  const refreshSetup = useCallback(async () => {
+    const status = await bridge.getSetupStatus();
+    setSetupStatus(status);
+    return status;
+  }, [bridge]);
+
+  // Open setup on launch only if something is missing.
+  useEffect(() => {
+    let cancelled = false;
+    void refreshSetup().then((status) => {
+      if (!cancelled && !isSetupComplete(status)) setSetupOpen(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshSetup]);
+
+  // Latest state for async handlers, and whether the next change came from loading.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const skipNextSave = useRef(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void bridge.loadState().then((loaded) => {
+      if (cancelled) return;
+      skipNextSave.current = true;
+      setState({ ...loaded, route: resolveLaunchRoute(loaded) });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bridge]);
+
+  useEffect(() => {
+    if (!state) return;
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
+    bridge.saveState(state).catch((e: Error) => setError(`Could not save your progress: ${e.message}`));
+  }, [bridge, state]);
+
+  const navigate = useCallback((route: Route, taskId?: string) => {
+    const current = stateRef.current;
+    if (!current) return;
+    const next = { ...current, route };
+    stateRef.current = next;
+    setResultTaskId(taskId);
+    setState(next);
+  }, []);
+
+  const handleStart = useCallback(
+    (input: StartTaskInput) => {
+      const current = stateRef.current;
+      if (!current) return;
+      try {
+        const next = startTask(current, input, { now: clock(), random, createId });
+        stateRef.current = next;
+        setState(next);
+      } catch (e) {
+        setError((e as Error).message);
+      }
+    },
+    [clock, random, createId],
+  );
+
+  const handleStop = useCallback(
+    async (taskId: string, endedAt: number) => {
+      const current = stateRef.current;
+      if (!current || !current.activeTasks.some((t) => t.id === taskId)) return;
+
+      const { state: next, stopped } = stopTask(current, taskId);
+      stateRef.current = next;
+      setState(next);
+
+      try {
+        const completed = await bridge.finishTask(stopped, endedAt);
+        const latest = stateRef.current;
+        if (!latest) return;
+        const withResult = completeTask(latest, completed);
+        stateRef.current = withResult;
+        setState(withResult);
+      } catch (e) {
+        setError(`Could not analyze "${stopped.name}": ${(e as Error).message}`);
+      }
+    },
+    [bridge],
+  );
+
+  if (!state) {
+    return <div className="loading">Loading your garden…</div>;
+  }
+
+  const recent = recentTasks(state.completedTasks);
+
+  return (
+    <>
+      {state.route === 'main' && (
+        <MainPage
+          recentTasks={recent}
+          plants={state.plants}
+          onOpenTasks={() => navigate('task')}
+          onOpenTaskResult={(id) => navigate('task', id)}
+          onOpenGarden={() => navigate('garden')}
+          onOpenSettings={() => {
+            setSetupOpen(true);
+            void refreshSetup();
+          }}
+        />
+      )}
+      {state.route === 'task' && (
+        <TaskPage
+          activeTasks={state.activeTasks}
+          recentTasks={recent}
+          now={now}
+          initialResultTaskId={resultTaskId}
+          onStartTask={handleStart}
+          onStopTask={handleStop}
+          onNavigateHome={() => navigate('main')}
+        />
+      )}
+      {state.route === 'garden' && (
+        <GardenPage plants={state.plants} recentTasks={recent} onNavigateHome={() => navigate('main')} />
+      )}
+
+      {setupOpen && (
+        <SetupDialog
+          status={setupStatus}
+          onRecheck={async () => {
+            await refreshSetup();
+          }}
+          onSaveApiKey={async (key) => {
+            const result = await bridge.saveApiKey(key);
+            if (result.ok) await refreshSetup();
+            return result;
+          }}
+          onClearApiKey={async () => {
+            await bridge.clearApiKey();
+            await refreshSetup();
+          }}
+          onOpenLink={(link) => void bridge.openExternal(link)}
+          onClose={() => setSetupOpen(false)}
+        />
+      )}
+
+      {error && (
+        <div className="toast" role="alert">
+          <span>{error}</span>
+          <button type="button" className="btn btn--secondary" onClick={() => setError(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+    </>
+  );
 }

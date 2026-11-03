@@ -1,8 +1,9 @@
 // Issue #17: stopped task -> ActivityWatch -> Claude -> metrics -> CompletedTask.
-import { notImplemented } from '../shared/notImplemented';
+import { computeMetrics } from '../core/metrics';
 import type { ActiveTask, CompletedTask } from '../shared/types';
 import type { ActivityWatchClient } from './activitywatch/client';
-import type { ClassifierModel } from './classifier/classify';
+import { collectTaskActivity } from './activitywatch/collect';
+import { classifyActivities, type ClassifierModel } from './classifier/classify';
 
 export interface PipelineDeps {
   activityWatch: ActivityWatchClient;
@@ -14,5 +15,19 @@ export async function processCompletedTask(
   task: ActiveTask,
   endedAt: number,
 ): Promise<CompletedTask> {
-  return notImplemented(`processCompletedTask(${typeof deps}, ${task.id}, ${endedAt})`);
+  const { activities, idleSeconds } = await collectTaskActivity(deps.activityWatch, {
+    start: new Date(task.startedAt),
+    end: new Date(endedAt),
+  });
+  const classified = await classifyActivities(deps.classifier, task, activities);
+
+  return {
+    id: task.id,
+    name: task.name,
+    category: task.category,
+    startedAt: task.startedAt,
+    endedAt,
+    metrics: computeMetrics(classified, idleSeconds),
+    activities: classified,
+  };
 }

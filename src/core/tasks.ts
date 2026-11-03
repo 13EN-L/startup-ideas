@@ -1,12 +1,14 @@
 // Issue #19: task lifecycle, animal pen slots and the 3-task limit.
-import { notImplemented } from '../shared/notImplemented';
+import { ANIMALS, CATEGORIES, COLORS, MAX_ACTIVE_TASKS } from '../shared/constants';
 import type {
   ActiveTask,
   AnimalId,
   AppState,
   CategoryId,
   CompletedTask,
+  PenSlot,
 } from '../shared/types';
+import { applyCompletedTask } from './growth';
 
 export class TaskError extends Error {
   constructor(
@@ -36,17 +38,40 @@ export interface HomeButtonState {
   postColor: string;
 }
 
+const PEN_SLOTS: PenSlot[] = [0, 1, 2];
+
 export function canStartTask(activeTasks: ActiveTask[]): boolean {
-  return notImplemented(`canStartTask(${activeTasks.length})`);
+  return activeTasks.length < MAX_ACTIVE_TASKS;
 }
 
 export function pickAnimal(random: () => number): AnimalId {
-  return notImplemented(`pickAnimal(${typeof random})`);
+  const index = Math.min(Math.floor(random() * ANIMALS.length), ANIMALS.length - 1);
+  return ANIMALS[index];
 }
 
 /** Trims the name, assigns a random animal and the lowest free pen slot. */
 export function startTask(state: AppState, input: StartTaskInput, deps: TaskDeps): AppState {
-  return notImplemented(`startTask(${input.name}, ${deps.now}, ${state.activeTasks.length})`);
+  const name = input.name.trim();
+  if (!name) {
+    throw new TaskError('empty-name', 'Enter a task name.');
+  }
+  if (!CATEGORIES.some((c) => c.id === input.category)) {
+    throw new TaskError('unknown-category', `Unknown category: ${input.category}`);
+  }
+  const slot = PEN_SLOTS.find((s) => !state.activeTasks.some((t) => t.slot === s));
+  if (!canStartTask(state.activeTasks) || slot === undefined) {
+    throw new TaskError('limit-reached', `At most ${MAX_ACTIVE_TASKS} tasks can be active.`);
+  }
+
+  const task: ActiveTask = {
+    id: deps.createId(),
+    name,
+    category: input.category,
+    animal: pickAnimal(deps.random),
+    slot,
+    startedAt: deps.now,
+  };
+  return { ...state, activeTasks: [...state.activeTasks, task] };
 }
 
 /** Removes the task from the pen and returns it so the pipeline can process it. */
@@ -54,23 +79,43 @@ export function stopTask(
   state: AppState,
   taskId: string,
 ): { state: AppState; stopped: ActiveTask } {
-  return notImplemented(`stopTask(${taskId}, ${state.activeTasks.length})`);
+  const stopped = state.activeTasks.find((t) => t.id === taskId);
+  if (!stopped) {
+    throw new TaskError('not-found', `No active task with id ${taskId}`);
+  }
+  return {
+    state: { ...state, activeTasks: state.activeTasks.filter((t) => t.id !== taskId) },
+    stopped,
+  };
 }
 
 /** Records the processed task and grows the matching plant. */
 export function completeTask(state: AppState, task: CompletedTask): AppState {
-  return notImplemented(`completeTask(${task.id}, ${state.completedTasks.length})`);
+  return {
+    ...state,
+    completedTasks: [...state.completedTasks, task],
+    plants: applyCompletedTask(state.plants, task),
+  };
 }
 
 export function elapsedSeconds(task: ActiveTask, now: number): number {
-  return notImplemented(`elapsedSeconds(${task.id}, ${now})`);
+  return Math.max(0, Math.floor((now - task.startedAt) / 1000));
 }
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /** "H:MM:SS" for an hour or more, otherwise "MM:SS". */
 export function formatDuration(seconds: number): string {
-  return notImplemented(`formatDuration(${seconds})`);
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  return hours > 0 ? `${hours}:${pad2(minutes)}:${pad2(secs)}` : `${pad2(minutes)}:${pad2(secs)}`;
 }
 
 export function homeButtonState(activeTasks: ActiveTask[]): HomeButtonState {
-  return notImplemented(`homeButtonState(${activeTasks.length})`);
+  const disabled = activeTasks.length > 0;
+  return disabled
+    ? { disabled, signColor: COLORS.darkGrey, postColor: COLORS.lightGrey }
+    : { disabled, signColor: COLORS.darkBrown, postColor: COLORS.lightBrown };
 }

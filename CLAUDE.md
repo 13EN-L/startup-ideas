@@ -4,8 +4,8 @@
 FocusGarden is a productivity tracking desktop/web application that gamifies focus. It integrates with **ActivityWatch** to log user activity, uses the **Claude API** to classify websites/apps as on-task or off-task, and translates productive time into growing plants and animal companions in a virtual farm setting.
 
 ## Tech Stack & Architecture
-- **Frontend**: [Specify your stack here, e.g., React / Electron / Next.js / Vue]
-- **Backend / Local Server**: Node.js / Python [Specify based on your preference]
+- **Frontend**: React 19 + TypeScript, bundled with Vite, running in an Electron renderer (`src/renderer/`)
+- **Backend / Local Server**: Electron main process on Node.js (`src/main/`); pure domain logic shared by both sides lives in `src/core/`
 - **Integrations**: 
   - ActivityWatch (local watchers for apps/websites)
   - Claude API (for activity classification)
@@ -20,4 +20,5 @@ FocusGarden is a productivity tracking desktop/web application that gamifies foc
 - **Install Dependencies**: `npm install` (or equivalent)
 - **Run Development Server**: `npm run dev`
 - **Build**: `npm run build`
-- **Run Tests**: `npm test`
+- **Run Tests**: `npm test` (unit + integration + property), `npm run test:e2e` (builds, then drives Electron), `npm run test:mutation` (Stryker; needs a green suite)
+- **Typecheck**: `npm run typecheck`
