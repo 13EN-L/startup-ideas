@@ -929,6 +929,31 @@ button.cloud__body:hover {
   gap: 10px;
 }
 
+.setup-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.setup-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--dark-brown);
+}
+
+.setup-toggle small {
+  display: block;
+  margin-top: 2px;
+  color: var(--dark-grey);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
 .setup-key {
   display: flex;
   flex-direction: column;

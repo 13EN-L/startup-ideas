@@ -16,7 +16,7 @@
     "dist": "node scripts/fetch-activitywatch.mjs && npm run build && electron-builder",
     "dist:win": "node scripts/fetch-activitywatch.mjs win32 && npm run build && electron-builder --win",
     "activitywatch:fetch": "node scripts/fetch-activitywatch.mjs",
-    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:mac": "node scripts/fetch-activitywatch.mjs darwin && npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.main.json --noEmit",
     "test": "vitest run",

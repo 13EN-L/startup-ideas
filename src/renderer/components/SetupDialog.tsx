@@ -11,6 +11,8 @@ export interface SetupDialogProps {
   onSaveApiKey: (key: string) => Promise<SaveApiKeyResult>;
   onClearApiKey: () => Promise<void>;
   onOpenLink: (link: ExternalLink) => void;
+  /** Turns starting ActivityWatch at sign-in on or off. Omit to hide the option. */
+  onSetActivityWatchAutostart?: (enabled: boolean) => Promise<void>;
   /** Erases tasks and the garden (not the API key). Omit to hide the option. */
   onResetData?: () => Promise<void>;
   onClose: () => void;
@@ -26,6 +28,7 @@ export function SetupDialog({
   onSaveApiKey,
   onClearApiKey,
   onOpenLink,
+  onSetActivityWatchAutostart,
   onResetData,
   onClose,
 }: SetupDialogProps) {
@@ -51,6 +54,20 @@ export function SetupDialog({
       }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const [savingAutostart, setSavingAutostart] = useState(false);
+  const changeAutostart = async (enabled: boolean) => {
+    if (!onSetActivityWatchAutostart) return;
+    setSavingAutostart(true);
+    setMessage(null);
+    try {
+      await onSetActivityWatchAutostart(enabled);
+    } catch (e) {
+      setMessage({ kind: 'error', text: `Could not change the sign-in setting: ${(e as Error).message}` });
+    } finally {
+      setSavingAutostart(false);
     }
   };
 
@@ -110,6 +127,23 @@ export function SetupDialog({
                     </button>
                   </div>
                 </>
+              )}
+              {status.activityWatchAutostart !== 'unavailable' && onSetActivityWatchAutostart && (
+                <label className="setup-toggle">
+                  <input
+                    type="checkbox"
+                    checked={status.activityWatchAutostart === 'on'}
+                    disabled={savingAutostart}
+                    onChange={(e) => void changeAutostart(e.target.checked)}
+                  />
+                  <span>
+                    Start ActivityWatch when I sign in
+                    <small>
+                      Keeps tracking after a restart, even before you open FocusGarden. Only ActivityWatch needs to be
+                      running to record a task.
+                    </small>
+                  </span>
+                </label>
               )}
             </section>
 

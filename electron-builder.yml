@@ -47,10 +47,17 @@ nsis:
 
 mac:
   category: public.app-category.productivity
+  # ActivityWatch ships inside the app here too (fetched per CPU architecture by
+  # scripts/fetch-activitywatch.mjs), so there is one download per Mac type
+  # instead of a universal one.
+  extraResources:
+    - from: vendor/darwin-${arch}/activitywatch
+      to: activitywatch
   target:
     - target: dmg
-      arch: [universal]
-  artifactName: FocusGarden-${version}-macOS.${ext}
+      arch: [arm64, x64]
+  # FocusGarden-<version>-macOS-arm64.dmg (Apple silicon) and -x64.dmg (Intel).
+  artifactName: FocusGarden-${version}-macOS-${arch}.${ext}
 
 linux:
   category: Utility

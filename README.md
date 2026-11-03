@@ -25,15 +25,24 @@ Download from the project's **Releases** page on GitHub and pick one:
 - **Installer (recommended):** `FocusGarden-<version>-Windows-Setup.exe`. Double-click it. FocusGarden installs for your user account (no administrator password), adds Start menu and desktop shortcuts, and opens.
 - **No install:** `FocusGarden-<version>-Windows.zip`. Right-click it, choose **Extract All…**, open the extracted folder and double-click **FocusGarden.exe**. Keep the folder together; the other files in it are part of the app.
 
-**ActivityWatch is included.** You don't install or configure it separately: FocusGarden starts it automatically every time it opens.
+**ActivityWatch is included.** You don't install or configure it separately: FocusGarden starts it automatically every time it opens, and sets it to start whenever you sign in to Windows (see [Does FocusGarden need to be open?](#does-focusgarden-need-to-be-open)).
 
 **"Windows protected your PC"?** FocusGarden isn't code-signed yet, so Windows SmartScreen warns on first launch. Click **More info**, then **Run anyway**. You'll only see this once.
 
 ### macOS
 
-Download `FocusGarden-<version>-macOS.dmg`, open it and drag **FocusGarden** into **Applications**. The first time, right-click FocusGarden in Applications and choose **Open** (the app isn't notarized by Apple yet, so a normal double-click is blocked the first time).
+Download the file for your Mac. To check which you have, open  → **About This Mac**: **Chip: Apple M…** means Apple silicon, **Processor: Intel…** means Intel.
 
-On macOS, ActivityWatch is not included yet: also install it from [activitywatch.net/downloads](https://activitywatch.net/downloads/) and start it. The setup window links there.
+- **Apple silicon (M1 and later):** `FocusGarden-<version>-macOS-arm64.dmg`
+- **Intel:** `FocusGarden-<version>-macOS-x64.dmg`
+
+Open the `.dmg` and drag **FocusGarden** into **Applications**. The first time, right-click FocusGarden in Applications and choose **Open** (the app isn't notarized by Apple yet, so a normal double-click is blocked the first time).
+
+**ActivityWatch is included,** as on Windows. FocusGarden starts it when it opens and sets it to start whenever you log in. It appears as an icon in the menu bar.
+
+**Allow ActivityWatch to see your windows.** The first time ActivityWatch runs, macOS asks whether it may control your computer (**Accessibility**) and, on newer macOS, record your screen (**Screen Recording**); ActivityWatch needs these only to read which app and window title is in front, and records no images. Allow both in **System Settings → Privacy & Security**, then quit ActivityWatch from its menu bar icon and open FocusGarden again. Without them, ActivityWatch can't see which apps you use.
+
+**"Background Items Added"** appears once on macOS 13 and later when FocusGarden sets ActivityWatch to start at login. That's expected; you can manage it in **System Settings → General → Login Items**.
 
 ### Linux
 
@@ -44,29 +53,37 @@ chmod +x FocusGarden-*-Linux.AppImage
 ./FocusGarden-*-Linux.AppImage
 ```
 
-As on macOS, install and start [ActivityWatch](https://activitywatch.net/downloads/) yourself.
+On Linux, ActivityWatch is not included: install and start [ActivityWatch](https://activitywatch.net/downloads/) yourself, and use its own settings to start it when you log in.
 
 ### First launch
 
 The first time FocusGarden opens, a **Set up FocusGarden** window shows two steps:
 
-1. **ActivityWatch.** On Windows this is already done: FocusGarden has started it, and the step shows a check mark after a few seconds. On macOS and Linux, click **Download ActivityWatch**, install and start it, then click **Check again**.
+1. **ActivityWatch.** On Windows and macOS this is already done: FocusGarden has started it, and the step shows a check mark after a few seconds. **Start ActivityWatch when I sign in** is ticked, so tracking carries on after a restart. On Linux, click **Download ActivityWatch**, install and start it, then click **Check again**.
 2. **Claude API key.** Click **Get an API key** if you don't have one, paste it into the box and click **Save key**. FocusGarden checks the key with Anthropic and stores it encrypted on your computer.
 3. **Website tracking (optional).** FocusGarden already sees websites and Google searches from your browser's page titles. For exact websites and searches on every search engine, click **Chrome / Edge extension** or **Firefox add-on** to install the ActivityWatch browser extension (**aw-watcher-web**), browse for a moment, then click **Check for the extension**. Browsers only let you install extensions yourself, so this can't be done for you.
 
 Click **Close** when the first two steps show a check mark. You can click **Skip for now** to look around first, and reopen this window any time with **Settings** on the main page.
 
+### Does FocusGarden need to be open?
+
+**No, only ActivityWatch does.** When you start a task, FocusGarden notes the time. When you stop it, FocusGarden asks ActivityWatch for everything it recorded in between. So you can start a task, close FocusGarden, even restart your computer, and stop the task later: the whole session is counted, as long as ActivityWatch was running the whole time. Time when ActivityWatch wasn't running is simply missing from the task.
+
+That's why FocusGarden sets the ActivityWatch it includes to **start when you sign in** to Windows or log in to your Mac. Turn this off or on in **Settings → Start ActivityWatch when I sign in**. On Windows it's a normal startup app (you'll also see it in Task Manager → **Startup apps**); on macOS it's a login item (`~/Library/LaunchAgents/com.focusgarden.activitywatch.plist`).
+
 ### ActivityWatch in the background
 
-On Windows, the ActivityWatch that comes with FocusGarden appears as an icon in the system tray (near the clock). It keeps tracking after you close FocusGarden, so a task you leave running still gets counted. To stop it, right-click the tray icon and choose **Quit**; FocusGarden starts it again the next time it opens. If you already had ActivityWatch installed and running, FocusGarden uses yours instead.
+The ActivityWatch that comes with FocusGarden appears as an icon in the system tray on Windows (near the clock) or the menu bar on macOS. It keeps tracking after you close FocusGarden, so a task you leave running still gets counted. To stop it, right-click (Windows) or click (macOS) the icon and choose **Quit**; it starts again the next time you sign in or open FocusGarden.
+
+If you already had ActivityWatch installed and running, FocusGarden uses yours instead. If your own copy also starts at sign-in, turn off **Start ActivityWatch when I sign in** in FocusGarden so only one copy starts.
 
 ### Uninstall
 
-- **Installer:** Windows Settings → **Apps** → **FocusGarden** → **Uninstall**. This also stops and removes the included ActivityWatch.
-- **Zip:** quit ActivityWatch from its tray icon, then delete the folder.
-- **macOS:** drag FocusGarden from Applications to the Trash.
+- **Installer:** Windows Settings → **Apps** → **FocusGarden** → **Uninstall**. This also stops and removes the included ActivityWatch and its startup entry.
+- **Zip:** open **Settings** and untick **Start ActivityWatch when I sign in**, quit ActivityWatch from its tray icon, then delete the folder.
+- **macOS:** open **Settings** and untick **Start ActivityWatch when I sign in**, quit ActivityWatch from its menu bar icon, then drag FocusGarden from Applications to the Trash. (If you've already deleted it, remove `~/Library/LaunchAgents/com.focusgarden.activitywatch.plist`.)
 
-Your garden and settings are kept in case you reinstall. To remove them too, use **Settings → Reset all data** before uninstalling, or delete the data folder listed under [Your data](#your-data). ActivityWatch keeps its own history in `%LOCALAPPDATA%\activitywatch`; delete that folder too if you want it gone.
+Your garden and settings are kept in case you reinstall. To remove them too, use **Settings → Reset all data** before uninstalling, or delete the data folder listed under [Your data](#your-data). ActivityWatch keeps its own history in `%LOCALAPPDATA%\activitywatch` (Windows) or `~/Library/Application Support/activitywatch` (macOS); delete that folder too if you want it gone.
 
 ## Using FocusGarden
 
@@ -241,7 +258,7 @@ npm run dev
 
 `npm run dev` opens the app with hot reload for the interface. You can enter your API key in the setup window, or set the `ANTHROPIC_API_KEY` environment variable; a key saved in the app takes priority.
 
-On Windows, run `npm run activitywatch:fetch` once so `npm run dev` can start the bundled ActivityWatch too. Without it, start ActivityWatch yourself.
+On Windows and macOS, run `npm run activitywatch:fetch` once so `npm run dev` can start the bundled ActivityWatch too. Without it, start ActivityWatch yourself. Starting ActivityWatch at sign-in is only set up by installed builds, so `npm run dev` and the tests never change your own startup items.
 
 If the window opens blank when launched from an editor's terminal, the editor may be leaking `ELECTRON_RUN_AS_NODE=1` (VS Code does). Clear it first: `Remove-Item Env:ELECTRON_RUN_AS_NODE` in PowerShell, `unset ELECTRON_RUN_AS_NODE` in bash.
 
@@ -253,8 +270,8 @@ If the window opens blank when launched from an editor's terminal, the editor ma
 | `npm run build` | Builds the app into `dist/` and `dist-electron/` |
 | `npm start` | Opens the built app |
 | `npm run dist:win` | Downloads ActivityWatch, then builds the Windows installer and zip into `release/` |
-| `npm run activitywatch:fetch` | Downloads the bundled ActivityWatch into `vendor/` (checksum-verified) |
-| `npm run dist:mac` | Builds the macOS `.dmg` (must run on a Mac) |
+| `npm run activitywatch:fetch` | Downloads the bundled ActivityWatch for this computer into `vendor/` (checksum-verified; on a Mac, both Apple silicon and Intel) |
+| `npm run dist:mac` | Downloads ActivityWatch, then builds `FocusGarden-<version>-macOS-arm64.dmg` and `-x64.dmg` into `release/` (must run on a Mac) |
 | `npm run dist:linux` | Builds the Linux AppImage |
 | `npm test` | Unit, integration and property-based tests |
 | `npm run test:e2e` | Builds, then drives the real app with Playwright, using fake ActivityWatch and Claude services |
@@ -264,16 +281,20 @@ If the window opens blank when launched from an editor's terminal, the editor ma
 ### Publishing a release
 
 1. Bump `version` in `package.json`.
-2. Run `npm run dist:win` on Windows, `npm run dist:mac` on a Mac, and `npm run dist:linux` on Linux. Each writes its files to `release/`.
-3. Create a GitHub release and attach `FocusGarden-<version>-Windows-Setup.exe`, `FocusGarden-<version>-Windows.zip`, `FocusGarden-<version>-macOS.dmg` and `FocusGarden-<version>-Linux.AppImage`.
+2. Run `npm run dist:win` on Windows, `npm run dist:mac` on a Mac, and `npm run dist:linux` on Linux. Each writes its files to `release/`. Instead of a Mac, you can use the `.dmg` files from the **macOS** GitHub Actions workflow (below).
+3. Create a GitHub release and attach `FocusGarden-<version>-Windows-Setup.exe`, `FocusGarden-<version>-Windows.zip`, `FocusGarden-<version>-macOS-arm64.dmg`, `FocusGarden-<version>-macOS-x64.dmg` and `FocusGarden-<version>-Linux.AppImage`.
 
 Packaging is configured in [electron-builder.yml](electron-builder.yml). The builds are unsigned; signing with a Windows code-signing certificate and an Apple Developer ID would remove the SmartScreen and Gatekeeper warnings described above.
 
-The Windows build bundles ActivityWatch's official portable release. Its version and SHA-256 checksum are pinned in [scripts/fetch-activitywatch.mjs](scripts/fetch-activitywatch.mjs); to upgrade, change both there. [build/installer.nsh](build/installer.nsh) stops the bundled copy before FocusGarden is upgraded or uninstalled.
+The Windows build bundles ActivityWatch's official portable release, and the macOS builds bundle the `ActivityWatch.app` from its official `.dmg` (one per CPU architecture, unmodified so its signature stays valid). Versions and SHA-256 checksums are pinned in [scripts/fetch-activitywatch.mjs](scripts/fetch-activitywatch.mjs); to upgrade, change them there. [build/installer.nsh](build/installer.nsh) stops the bundled copy before FocusGarden is upgraded or uninstalled, and removes its startup entry on uninstall.
+
+### Checking the Mac build
+
+[.github/workflows/macos.yml](.github/workflows/macos.yml) runs on every push on a GitHub-hosted Mac (Apple silicon). It runs all the tests, including the end-to-end suite against the real app, builds both `.dmg` files, checks that the bundled ActivityWatch is intact and actually starts, and checks the login item FocusGarden writes. Download the `.dmg` files from the run's **Artifacts**.
 
 ## Credits
 
-FocusGarden's Windows build includes [ActivityWatch](https://activitywatch.net), redistributed unmodified under the [Mozilla Public License 2.0](https://github.com/ActivityWatch/activitywatch/blob/master/LICENSE.txt). Its licence and a link to its source code are installed alongside it in `resources\activitywatch\`.
+FocusGarden's Windows and macOS builds include [ActivityWatch](https://activitywatch.net), redistributed unmodified under the [Mozilla Public License 2.0](https://github.com/ActivityWatch/activitywatch/blob/master/LICENSE.txt). Its licence and a link to its source code are installed alongside it in `resources\activitywatch\` (Windows) or `FocusGarden.app/Contents/Resources/activitywatch/` (macOS).
 
 ### Code layout
 

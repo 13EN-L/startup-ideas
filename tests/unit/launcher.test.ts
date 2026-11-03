@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   bundledActivityWatchExecutable,
   ensureActivityWatchRunning,
+  vendorPlatformDir,
   type LaunchDeps,
 } from '../../src/main/activitywatch/launcher';
 
@@ -27,8 +28,20 @@ describe('bundledActivityWatchExecutable', () => {
     );
   });
 
-  it.each(['darwin', 'linux'] as const)('has no bundled copy on %s', (platform) => {
-    expect(bundledActivityWatchExecutable('/res', platform)).toBeNull();
+  it('points at ActivityWatch.app inside the app resources on macOS', () => {
+    expect(bundledActivityWatchExecutable('/res', 'darwin')).toBe(path.join('/res', 'activitywatch', 'ActivityWatch.app'));
+  });
+
+  it('has no bundled copy on Linux', () => {
+    expect(bundledActivityWatchExecutable('/res', 'linux')).toBeNull();
+  });
+});
+
+describe('vendorPlatformDir', () => {
+  it('keeps one folder per platform, and one per CPU architecture on macOS', () => {
+    expect(vendorPlatformDir('win32', 'x64')).toBe('win32');
+    expect(vendorPlatformDir('darwin', 'arm64')).toBe('darwin-arm64');
+    expect(vendorPlatformDir('darwin', 'x64')).toBe('darwin-x64');
   });
 });
 

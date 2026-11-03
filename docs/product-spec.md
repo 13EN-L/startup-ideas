@@ -1,7 +1,8 @@
 # FocusGarden Product Specification
 
 ## 1. Core Workflow & ActivityWatch Integration
-- **Continuous Tracking**: ActivityWatch tracks user activity (apps, websites, searches) continuously in the background.
+- **Continuous Tracking**: ActivityWatch tracks user activity (apps, websites, searches) continuously in the background. Only ActivityWatch has to be running; FocusGarden reads its history for the task window when a task stops, so FocusGarden can be closed (or the computer restarted) mid-task.
+- **Bundled ActivityWatch & Start at Sign-in**: The Windows and macOS builds bundle ActivityWatch (macOS: one build per CPU architecture). FocusGarden starts it when opened and, by default, registers it to start at sign-in (Windows: per-user Run entry; macOS: user LaunchAgent), refreshed on every launch. A Settings toggle, `"Start ActivityWatch when I sign in"`, turns this off/on. The Windows uninstaller removes the entry.
 - **Task Indexing**: The app indexes the timestamp between when a user starts a task and ends it.
 - **Idle Removal (local)**: Idle time comes from ActivityWatch's AFK watcher (no keyboard/mouse input for 3 minutes, its default `timeout`). It is computed locally, removed from the app/website time it overlaps, and **never sent to Claude**.
 - **Websites & Searches**: Browser time is split into websites and searches and the browser itself is not listed (no double counting). Sources, in order of preference: the `aw-watcher-web` browser extension (one entry per page as `"hostname — page title"`, e.g. `github.com — 13EN-L/startup-ideas`; searches with their query, e.g. `Google search: react hooks`), otherwise the browser window's page title (Google/DuckDuckGo/Brave results titles become searches). Settings shows whether the extension is connected and links to it; it is optional.
@@ -17,7 +18,7 @@
   - Top 3/4ths: Blue sky background (`#c9ecf9`) with a rectangular window in the center. Title `"FocusGarden"` in top center of the window. A `"Tasks"` button inside takes the user to the Task Page.
   - Outside the window: 5 clouds displaying the names of the 5 most recently completed tasks. Clicking a cloud opens the Task Page and automatically triggers that task's result popup.
   - Bottom 1/4th: Simplified garden representation.
-  - A `"Settings"` button opens the setup window (ActivityWatch status, Claude API key, optional website-tracking extension status), closed with `"Close"` (or `"Skip for now"` while a required step is missing). It also offers `"Reset all data"`, which after a confirmation (`"Yes, erase everything"` / `"Cancel"`) erases all tasks, plants, prestige and trophies. The saved API key is kept.
+  - A `"Settings"` button opens the setup window (ActivityWatch status with the start-at-sign-in toggle, Claude API key, optional website-tracking extension status), closed with `"Close"` (or `"Skip for now"` while a required step is missing). It also offers `"Reset all data"`, which after a confirmation (`"Yes, erase everything"` / `"Cancel"`) erases all tasks, plants, prestige and trophies. The saved API key is kept.
 
 ### B. Task Page
 - **Layout & State**:

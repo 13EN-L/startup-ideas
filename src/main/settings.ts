@@ -14,10 +14,14 @@ export interface SettingsStore {
   getApiKey(): Promise<string | null>;
   setApiKey(key: string): Promise<void>;
   clearApiKey(): Promise<void>;
+  /** Undefined until the user changes it; the default is on. */
+  getStartActivityWatchAtLogin(): Promise<boolean | undefined>;
+  setStartActivityWatchAtLogin(enabled: boolean): Promise<void>;
 }
 
 interface SettingsFile {
   apiKey?: { encoding: 'os-encrypted' | 'plain'; value: string };
+  startActivityWatchAtLogin?: boolean;
 }
 
 /** Returns a message explaining what is wrong, or null if the key looks right. */
@@ -77,6 +81,17 @@ export function createSettingsStore(file: StateStore, cipher: KeyCipher): Settin
     async clearApiKey() {
       const settings = await read();
       delete settings.apiKey;
+      await file.save(JSON.stringify(settings, null, 2));
+    },
+
+    async getStartActivityWatchAtLogin() {
+      const { startActivityWatchAtLogin } = await read();
+      return typeof startActivityWatchAtLogin === 'boolean' ? startActivityWatchAtLogin : undefined;
+    },
+
+    async setStartActivityWatchAtLogin(enabled) {
+      const settings = await read();
+      settings.startActivityWatchAtLogin = enabled;
       await file.save(JSON.stringify(settings, null, 2));
     },
   };

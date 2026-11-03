@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import { setTimeout as sleep } from 'node:timers/promises';
 import path from 'node:path';
 import { loadState, saveState } from '../core/persistence';
@@ -9,8 +10,16 @@ import type { ActiveTask, AppState } from '../shared/types';
 import { ActivityWatchClient } from './activitywatch/client';
 import { isWebBucket } from './activitywatch/collect';
 import {
+  applyAutostart,
+  macLoginItem,
+  windowsLoginItem,
+  type AutostartState,
+  type LoginItem,
+} from './activitywatch/autostart';
+import {
   bundledActivityWatchExecutable,
   ensureActivityWatchRunning,
+  vendorPlatformDir,
   type LaunchOutcome,
 } from './activitywatch/launcher';
 import { createAnthropicClassifierModel } from './classifier/anthropicModel';
@@ -38,9 +47,25 @@ function registerIpc() {
   // copy fetched into vendor/ by scripts/fetch-activitywatch.mjs.
   const resourcesDir = app.isPackaged
     ? process.resourcesPath
-    : path.join(app.getAppPath(), 'vendor', process.platform);
+    : path.join(app.getAppPath(), 'vendor', vendorPlatformDir(process.platform, process.arch));
   const bundledExecutable = bundledActivityWatchExecutable(resourcesDir, process.platform);
   const bundled = bundledExecutable !== null && existsSync(bundledExecutable);
+
+  // Starting at sign-in is only set up for installed builds, so `npm run dev`
+  // and the e2e suite never touch the developer's own startup items.
+  let loginItem: LoginItem | null = null;
+  if (bundled && app.isPackaged && !useFakeServices) {
+    if (process.platform === 'win32') loginItem = windowsLoginItem(app, bundledExecutable);
+    if (process.platform === 'darwin') {
+      loginItem = macLoginItem(path.join(os.homedir(), 'Library', 'LaunchAgents'), bundledExecutable);
+    }
+  }
+  const syncAutostart = (preference: boolean | undefined) =>
+    applyAutostart(preference, loginItem).catch((error: Error): AutostartState => {
+      console.error(`Could not update ActivityWatch's sign-in setting: ${error.message}`);
+      return 'off';
+    });
+  let autostart = settings.getStartActivityWatchAtLogin().then(syncAutostart);
 
   // One start attempt at a time; later callers share it.
   let starting: Promise<LaunchOutcome> | null = null;
@@ -73,6 +98,7 @@ function registerIpc() {
         activityWatchBundled: false,
         apiKey: 'environment',
         websiteTracking: 'page-titles',
+        activityWatchAutostart: 'unavailable',
       };
     }
     const outcome = await ensureActivityWatch();
@@ -84,7 +110,13 @@ function registerIpc() {
       activityWatchBundled: bundled,
       apiKey: (await currentApiKey()).source,
       websiteTracking: extension ? 'extension' : 'page-titles',
+      activityWatchAutostart: await autostart,
     };
+  });
+  ipcMain.handle(IPC.setActivityWatchAutostart, async (_event, enabled: boolean) => {
+    await settings.setStartActivityWatchAtLogin(enabled === true);
+    autostart = syncAutostart(enabled === true);
+    await autostart;
   });
   ipcMain.handle(IPC.saveApiKey, (_event, key: string) =>
     saveApiKey(String(key), { store: settings, verify: verifyAnthropicApiKey }),

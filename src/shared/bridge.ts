@@ -13,6 +13,8 @@ export interface SetupStatus {
    * browser extension, or page titles from browser windows without it.
    */
   websiteTracking: 'extension' | 'page-titles';
+  /** Whether the bundled ActivityWatch starts at sign-in; unavailable without a bundled copy. */
+  activityWatchAutostart: 'on' | 'off' | 'unavailable';
 }
 
 export type SaveApiKeyResult = { ok: true; warning?: string } | { ok: false; error: string };
@@ -40,6 +42,8 @@ export interface FocusGardenBridge {
   openExternal(link: ExternalLink): Promise<void>;
   /** The plant's description from assets/plants/<plant>/about.txt, or null if there is none. */
   getPlantAbout(category: CategoryId): Promise<string | null>;
+  /** Turns starting ActivityWatch at sign-in on or off. */
+  setActivityWatchAutostart(enabled: boolean): Promise<void>;
 }
 
 export const IPC = {
@@ -51,4 +55,5 @@ export const IPC = {
   clearApiKey: 'setup:clear-api-key',
   openExternal: 'app:open-external',
   getPlantAbout: 'plants:about',
+  setActivityWatchAutostart: 'setup:activitywatch-autostart',
 } as const;

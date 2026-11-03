@@ -152,3 +152,27 @@ describe('saveApiKey', () => {
     await expect(store.getApiKey()).resolves.toBe(VALID_KEY);
   });
 });
+
+describe('createSettingsStore: start ActivityWatch at sign-in', () => {
+  it('is unset until changed, then remembered', async () => {
+    const file = memoryFile();
+    const store = createSettingsStore(file, fakeCipher());
+    await expect(store.getStartActivityWatchAtLogin()).resolves.toBeUndefined();
+    await store.setStartActivityWatchAtLogin(false);
+    await expect(createSettingsStore(file, fakeCipher()).getStartActivityWatchAtLogin()).resolves.toBe(false);
+  });
+
+  it('keeps the saved API key when changed', async () => {
+    const file = memoryFile();
+    const store = createSettingsStore(file, fakeCipher());
+    await store.setApiKey(VALID_KEY);
+    await store.setStartActivityWatchAtLogin(true);
+    await expect(store.getApiKey()).resolves.toBe(VALID_KEY);
+    await expect(store.getStartActivityWatchAtLogin()).resolves.toBe(true);
+  });
+
+  it('ignores a value that is not true or false', async () => {
+    const store = createSettingsStore(memoryFile('{"startActivityWatchAtLogin":"yes"}'), fakeCipher());
+    await expect(store.getStartActivityWatchAtLogin()).resolves.toBeUndefined();
+  });
+});

@@ -12,6 +12,7 @@ const IPC: typeof SharedIPC = {
   clearApiKey: 'setup:clear-api-key',
   openExternal: 'app:open-external',
   getPlantAbout: 'plants:about',
+  setActivityWatchAutostart: 'setup:activitywatch-autostart',
 };
 
 const bridge: FocusGardenBridge = {
@@ -23,6 +24,7 @@ const bridge: FocusGardenBridge = {
   clearApiKey: () => ipcRenderer.invoke(IPC.clearApiKey),
   openExternal: (link) => ipcRenderer.invoke(IPC.openExternal, link),
   getPlantAbout: (category) => ipcRenderer.invoke(IPC.getPlantAbout, category),
+  setActivityWatchAutostart: (enabled) => ipcRenderer.invoke(IPC.setActivityWatchAutostart, enabled),
 };
 
 contextBridge.exposeInMainWorld('focusGarden', bridge);

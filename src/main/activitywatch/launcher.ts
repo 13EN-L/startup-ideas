@@ -12,9 +12,23 @@ export interface LaunchDeps {
   sleep(ms: number): Promise<void>;
 }
 
-/** Only the Windows build bundles ActivityWatch (see scripts/fetch-activitywatch.mjs). */
+/**
+ * What to open to start the bundled ActivityWatch: aw-qt.exe on Windows,
+ * ActivityWatch.app on macOS (see scripts/fetch-activitywatch.mjs). Linux
+ * builds don't bundle it.
+ */
 export function bundledActivityWatchExecutable(resourcesDir: string, platform: NodeJS.Platform): string | null {
-  return platform === 'win32' ? path.join(resourcesDir, 'activitywatch', 'aw-qt.exe') : null;
+  if (platform === 'win32') return path.join(resourcesDir, 'activitywatch', 'aw-qt.exe');
+  if (platform === 'darwin') return path.join(resourcesDir, 'activitywatch', 'ActivityWatch.app');
+  return null;
+}
+
+/**
+ * Folder under vendor/ that holds the downloaded ActivityWatch in development.
+ * macOS has one per CPU architecture, since ActivityWatch ships separate builds.
+ */
+export function vendorPlatformDir(platform: NodeJS.Platform, arch: string): string {
+  return platform === 'darwin' ? `darwin-${arch}` : platform;
 }
 
 export async function ensureActivityWatchRunning(

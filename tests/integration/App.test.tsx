@@ -8,7 +8,7 @@ import type { AppState, CompletedTask } from '../../src/shared/types';
 import { makeActiveTask, makeCompletedTask, makeState, T0 } from '../fixtures';
 
 const NOW = T0 + 20 * 60_000;
-const READY: SetupStatus = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved', websiteTracking: 'page-titles' };
+const READY: SetupStatus = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved', websiteTracking: 'page-titles', activityWatchAutostart: 'unavailable' };
 
 function fakeBridge(initial: AppState, finished?: CompletedTask, setup: SetupStatus = READY) {
   return {
@@ -20,6 +20,7 @@ function fakeBridge(initial: AppState, finished?: CompletedTask, setup: SetupSta
     clearApiKey: vi.fn(async () => {}),
     openExternal: vi.fn(async () => {}),
     getPlantAbout: vi.fn(async (): Promise<string | null> => 'Pines are evergreen conifers.'),
+    setActivityWatchAutostart: vi.fn(async (_enabled: boolean) => {}),
   } satisfies FocusGardenBridge;
 }
 
@@ -62,7 +63,7 @@ describe('#20 launch restore', () => {
 
 describe('first-run setup', () => {
   it('opens the setup window on launch when something is missing', async () => {
-    renderApp(fakeBridge(makeState(), undefined, { activityWatchRunning: false, activityWatchBundled: false, apiKey: 'missing', websiteTracking: 'page-titles' }));
+    renderApp(fakeBridge(makeState(), undefined, { activityWatchRunning: false, activityWatchBundled: false, apiKey: 'missing', websiteTracking: 'page-titles', activityWatchAutostart: 'unavailable' }));
     expect(await screen.findByRole('dialog', { name: 'Set up FocusGarden' })).toBeInTheDocument();
   });
 
@@ -74,7 +75,7 @@ describe('first-run setup', () => {
 
   it('re-checks after a key is saved and can be closed to use the app', async () => {
     const user = userEvent.setup();
-    const bridge = fakeBridge(makeState(), undefined, { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'missing', websiteTracking: 'page-titles' });
+    const bridge = fakeBridge(makeState(), undefined, { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'missing', websiteTracking: 'page-titles', activityWatchAutostart: 'unavailable' });
     renderApp(bridge);
 
     await user.type(await screen.findByLabelText('Anthropic API key'), 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz');

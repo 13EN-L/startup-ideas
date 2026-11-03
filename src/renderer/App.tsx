@@ -199,6 +199,10 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
             await refreshSetup();
           }}
           onOpenLink={(link) => void bridge.openExternal(link)}
+          onSetActivityWatchAutostart={async (enabled) => {
+            await bridge.setActivityWatchAutostart(enabled);
+            await refreshSetup();
+          }}
           onResetData={handleReset}
           onClose={() => setSetupOpen(false)}
         />
