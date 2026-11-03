@@ -1,5 +1,11 @@
 import type { Interval } from './domain'
 
+// Limits that keep each classification request small. The activity reader never produces
+// more items than this (it folds the rest into per-app/per-domain items) and truncates titles;
+// the classifier rejects anything larger.
+export const MAX_SUMMARY_ITEMS = 50
+export const MAX_TITLE_LENGTH = 200
+
 // One app, or one website/search, used during a task. Built from ActivityWatch data with
 // secrets already redacted from the title. domain is the bare host (no path or query) and is
 // null for non-browser apps. intervals are non-idle and don't overlap other items'.
