@@ -31,7 +31,8 @@ export type LaunchResult = 'reused' | 'started' | 'unavailable'
 
 export interface ActivityWatchLauncher {
   // Reuses a running ActivityWatch (the user's own, or ours from a previous session), or
-  // starts the bundled one.
+  // starts the bundled one. Safe to call often: it's cheap while the server answers, and it
+  // restarts ActivityWatch if it stopped while the app was open.
   ensureRunning(): Promise<LaunchResult>
   // On quit: stops the ActivityWatch this app started (now or in an earlier session), unless
   // tasks are active. Then it keeps recording while the app is closed, and the next launch
@@ -46,6 +47,7 @@ export function createActivityWatchLauncher(deps: LauncherDeps): ActivityWatchLa
   const pollMs = deps.pollMs ?? 250
   const started: ChildLike[] = []
   let launch: Promise<LaunchResult> | undefined
+  let checkedSaved = false
 
   const binary = (name: string): string =>
     join(binDir, name, platform === 'win32' ? `${name}.exe` : name)
@@ -66,14 +68,23 @@ export function createActivityWatchLauncher(deps: LauncherDeps): ActivityWatchLa
   }
 
   async function run(): Promise<LaunchResult> {
-    if (await reader.isServerRunning()) {
-      for (const pid of savedPids.load()) {
-        const child = adopt(pid)
-        if (child) started.push(child)
+    const running = await reader.isServerRunning()
+    // Processes left running by an earlier session only matter if that server still answers.
+    if (!checkedSaved) {
+      checkedSaved = true
+      if (running) {
+        for (const pid of savedPids.load()) {
+          const child = adopt(pid)
+          if (child) started.push(child)
+        }
       }
-      return 'reused'
     }
+    if (running) return 'reused'
     if (![SERVER, ...WATCHERS].every((name) => exists(binary(name)))) return 'unavailable'
+
+    // The server stopped while the app was open: clear out whatever is left of our parts
+    // before starting fresh ones.
+    started.splice(0).forEach((child) => child.kill())
 
     const server = start(SERVER)
     if (!(await serverAnswers())) {
@@ -87,7 +98,9 @@ export function createActivityWatchLauncher(deps: LauncherDeps): ActivityWatchLa
 
   return {
     ensureRunning() {
-      launch ??= run()
+      launch ??= run().finally(() => {
+        launch = undefined
+      })
       return launch
     },
     stopIfIdle(hasActiveTasks) {

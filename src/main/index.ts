@@ -35,21 +35,6 @@ function startBackend(): { tasks: TaskService; launcher: ActivityWatchLauncher }
     safeStorage,
     fs: { existsSync, readFileSync, writeFileSync, rmSync }
   })
-  const tasks = createTaskService({
-    db: database,
-    activity,
-    // With no key saved, the classifier fails as non-retryable and the task waits for one.
-    getClassifier: () => createClassifier({ apiKey: apiKeys.get() ?? '' }),
-    notify: {
-      taskResults: (taskId) => sendToAllWindows(IPC.taskResultsReady, taskId),
-      gardenChanged: () => sendToAllWindows(IPC.gardenChanged)
-    }
-  })
-  registerIpcHandlers(ipcMain, {
-    service: tasks,
-    apiKeys,
-    getGardenState: () => getGardenState(database)
-  })
   // The bundled ActivityWatch: packaged under Resources, or fetched by `npm run fetch:aw` in dev.
   const binDir = app.isPackaged
     ? join(process.resourcesPath, 'activitywatch')
@@ -62,6 +47,27 @@ function startBackend(): { tasks: TaskService; launcher: ActivityWatchLauncher }
     spawn: startDetached,
     adopt: (pid) => adoptProcess(pid, binDir),
     savedPids: createPidFile(join(userData, 'activitywatch-pids.json'))
+  })
+  const tasks = createTaskService({
+    db: database,
+    // Make sure ActivityWatch is up before each read; restarts it if it stopped meanwhile.
+    activity: {
+      getSummary: async (range) => {
+        await launcher.ensureRunning()
+        return activity.getSummary(range)
+      }
+    },
+    // With no key saved, the classifier fails as non-retryable and the task waits for one.
+    getClassifier: () => createClassifier({ apiKey: apiKeys.get() ?? '' }),
+    notify: {
+      taskResults: (taskId) => sendToAllWindows(IPC.taskResultsReady, taskId),
+      gardenChanged: () => sendToAllWindows(IPC.gardenChanged)
+    }
+  })
+  registerIpcHandlers(ipcMain, {
+    service: tasks,
+    apiKeys,
+    getGardenState: () => getGardenState(database)
   })
   return { tasks, launcher }
 }

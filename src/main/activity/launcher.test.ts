@@ -86,11 +86,32 @@ describe('ActivityWatch launcher', () => {
     expect(spawned).toEqual([`${SERVER}.exe`, `${AFK}.exe`, `${WINDOW}.exe`])
   })
 
-  it('starts ActivityWatch only once when asked twice', async () => {
+  it('starts ActivityWatch only once when asked twice at the same time', async () => {
     const { deps, spawned } = setup()
     const launcher = createActivityWatchLauncher(deps)
     await Promise.all([launcher.ensureRunning(), launcher.ensureRunning()])
     expect(spawned).toHaveLength(3)
+  })
+
+  it('does nothing when asked again while ActivityWatch is still running', async () => {
+    const { deps, spawned } = setup({ running: [false, true] })
+    const launcher = createActivityWatchLauncher(deps)
+    await launcher.ensureRunning()
+    expect(await launcher.ensureRunning()).toBe('reused')
+    expect(spawned).toHaveLength(3)
+  })
+
+  it('restarts ActivityWatch if it stopped while the app was open, clearing out the old parts', async () => {
+    // started, then answering, then found stopped, then answering again
+    const { deps, spawned, killed } = setup({ running: [false, true, false, true] })
+    const launcher = createActivityWatchLauncher(deps)
+    await launcher.ensureRunning()
+    expect(await launcher.ensureRunning()).toBe('started')
+    expect(spawned).toEqual([SERVER, AFK, WINDOW, SERVER, AFK, WINDOW])
+    expect(killed.sort()).toEqual([AFK, SERVER, WINDOW].sort())
+
+    launcher.stopIfIdle(false)
+    expect(killed).toHaveLength(6)
   })
 
   it('stops what it started when no tasks are active', async () => {
