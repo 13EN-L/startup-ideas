@@ -1,3 +1,10 @@
+# Node / Electron
+node_modules
+dist
+out
+.eslintcache
+*.log*
+
 # Python
 .venv/
 venv/
