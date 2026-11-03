@@ -2,6 +2,7 @@ import { ui } from '../../assets/manifest'
 import styles from './HomeSign.module.css'
 
 // A fence sign labeled "home". Deactivated (greyed, not clickable) while tasks are active.
+// The sign art carries the label and both color states.
 export function HomeSign(props: {
   active: boolean
   onClick: () => void
@@ -15,11 +16,9 @@ export function HomeSign(props: {
       data-state={state}
       disabled={!props.active}
       onClick={props.onClick}
-      className={[styles.sign, styles[state], props.className].filter(Boolean).join(' ')}
+      className={[styles.sign, props.className].filter(Boolean).join(' ')}
     >
       <img className={styles.art} src={ui.homeSign[state]} alt="" />
-      <span className={styles.board}>home</span>
-      <span className={styles.post} />
     </button>
   )
 }
