@@ -148,7 +148,8 @@ describe('task service', () => {
         ]
       })
       expect(getPlant(h.db, 'School / Study')?.totalSeconds).toBe(25 * 60)
-      expect(h.events).toEqual([`results:${id}`, `results:${id}`, 'garden'])
+      // stopped (now pending), summary saved, labeled and grown
+      expect(h.events).toEqual([`results:${id}`, `results:${id}`, `results:${id}`, 'garden'])
     })
 
     it('shows idle time and the item list while classification is pending', async () => {
@@ -322,6 +323,14 @@ describe('task service', () => {
       await h.service.settled()
       expect(h.classify).toHaveBeenCalledTimes(7)
       expect(getTask(h.db, id)?.status).toBe('pending')
+    })
+
+    it('tells the UI a task stopped even when ActivityWatch is down', async () => {
+      const h = harness()
+      h.getSummary.mockRejectedValue(new Error('down'))
+      const id = await runTask(h)
+      expect(h.events).toEqual([`results:${id}`])
+      expect(h.service.listRecent().map((t) => t.id)).toEqual([id])
     })
 
     it('retries summarizing when ActivityWatch is down, without falling back', async () => {

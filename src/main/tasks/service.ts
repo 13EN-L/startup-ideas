@@ -154,6 +154,9 @@ export function createTaskService(deps: TaskServiceDeps): TaskService {
 
     stop(id) {
       stopTask(db, id, now())
+      // Its results are now pending; the UI shows it in the recent clouds right away, even if
+      // ActivityWatch can't be read yet.
+      notify.taskResults(id)
       void process(id)
     },
 
