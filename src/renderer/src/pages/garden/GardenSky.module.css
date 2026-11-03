@@ -1,0 +1,57 @@
+/* One lap of the conveyor belt: in from off the left edge, out past the right edge. 256 steps
+   keep each jump to about 4px at the default window width. */
+.lane {
+  --lap: 80s;
+  position: absolute;
+  top: var(--top);
+  left: -128px;
+  animation: drift var(--lap) steps(256) infinite;
+  animation-delay: calc(var(--lane) * var(--lap) / -5);
+}
+
+@keyframes drift {
+  from {
+    left: -128px;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+/* 32x16 sprite drawn at 4x (overrides the labeled cloud's size). */
+.lane .cloud {
+  display: block;
+  width: 128px;
+  height: 64px;
+  padding: 0;
+}
+
+.corner {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* 58x11 sprite drawn at 4x. */
+.logo {
+  display: block;
+  width: 232px;
+  height: 44px;
+}
+
+.trophies {
+  display: flex;
+  gap: 8px;
+}
+
+/* 14x16 sprite drawn at 3x. */
+.trophy {
+  display: block;
+  width: 42px;
+  height: 48px;
+}

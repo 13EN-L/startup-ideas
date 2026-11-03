@@ -1,0 +1,59 @@
+appId: com.focusgarden.app
+productName: FocusGarden
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!scripts/*'
+  - '!docs/*'
+  - '!reports/*'
+  - '!resources/activitywatch/**'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md,CLAUDE.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,vitest.config.ts,stryker.config.json}'
+asarUnpack:
+  - resources/**
+# The bundled ActivityWatch (npm run fetch:aw) ships next to the app, outside app.asar,
+# so its executables can run. The app finds it at process.resourcesPath/activitywatch.
+extraResources:
+  - from: resources/activitywatch
+    to: activitywatch
+win:
+  executableName: focusgarden
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  entitlementsInherit: build/entitlements.mac.plist
+  # Ad-hoc sign the whole bundle (no Apple account needed). Without it the app keeps
+  # Electron's placeholder signature, macOS can't match it to its Accessibility permission,
+  # and ActivityWatch's window watcher keeps prompting. Replace '-' with a Developer ID
+  # identity to distribute the app; the hardened runtime is only needed for notarization.
+  identity: '-'
+  hardenedRuntime: false
+  # ActivityWatch's binaries are already signed, and re-signing its PyInstaller Python
+  # framework fails. The app's own signature still seals these files.
+  signIgnore:
+    - 'Resources/activitywatch/'
+  notarize: false
+  # ActivityWatch's window watcher asks Safari and Chromium browsers for the front tab's URL
+  # through Apple Events. macOS attributes that to FocusGarden, and without this string it
+  # refuses silently instead of asking the user.
+  extendInfo:
+    NSAppleEventsUsageDescription: FocusGarden reads the address of your browser's front tab to see which websites you use during a task.
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  executableName: focusgarden
+  maintainer: FocusGarden team
+  category: Utility
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false

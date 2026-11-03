@@ -1,0 +1,21 @@
+.sign {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sign:disabled {
+  cursor: not-allowed;
+}
+
+.sign:not(:disabled):hover .art {
+  transform: translateY(-4px);
+}
+
+/* 24x18 sprite drawn at 4x. */
+.art {
+  display: block;
+  width: 96px;
+  height: 72px;
+}

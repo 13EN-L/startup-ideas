@@ -1,0 +1,27 @@
+# Node / Electron
+node_modules
+dist
+out
+.eslintcache
+*.log*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# OS
+.DS_Store
+
+.env*
+*.db
+CLAUDE.local.md
+reports/
+.stryker-tmp/
+# Claude Code agent worktrees
+.claude/worktrees/
+
+# Downloaded by npm run fetch:aw
+resources/activitywatch/

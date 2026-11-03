@@ -1,0 +1,91 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.window {
+  min-width: 360px;
+  gap: 24px;
+  padding: 28px 40px 32px;
+}
+
+.title {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-dark-brown);
+}
+
+/* The recent clouds sit around the window, not in a row. Doubled class beats Cloud.module.css. */
+.clouds.clouds {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.clouds > * {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.clouds > :nth-child(1) {
+  top: 7%;
+  left: 10%;
+}
+
+.clouds > :nth-child(2) {
+  top: 5%;
+  right: 11%;
+}
+
+.clouds > :nth-child(3) {
+  top: 46%;
+  left: 3%;
+}
+
+.clouds > :nth-child(4) {
+  top: 52%;
+  right: 3%;
+}
+
+.clouds > :nth-child(5) {
+  bottom: 4%;
+  left: calc(50% - 68px);
+}
+
+/* Garden preview: the whole grass strip is one button. */
+.preview {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  padding: 0 16px 24px;
+  border: none;
+  background: var(--color-grass);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.preview:focus-visible {
+  outline-offset: -12px;
+}
+
+/* Centered, so the first plant sits in the middle and new ones push earlier ones left. */
+.row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 16px;
+}
+
+/* Placeholder plant art is 16x24; shown at a whole-number 4x scale. */
+.plant {
+  display: block;
+  width: 64px;
+  height: 96px;
+  image-rendering: pixelated;
+}

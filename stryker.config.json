@@ -1,0 +1,7 @@
+{
+  "testRunner": "vitest",
+  "mutate": ["src/main/rewards/**/*.ts", "src/main/tasks/**/*.ts", "!src/main/**/*.test.ts"],
+  "reporters": ["clear-text", "progress", "html"],
+  "coverageAnalysis": "perTest",
+  "ignorePatterns": ["dist", "out", "reports", "resources/activitywatch", ".claude/worktrees"]
+}
