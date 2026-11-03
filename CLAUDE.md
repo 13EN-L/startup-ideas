@@ -67,7 +67,9 @@ Build tool: electron-vite. Tests: Vitest.
 - Time spent per app/site comes from ActivityWatch, never from Claude.
 - Request structured JSON output and validate it with `zod`. If the call fails or
   the output is invalid, the task waits for results and is retried. It adds no
-  growth until labeled. Never default anything to on-task.
+  growth until labeled. Never default anything to on-task. After 5 failed retries
+  (per app session), label every item off-task and complete the task; a missing or
+  rejected API key never triggers this (see `docs/rewards.md`).
 - Labels are final. A labeled task is never sent to Claude again.
 
 ### Time accounting

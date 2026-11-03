@@ -56,8 +56,14 @@ active ──stop──► pending ──classified──► done
 3. **Summarize:** read ActivityWatch events from start to stop and build the
    activity summary (below). The idle percentage and app/site list can show now.
 4. **Classify:** send the summary to Claude. On success, save labels and set
-   status `done`. On failure, stay `pending` and retry with backoff, and again
-   on every app launch.
+   status `done`. On a retryable failure (network, rate limit, server error,
+   invalid output, refusal), stay `pending` and retry after 30 s, 1, 2, 5, and
+   10 min. If all 5 retries fail, label every item off-task and complete the task
+   (see `docs/rewards.md`). On a non-retryable failure (no key, rejected key),
+   wait until a key is saved. Retry counts reset on every app launch, which also
+   retries all `pending` tasks. If ActivityWatch can't be reached while
+   summarizing, retry on the same schedule (holding at 10 min) with no fallback.
+   Only this computer's ActivityWatch buckets are read (matched by hostname).
 5. **Grow:** once `done`, apply the task's productive time to its category's plant.
    Labels are final; a `done` task is never classified again.
 

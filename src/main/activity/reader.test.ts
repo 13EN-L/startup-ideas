@@ -180,6 +180,53 @@ describe('getSummary', () => {
     expect(summary.idleSeconds).toBe(300)
   })
 
+  it('only reads this computer’s buckets, ignoring ones synced from another machine', async () => {
+    const other = (id: string, type: string): Record<string, unknown> => ({
+      ...bucket(id, type, 'aw-watcher'),
+      hostname: 'work-desktop'
+    })
+    const buckets = {
+      ...BUCKETS,
+      'aw-watcher-window_work-desktop': other('aw-watcher-window_work-desktop', 'currentwindow'),
+      'aw-watcher-afk_work-desktop': other('aw-watcher-afk_work-desktop', 'afkstatus'),
+      'aw-watcher-web-chrome_work-desktop': other(
+        'aw-watcher-web-chrome_work-desktop',
+        'web.tab.current'
+      )
+    }
+    const fetch = fakeFetch({ buckets })
+    const summary = await createActivityReader({ fetch }).getSummary(RANGE)
+
+    const requested = fetch.mock.calls.map(([input]) => new URL(String(input)).pathname)
+    expect(requested.filter((p) => p.includes('work-desktop'))).toEqual([])
+    expect(summary.items.map((i) => i.name)).toEqual([
+      'developer.mozilla.org',
+      'mail.google.com',
+      'Code'
+    ])
+  })
+
+  it('keeps web buckets that report an unknown hostname (older browser extensions)', async () => {
+    const fetch = fakeFetch()
+    await createActivityReader({ fetch }).getSummary(RANGE)
+    const requested = fetch.mock.calls.map(([input]) => new URL(String(input)).pathname)
+    expect(requested).toContain('/api/0/buckets/aw-watcher-web-chrome/events')
+  })
+
+  it('ignores window buckets that report an unknown hostname', async () => {
+    const buckets = {
+      ...BUCKETS,
+      'aw-watcher-window_unknown': {
+        ...bucket('aw-watcher-window_unknown', 'currentwindow', 'aw-watcher-window'),
+        hostname: 'unknown'
+      }
+    }
+    const fetch = fakeFetch({ buckets })
+    await createActivityReader({ fetch }).getSummary(RANGE)
+    const requested = fetch.mock.calls.map(([input]) => new URL(String(input)).pathname)
+    expect(requested).not.toContain('/api/0/buckets/aw-watcher-window_unknown/events')
+  })
+
   it('encodes bucket ids in the URL', async () => {
     const id = 'aw-watcher-window_my laptop/2'
     const fetch = fakeFetch({

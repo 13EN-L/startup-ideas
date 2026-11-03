@@ -22,7 +22,15 @@ export interface ActivityReaderOptions {
   requestTimeoutMs?: number
 }
 
-const BucketsSchema = z.record(z.string(), z.object({ type: z.string() }))
+const InfoSchema = z.object({ hostname: z.string() })
+
+const BucketsSchema = z.record(
+  z.string(),
+  z.object({ type: z.string(), hostname: z.string().optional() })
+)
+
+// Older aw-watcher-web versions report this instead of the machine's hostname.
+const UNKNOWN_HOST = 'unknown'
 
 const eventFields = {
   timestamp: z.string().refine((s) => Number.isFinite(Date.parse(s)), 'Invalid timestamp'),
@@ -104,10 +112,17 @@ export function createActivityReader(options: ActivityReaderOptions = {}): Activ
     },
 
     async getSummary(range: Interval): Promise<ActivitySummary> {
-      const buckets = await getJson('/api/0/buckets/', BucketsSchema)
+      const [{ hostname }, buckets] = await Promise.all([
+        getJson('/api/0/info', InfoSchema),
+        getJson('/api/0/buckets/', BucketsSchema)
+      ])
+      // Only this computer's activity: ActivityWatch sync can bring in other machines' buckets.
+      const isLocal = (id: string): boolean =>
+        buckets[id].hostname === hostname ||
+        (buckets[id].type === BUCKET_TYPES.web && buckets[id].hostname === UNKNOWN_HOST)
       const idsOf = (type: string): string[] =>
         Object.keys(buckets)
-          .filter((id) => buckets[id].type === type)
+          .filter((id) => buckets[id].type === type && isLocal(id))
           .sort()
 
       const [window, afk, web] = await Promise.all([

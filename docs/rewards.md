@@ -54,6 +54,14 @@ user is on the garden page.
 If classification fails, the task waits for results and is retried. It adds nothing
 until it's labeled. Labels are final, so progress only goes up.
 
+**Retry cap.** Classification is retried up to 5 times per app session (after 30 s, 1, 2,
+5, and 10 min). If all 5 retries fail, every item in the task is labeled **off-task**:
+the task completes with 0 productive time, adds no growth, and still creates its
+category's plant if it's the first task there. This applies only when Claude can't
+produce labels (network errors, overload, invalid output, refusals). A missing or
+rejected API key never triggers it; the task waits until a key is saved. Items are
+never defaulted to on-task.
+
 ## The growth cycle
 
 A plant has 6 stages. Each stage takes 6 minutes of productive time, so one full
@@ -128,6 +136,10 @@ and Claude labels that 30 min on-task for both → **Pine +30 min, Tomato +30 mi
 
 **Overlap, same category.** Two Work tasks both run 2:00–2:30, both on-task →
 **Pine +30 min**, not 60.
+
+**Retries exhausted.** A first Creative task: 20 min on-task, 5 off-task, 5 idle, but
+classification fails 6 times (the first try plus 5 retries) → all items off-task →
+**Basil appears at stage 1 with +0 min**. The task shows 25 min off-task, 5 min idle.
 
 **Trophy.** Three plants at prestige 4, 3, 2 → global 9, bronze only. The next wrap
 makes it 10 → **silver appears**.
