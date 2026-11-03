@@ -27,8 +27,11 @@ On first launch the app asks for your Claude API key and starts its bundled Acti
 (or reuses one you already run). macOS asks once to allow Accessibility access so window
 titles can be read.
 
-For website-level tracking, install the ActivityWatch browser extension
-(aw-watcher-web) in your browser. Without it, browsers show up by app and window title.
+On macOS, Safari and Chromium browsers (Chrome, Edge, Brave, Arc…) are tracked by website
+with no extension: the first time you use one during a task, macOS asks whether FocusGarden may
+control it. Allow it so the window watcher can read the front tab's address (only the domain is
+kept). For Firefox, or other systems, install the ActivityWatch browser extension
+(aw-watcher-web). Without either, browsers show up by app and window title.
 
 **Building on your own Mac:** run `npm run setup:mac-signing` once. It creates a
 self-signed "FocusGarden Dev" code-signing certificate in your login keychain (macOS asks for

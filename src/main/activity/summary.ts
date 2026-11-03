@@ -12,7 +12,8 @@ export interface AwEvent<T> {
   data: T
 }
 
-export type WindowEvent = AwEvent<{ app: string; title: string }>
+// url is the front tab's address, which the macOS window watcher reports for some browsers.
+export type WindowEvent = AwEvent<{ app: string; title: string; url?: string }>
 export type AfkEvent = AwEvent<{ status: 'afk' | 'not-afk' }>
 export type WebEvent = AwEvent<{ url: string; title?: string }>
 
@@ -113,8 +114,8 @@ function webSpansFor(
   }
 }
 
-// Attributes every non-overlapping window span to an app/title or, for browser time covered by
-// web data, to a domain/tab title.
+// Attributes every non-overlapping window span to an app/title or, for browser time, to a
+// domain/tab title: from web data where it exists, otherwise from the window's own tab URL.
 function groupActivity(events: ActivityEvents, range: Interval): Map<string, Group> {
   const groups = new Map<string, Group>()
   const add = (app: string, domain: string | null, rawTitle: string, piece: Interval): void => {
@@ -129,7 +130,12 @@ function groupActivity(events: ActivityEvents, range: Interval): Map<string, Gro
   for (const window of resolveOverlaps(clip(events.window, range))) {
     const app = redactSecrets(window.value.app.trim())
     const browser = browserForApp(window.value.app)
-    const pages = browser && events.web.length > 0 ? webFor(browser) : []
+    // Safari has no web watcher extension, so its domain comes from the window watcher's tab URL.
+    // That URL is this browser's own, so it beats falling back to another browser's web bucket.
+    const tabDomain = browser && window.value.url ? domainFromUrl(window.value.url) : null
+    const hasOwnWebData = events.web.some((b) => b.browser === browser)
+    const useWeb = browser && events.web.length > 0 && (tabDomain === null || hasOwnWebData)
+    const pages = useWeb ? webFor(browser) : []
 
     let cursor = window.start
     for (let i = firstEndingAfter(pages, window.start); i < pages.length; i++) {
@@ -139,11 +145,13 @@ function groupActivity(events: ActivityEvents, range: Interval): Map<string, Gro
       if (domain === null) continue
       const start = Math.max(page.start, window.start)
       const end = Math.min(page.end, window.end)
-      if (start > cursor) add(app, null, window.value.title, { start: cursor, end: start })
+      if (start > cursor) add(app, tabDomain, window.value.title, { start: cursor, end: start })
       add(app, domain, page.value.title || window.value.title, { start, end })
       cursor = end
     }
-    if (cursor < window.end) add(app, null, window.value.title, { start: cursor, end: window.end })
+    if (cursor < window.end) {
+      add(app, tabDomain, window.value.title, { start: cursor, end: window.end })
+    }
   }
   return groups
 }

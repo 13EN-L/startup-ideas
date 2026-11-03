@@ -38,7 +38,14 @@ const eventFields = {
 }
 
 const WindowEvents = z.array(
-  z.object({ ...eventFields, data: z.object({ app: z.string(), title: z.string().default('') }) })
+  z.object({
+    ...eventFields,
+    data: z.object({
+      app: z.string(),
+      title: z.string().default(''),
+      url: z.string().optional()
+    })
+  })
 )
 const AfkEvents = z.array(
   z.object({ ...eventFields, data: z.object({ status: z.enum(['afk', 'not-afk']) }) })

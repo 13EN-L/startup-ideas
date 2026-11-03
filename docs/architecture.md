@@ -30,10 +30,14 @@ user actions through the preload bridge.
 ## ActivityWatch
 
 - We bundle ActivityWatch's server and three watchers:
-  - **Window watcher:** active app name and window title.
+  - **Window watcher:** active app name and window title. On macOS it also reports the
+    front tab's URL for Safari and Chromium browsers, through Apple Events (the app's
+    `NSAppleEventsUsageDescription` lets macOS ask for that permission).
   - **AFK watcher:** whether the user is active or idle.
   - **Web watcher:** active tab's URL and title. This one runs as a browser
     extension, so the user has to install it in their browser for site-level data.
+    There is no Safari extension; Safari's domains come from the window watcher's URL.
+    Web watcher data for the same browser wins over the window watcher's URL.
 - On launch, check whether an ActivityWatch server is already running (the user may
   have it installed). Reuse it if so; otherwise start our bundled copy.
 - ActivityWatch records continuously and on its own. We read past events by time

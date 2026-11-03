@@ -325,6 +325,22 @@ describe('getSummary', () => {
     expect(String((error as Error).message)).not.toContain('secret-plan')
   })
 
+  it('keeps the tab URL the window watcher reports for a browser, as a domain only', async () => {
+    const events = {
+      ...EVENTS,
+      'aw-watcher-window_my-laptop': [
+        {
+          timestamp: awTime(0),
+          duration: 60,
+          data: { app: 'Safari', title: 'Dogs', url: 'https://www.google.com/search?q=dogs' }
+        }
+      ]
+    }
+    const summary = await createActivityReader({ fetch: fakeFetch({ events }) }).getSummary(RANGE)
+    expect(summary.items).toEqual([expect.objectContaining({ name: 'google.com', app: 'Safari' })])
+    expect(JSON.stringify(summary)).not.toContain('q=dogs')
+  })
+
   it('accepts a window event with no title', async () => {
     const events = {
       ...EVENTS,

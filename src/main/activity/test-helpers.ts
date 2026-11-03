@@ -10,8 +10,16 @@ export const span = (start: number, end: number): Interval => ({ start: at(start
 
 const timestamp = (seconds: number): string => new Date(at(seconds)).toISOString()
 
-export function win(app: string, title: string, start: number, duration: number): WindowEvent {
-  return { timestamp: timestamp(start), duration, data: { app, title } }
+// On macOS the window watcher also reports the front tab's URL for Safari and Chromium browsers.
+export function win(
+  app: string,
+  title: string,
+  start: number,
+  duration: number,
+  url?: string
+): WindowEvent {
+  const data = url === undefined ? { app, title } : { app, title, url }
+  return { timestamp: timestamp(start), duration, data }
 }
 
 export function afk(status: 'afk' | 'not-afk', start: number, duration: number): AfkEvent {

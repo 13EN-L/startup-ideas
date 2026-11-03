@@ -40,6 +40,11 @@ mac:
   signIgnore:
     - 'Resources/activitywatch/'
   notarize: false
+  # ActivityWatch's window watcher asks Safari and Chromium browsers for the front tab's URL
+  # through Apple Events. macOS attributes that to FocusGarden, and without this string it
+  # refuses silently instead of asking the user.
+  extendInfo:
+    NSAppleEventsUsageDescription: FocusGarden reads the address of your browser's front tab to see which websites you use during a task.
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:

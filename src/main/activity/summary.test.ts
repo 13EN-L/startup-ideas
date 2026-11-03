@@ -343,6 +343,99 @@ describe('buildSummary', () => {
     expectConsistent(summary)
   })
 
+  it('uses the tab URL from the window watcher when there is no web data (Safari)', () => {
+    const summary = buildSummary(
+      events({
+        window: [
+          win(
+            'Safari',
+            'Cute dogs - Google Search',
+            0,
+            200,
+            'https://www.google.com/search?q=dogs'
+          ),
+          win('Safari', 'Golden retriever - Wikipedia', 200, 100, 'https://en.wikipedia.org/wiki/X')
+        ]
+      }),
+      RANGE
+    )
+    expect(summary.items).toEqual([
+      {
+        name: 'google.com',
+        app: 'Safari',
+        title: 'Cute dogs - Google Search',
+        domain: 'google.com',
+        seconds: 200,
+        intervals: [span(0, 200)]
+      },
+      {
+        name: 'en.wikipedia.org',
+        app: 'Safari',
+        title: 'Golden retriever - Wikipedia',
+        domain: 'en.wikipedia.org',
+        seconds: 100,
+        intervals: [span(200, 300)]
+      }
+    ])
+    expect(JSON.stringify(summary)).not.toContain('q=dogs')
+    expect(JSON.stringify(summary)).not.toContain('/wiki')
+    expectConsistent(summary)
+  })
+
+  it('prefers web data and uses the window tab URL for the time it does not cover', () => {
+    const summary = buildSummary(
+      events({
+        window: [win('Google Chrome', 'Docs', 0, 300, 'https://docs.google.com/document/d/1')],
+        web: [{ browser: 'chrome', events: [web('https://github.com/', 'GitHub', 100, 100)] }]
+      }),
+      RANGE
+    )
+    expect(find(summary, 'github.com').intervals).toEqual([span(100, 200)])
+    expect(find(summary, 'docs.google.com').intervals).toEqual([span(0, 100), span(200, 300)])
+    expectConsistent(summary)
+  })
+
+  it('uses the window tab URL over another browser’s web data', () => {
+    const summary = buildSummary(
+      events({
+        window: [win('Safari', 'Dogs', 0, 60, 'https://www.google.com/search?q=dogs')],
+        web: [{ browser: 'chrome', events: [web('https://github.com/', 'GitHub', 0, 60)] }]
+      }),
+      RANGE
+    )
+    expect(summary.items).toEqual([expect.objectContaining({ name: 'google.com', app: 'Safari' })])
+  })
+
+  it('still prefers the browser’s own web data over its window tab URL', () => {
+    const summary = buildSummary(
+      events({
+        window: [win('Safari', 'Docs', 0, 60, 'https://docs.google.com/document/d/1')],
+        web: [
+          { browser: 'chrome', events: [web('https://github.com/', 'GitHub', 0, 60)] },
+          { browser: 'safari', events: [web('https://youtube.com/watch?v=1', 'Video', 0, 60)] }
+        ]
+      }),
+      RANGE
+    )
+    expect(summary.items).toEqual([expect.objectContaining({ name: 'youtube.com', app: 'Safari' })])
+  })
+
+  it('falls back to the app for a window tab URL that is not a web page', () => {
+    const summary = buildSummary(
+      events({ window: [win('Safari', 'Favorites', 0, 60, 'favorites://')] }),
+      RANGE
+    )
+    expect(summary.items).toEqual([expect.objectContaining({ name: 'Safari', domain: null })])
+  })
+
+  it('ignores a URL on a window that is not a browser', () => {
+    const summary = buildSummary(
+      events({ window: [win('Code', 'a.ts', 0, 60, 'https://github.com/')] }),
+      RANGE
+    )
+    expect(summary.items).toEqual([expect.objectContaining({ name: 'Code', domain: null })])
+  })
+
   it('ignores web events while a non-browser app is focused', () => {
     const summary = buildSummary(
       events({
