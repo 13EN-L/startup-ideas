@@ -145,22 +145,22 @@
   animation-delay: -1600ms;
 }
 
-/* The sprites face left: walk right flipped, then turn and walk back. */
+/* The sprites face right: walk right as drawn, then flip and walk back. */
 @keyframes idle {
   0% {
-    transform: translateX(-4px) scaleX(-1);
+    transform: translateX(-4px) scaleX(1);
     animation-timing-function: steps(3, jump-none);
   }
   50% {
-    transform: translateX(4px) scaleX(-1);
+    transform: translateX(4px) scaleX(1);
     animation-timing-function: steps(1, jump-start);
   }
   50.1% {
-    transform: translateX(4px) scaleX(1);
+    transform: translateX(4px) scaleX(-1);
     animation-timing-function: steps(3, jump-none);
   }
   100% {
-    transform: translateX(-4px) scaleX(1);
+    transform: translateX(-4px) scaleX(-1);
   }
 }
 
@@ -173,7 +173,8 @@
   animation: none;
 }
 
-.section[data-section='0'] .animal[data-exiting='true'] .sprite {
+/* Only the right-hand animal walks left to reach the gate, so only it turns around. */
+.section[data-section='2'] .animal[data-exiting='true'] .sprite {
   transform: scaleX(-1);
 }
 
