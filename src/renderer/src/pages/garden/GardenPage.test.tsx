@@ -132,6 +132,61 @@ describe('GardenPage', () => {
     expect(within(all[1]).getByTestId('prestige')).toHaveAccessibleName('prestige 7')
   })
 
+  it('labels each plot with its category on a sign', async () => {
+    renderGarden(sampleGarden(2))
+    const all = await plots()
+    expect(within(all[0]).getByTestId('plot-sign')).toHaveTextContent('Work')
+    expect(within(all[1]).getByTestId('plot-sign')).toHaveTextContent('School / Study')
+  })
+
+  it('opens a progress popup when a plant is clicked', async () => {
+    const state = sampleGarden(1)
+    state.plants[0] = {
+      ...state.plants[0],
+      category: 'Relationships',
+      plant: 'Sunflower',
+      stage: 1,
+      prestige: 0,
+      totalSeconds: 353.952,
+      progress: 353.952 / 360,
+      secondsIntoStage: 353.952
+    }
+    renderGarden(state)
+    await plots()
+    await userEvent.click(screen.getByRole('button', { name: 'Sunflower, Relationships, stage 1' }))
+
+    const popup = screen.getByRole('dialog', { name: 'Sunflower' })
+    expect(within(popup).getByRole('heading', { name: 'Sunflower' })).toBeInTheDocument()
+    expect(popup).toHaveTextContent('Relationships')
+    expect(popup).toHaveTextContent('Stage 1 of 6')
+    expect(popup).toHaveTextContent('5:53 / 6:00')
+    expect(popup).toHaveTextContent('Total grown: 5m 53s')
+    expect(popup).toHaveTextContent('Prestige: 0')
+    const bar = within(popup).getByRole('progressbar', { name: 'progress to the next stage' })
+    expect(bar).toHaveAttribute('aria-valuenow', '98')
+    expect(within(bar).getByTestId('stage-fill').style.width).toBe('98%')
+  })
+
+  it('says a new cycle comes next in the last stage', async () => {
+    const state = sampleGarden(1)
+    state.plants[0] = { ...state.plants[0], stage: 6, prestige: 2, secondsIntoStage: 60 }
+    renderGarden(state)
+    await plots()
+    await userEvent.click(screen.getByRole('button', { name: 'Pine, Work, stage 6' }))
+    const popup = screen.getByRole('dialog', { name: 'Pine' })
+    expect(popup).toHaveTextContent('Stage 6 of 6')
+    expect(popup).toHaveTextContent('1:00 / 6:00 to a new cycle')
+    expect(popup).toHaveTextContent('Prestige: 2')
+  })
+
+  it('closes the progress popup', async () => {
+    renderGarden(sampleGarden(1))
+    await plots()
+    await userEvent.click(screen.getByRole('button', { name: /^Pine, Work/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'close' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it.each([
     [0, []],
     [1, ['bronze']],

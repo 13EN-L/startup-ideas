@@ -13,6 +13,12 @@ export function formatDuration(seconds: number): string {
   return `${secs}s`
 }
 
+// 5:53, rounding down so a stage never reads as complete before it is.
+export function formatClock(seconds: number): string {
+  const total = Math.floor(seconds)
+  return `${Math.floor(total / 60)}:${pad(total % 60)}`
+}
+
 // Whole percentages that always add up to 100 (largest remainder; ties go to the earlier one).
 function wholePercents(values: number[]): number[] {
   const total = values.reduce((sum, v) => sum + v, 0)

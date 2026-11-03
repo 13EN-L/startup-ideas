@@ -23,7 +23,12 @@ describe('getGardenState', () => {
         position: 1,
         stage: 4,
         scale: expect.closeTo(1 + 0.1 * (2 / 6)),
-        prestige: 0
+        prestige: 0,
+        totalSeconds: 20 * 60,
+        progress: expect.closeTo(2 / 6),
+        secondsIntoStage: 2 * 60,
+        secondsPerStage: 360,
+        stagesPerCycle: 6
       },
       {
         category: 'Work',
@@ -31,7 +36,12 @@ describe('getGardenState', () => {
         position: 2,
         stage: 2,
         scale: expect.closeTo(1.05),
-        prestige: 1
+        prestige: 1,
+        totalSeconds: CYCLE + 9 * 60,
+        progress: expect.closeTo(0.5),
+        secondsIntoStage: 3 * 60,
+        secondsPerStage: 360,
+        stagesPerCycle: 6
       }
     ])
     expect(state.globalPrestige).toBe(1)

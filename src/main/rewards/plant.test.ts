@@ -3,7 +3,13 @@ import { plantState } from './plant'
 
 describe('plantState', () => {
   it('starts at stage 1, full size, no prestige', () => {
-    expect(plantState(0)).toEqual({ prestige: 0, stage: 1, progress: 0, scale: 1 })
+    expect(plantState(0)).toEqual({
+      prestige: 0,
+      stage: 1,
+      progress: 0,
+      secondsIntoStage: 0,
+      scale: 1
+    })
   })
 
   it('scales up linearly within a stage', () => {
@@ -21,7 +27,13 @@ describe('plantState', () => {
 
   it('switches stage and returns to 100% at each 6-minute mark', () => {
     for (let stage = 2; stage <= 6; stage++) {
-      expect(plantState((stage - 1) * 360)).toEqual({ prestige: 0, stage, progress: 0, scale: 1 })
+      expect(plantState((stage - 1) * 360)).toEqual({
+        prestige: 0,
+        stage,
+        progress: 0,
+        secondsIntoStage: 0,
+        scale: 1
+      })
     }
   })
 
@@ -36,7 +48,13 @@ describe('plantState', () => {
   })
 
   it('wraps to stage 1 and adds prestige at 36 minutes', () => {
-    expect(plantState(2160)).toEqual({ prestige: 1, stage: 1, progress: 0, scale: 1 })
+    expect(plantState(2160)).toEqual({
+      prestige: 1,
+      stage: 1,
+      progress: 0,
+      secondsIntoStage: 0,
+      scale: 1
+    })
   })
 
   it('carries leftover time into the next cycle', () => {
@@ -50,6 +68,13 @@ describe('plantState', () => {
   it('keeps partial seconds', () => {
     expect(plantState(359.5).stage).toBe(1)
     expect(plantState(360.5).stage).toBe(2)
+  })
+
+  it('reports the seconds into the current stage, across stages and cycles', () => {
+    expect(plantState(353.952).secondsIntoStage).toBeCloseTo(353.952)
+    expect(plantState(361).secondsIntoStage).toBeCloseTo(1)
+    expect(plantState(2160 + 9 * 60).secondsIntoStage).toBeCloseTo(180)
+    expect(plantState(2159).secondsIntoStage).toBeCloseTo(359)
   })
 
   it('rejects negative or non-finite totals', () => {

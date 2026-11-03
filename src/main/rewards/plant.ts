@@ -4,6 +4,7 @@ export interface PlantState {
   prestige: number
   stage: number // 1 to STAGES_PER_PLANT
   progress: number // 0 to 1 within the current stage
+  secondsIntoStage: number // 0 to SECONDS_PER_STAGE
   scale: number // 1 to 1 + MAX_STAGE_SCALE_UP
 }
 
@@ -13,12 +14,14 @@ export function plantState(totalSeconds: number): PlantState {
     throw new RangeError(`Invalid plant total: ${totalSeconds}`)
   }
   const timeInCycle = totalSeconds % SECONDS_PER_CYCLE
-  const progress = (timeInCycle % SECONDS_PER_STAGE) / SECONDS_PER_STAGE
+  const secondsIntoStage = timeInCycle % SECONDS_PER_STAGE
+  const progress = secondsIntoStage / SECONDS_PER_STAGE
 
   return {
     prestige: Math.floor(totalSeconds / SECONDS_PER_CYCLE),
     stage: Math.floor(timeInCycle / SECONDS_PER_STAGE) + 1,
     progress,
+    secondsIntoStage,
     scale: 1 + MAX_STAGE_SCALE_UP * progress
   }
 }

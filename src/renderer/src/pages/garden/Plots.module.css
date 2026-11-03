@@ -38,6 +38,18 @@
   background: var(--color-dark-brown);
 }
 
+.plantButton {
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.plantButton:hover .plant,
+.plantButton:focus-visible .plant {
+  filter: brightness(1.15);
+}
+
 .plant {
   display: block;
   width: calc(16px * var(--px));
@@ -52,6 +64,24 @@
   font-weight: 700;
   line-height: 1;
   color: var(--color-beige);
+}
+
+/* A wooden sign staked on the plot's bottom edge, half on the dirt and half on the grass. */
+.sign {
+  composes: box from '../../styles/pixel.module.css';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  max-width: calc(100% - 8px);
+  padding: 2px 8px;
+  transform: translate(-50%, 50%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 1.2;
+  color: var(--color-beige);
+  background: var(--color-light-brown);
 }
 
 .hint {

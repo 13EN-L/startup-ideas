@@ -16,7 +16,12 @@ function plants(count: number): GardenPlant[] {
     position: i + 1,
     stage: (i % 6) + 1,
     scale: 1,
-    prestige: 0
+    prestige: 0,
+    totalSeconds: i * 360,
+    progress: 0,
+    secondsIntoStage: 0,
+    secondsPerStage: 360,
+    stagesPerCycle: 6
   }))
 }
 

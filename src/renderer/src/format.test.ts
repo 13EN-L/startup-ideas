@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatDuration, percentages } from './format'
+import { formatClock, formatDuration, percentages } from './format'
 
 describe('formatDuration', () => {
   it.each([
@@ -13,6 +13,19 @@ describe('formatDuration', () => {
     [36_000 + 61, '10h 01m']
   ])('%d seconds is %s', (seconds, expected) => {
     expect(formatDuration(seconds)).toBe(expected)
+  })
+})
+
+describe('formatClock', () => {
+  it.each([
+    [0, '0:00'],
+    [9.9, '0:09'],
+    [353.952, '5:53'],
+    [359.99, '5:59'],
+    [360, '6:00'],
+    [3725, '62:05']
+  ])('%d seconds is %s, rounding down', (seconds, expected) => {
+    expect(formatClock(seconds)).toBe(expected)
   })
 })
 

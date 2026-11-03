@@ -30,6 +30,12 @@ export interface GardenPlant {
   stage: number // 1 to 6
   scale: number // 1 to 1.1
   prestige: number
+  // For the plant's progress popup.
+  totalSeconds: number // all productive seconds ever added
+  progress: number // 0 to 1 within the current stage
+  secondsIntoStage: number
+  secondsPerStage: number
+  stagesPerCycle: number
 }
 
 export interface GardenState {

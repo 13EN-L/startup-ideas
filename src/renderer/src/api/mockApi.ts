@@ -1,7 +1,7 @@
 // In-memory FocusGardenApi with sample data, for building and testing pages without the
 // main process. It follows the same rules as the real API: at most 3 active tasks, active
 // tasks get different animals, results are pending for a while after stop, labels are final.
-import type { FocusGardenApi, GardenState, TaskResults } from '../../../shared/api'
+import type { FocusGardenApi, GardenPlant, GardenState, TaskResults } from '../../../shared/api'
 import {
   ANIMALS,
   MAX_ACTIVE_TASKS,
@@ -38,6 +38,24 @@ const SAMPLE_ACTIVE: { name: string; category: Category }[] = [
   { name: 'Clean garage', category: 'Home' },
   { name: 'Learn guitar chords', category: 'Creative' }
 ]
+
+// Fixed sample values for the popup; real ones come from src/main/rewards.
+function progress(
+  totalSeconds: number,
+  secondsIntoStage: number
+): Pick<
+  GardenPlant,
+  'totalSeconds' | 'progress' | 'secondsIntoStage' | 'secondsPerStage' | 'stagesPerCycle'
+> {
+  const secondsPerStage = 360
+  return {
+    totalSeconds,
+    progress: secondsIntoStage / secondsPerStage,
+    secondsIntoStage,
+    secondsPerStage,
+    stagesPerCycle: 6
+  }
+}
 
 function labeledResults(task: Task): TaskResults {
   const sum = (label: Label): number =>
@@ -85,10 +103,27 @@ export function createMockApi(options: MockApiOptions = {}): FocusGardenApi {
         position: 1,
         stage: 4,
         scale: 1.033,
-        prestige: 1
+        prestige: 1,
+        ...progress(2160 + 1200, 120)
       },
-      { category: 'Work', plant: 'Pine', position: 2, stage: 2, scale: 1.05, prestige: 0 },
-      { category: 'Creative', plant: 'Basil', position: 3, stage: 1, scale: 1, prestige: 0 }
+      {
+        category: 'Work',
+        plant: 'Pine',
+        position: 2,
+        stage: 2,
+        scale: 1.05,
+        prestige: 0,
+        ...progress(540, 180)
+      },
+      {
+        category: 'Creative',
+        plant: 'Basil',
+        position: 3,
+        stage: 1,
+        scale: 1,
+        prestige: 0,
+        ...progress(0, 0)
+      }
     ],
     globalPrestige: 1,
     trophies: ['bronze']
@@ -138,7 +173,8 @@ export function createMockApi(options: MockApiOptions = {}): FocusGardenApi {
         position: garden.plants.length + 1,
         stage: 1,
         scale: 1,
-        prestige: 0
+        prestige: 0,
+        ...progress(0, 0)
       })
     }
     resultListeners.forEach((listener) => listener(task.id))

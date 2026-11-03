@@ -149,6 +149,14 @@ prestige sit right under it (bronze at 1, silver at 10, gold at 100; see
   row's height.
 - **Plants:** each plot holds one plant, drawn at its current stage and scale-up
   (see `docs/rewards.md`). A prestige count sits in the plot's corner.
+- **Plot sign:** a small light-brown wooden sign with beige text, staked on the middle
+  of each plot's bottom edge, shows the plot's category.
+- **Plant progress popup:** clicking a plant opens a beige popup showing, top to
+  bottom: the plant name (title); its category; "Stage N of 6"; a bar filling in
+  green toward the next stage, with "m:ss / 6:00 to the next stage" under it ("to a
+  new cycle" in stage 6; times round down); "Total grown:" with the plant's total
+  productive time; and "Prestige:" with its prestige. It closes with Esc or the close
+  button.
 - **Layout, 5 or fewer plants:** the first plant is centered. Each new one is added
   beside the others, shifting them left so the row stays roughly symmetrical.
 - **Layout, 6 to 10 plants:** plants 1 to 5 move to the upper half of the garden and

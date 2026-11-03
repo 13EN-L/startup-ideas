@@ -9,7 +9,12 @@ export function samplePlants(count: number): GardenPlant[] {
     position: i + 1,
     stage: (i % 6) + 1,
     scale: 1 + (i % 3) * 0.05,
-    prestige: i
+    prestige: i,
+    totalSeconds: i * 2160 + (i % 6) * 360 + (i % 3) * 180,
+    progress: (i % 3) * 0.5,
+    secondsIntoStage: (i % 3) * 180,
+    secondsPerStage: 360,
+    stagesPerCycle: 6
   }))
 }
 

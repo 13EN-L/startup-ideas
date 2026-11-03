@@ -49,6 +49,7 @@ describe('docs/rewards.md worked examples', () => {
       prestige: 0,
       stage: 1,
       progress: 0,
+      secondsIntoStage: 0,
       scale: 1
     })
   })
