@@ -1,0 +1,201 @@
+/* Sprites are 16x16 (fence, gate) and 20x16 (animals), drawn at 3x and 4x. */
+.pen {
+  --tile: 48px;
+  position: relative;
+  flex: 1;
+  container-type: size;
+  background: var(--color-light-brown);
+  box-shadow: inset 0 4px 0 0 var(--color-dark-brown);
+}
+
+.straw {
+  position: absolute;
+  inset: var(--tile) var(--tile) 0;
+}
+
+/* Dirt clods on the straw. */
+.straw span {
+  position: absolute;
+  width: 12px;
+  height: 4px;
+  background: var(--color-dark-brown);
+  box-shadow: 4px -4px 0 0 var(--color-dark-brown);
+}
+
+.fence {
+  position: absolute;
+  background-size: var(--tile) var(--tile);
+  image-rendering: pixelated;
+}
+
+/* The top fence runs along the horizon with a one-tile gap for the gate in the middle. */
+.topLeft,
+.topRight {
+  top: 0;
+  height: var(--tile);
+  background-repeat: repeat-x;
+}
+
+.topLeft {
+  left: 0;
+  right: calc(50% + var(--tile) / 2);
+  background-position: right top;
+}
+
+.topRight {
+  left: calc(50% + var(--tile) / 2);
+  right: 0;
+}
+
+.side {
+  top: var(--tile);
+  bottom: 0;
+  width: var(--tile);
+  background-repeat: repeat-y;
+}
+
+.left {
+  left: 0;
+}
+
+.right {
+  right: 0;
+}
+
+/* Swings open (folds toward its hinge) while an animal walks out. */
+.gate {
+  position: absolute;
+  top: 0;
+  left: calc(50% - var(--tile) / 2);
+  width: var(--tile);
+  height: var(--tile);
+  transform-origin: left center;
+  transition: transform 300ms steps(3);
+}
+
+.gate[data-open='true'] {
+  transform: scaleX(0.25);
+}
+
+/* Clipped at the horizon, so an exiting animal disappears as it walks out of the gate. */
+.sections {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: var(--tile) var(--tile) 0;
+  overflow: hidden;
+}
+
+.section {
+  --to-gate: 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.section[data-section='0'] {
+  --to-gate: calc((100cqw - 2 * var(--tile)) / 3);
+}
+
+.section[data-section='2'] {
+  --to-gate: calc((100cqw - 2 * var(--tile)) / -3);
+}
+
+.animal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.animal:not(:disabled):hover .nametag {
+  transform: translateY(-4px);
+}
+
+.nametag {
+  composes: box from '../../styles/pixel.module.css';
+  max-width: 160px;
+  padding: 2px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--color-beige);
+  color: var(--color-dark-brown);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sprite {
+  display: block;
+  width: 80px;
+  height: 64px;
+  animation: idle 2400ms infinite;
+}
+
+.section[data-section='1'] .sprite {
+  animation-delay: -800ms;
+}
+
+.section[data-section='2'] .sprite {
+  animation-delay: -1600ms;
+}
+
+/* The sprites face left: walk right flipped, then turn and walk back. */
+@keyframes idle {
+  0% {
+    transform: translateX(-4px) scaleX(-1);
+    animation-timing-function: steps(3, jump-none);
+  }
+  50% {
+    transform: translateX(4px) scaleX(-1);
+    animation-timing-function: steps(1, jump-start);
+  }
+  50.1% {
+    transform: translateX(4px) scaleX(1);
+    animation-timing-function: steps(3, jump-none);
+  }
+  100% {
+    transform: translateX(-4px) scaleX(1);
+  }
+}
+
+.animal[data-exiting='true'] {
+  cursor: default;
+  animation: exit 1800ms forwards;
+}
+
+.animal[data-exiting='true'] .sprite {
+  animation: none;
+}
+
+.section[data-section='0'] .animal[data-exiting='true'] .sprite {
+  transform: scaleX(-1);
+}
+
+/* Walk over to the gate, then up through it and past the horizon. */
+@keyframes exit {
+  0% {
+    transform: translate(0, 0);
+    animation-timing-function: steps(6);
+  }
+  45% {
+    transform: translate(var(--to-gate), 0);
+    animation-timing-function: steps(5);
+  }
+  100% {
+    transform: translate(var(--to-gate), calc(-50cqh - 96px));
+  }
+}
+
+/* Hangs on the top fence, left of the gate. */
+.home {
+  position: absolute;
+  z-index: 1;
+  top: -24px;
+  left: 72px;
+}
