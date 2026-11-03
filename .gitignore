@@ -4,4 +4,6 @@ dist-electron/
 test-results/
 playwright-report/
 coverage/
+reports/
+.stryker-tmp/
 .env
