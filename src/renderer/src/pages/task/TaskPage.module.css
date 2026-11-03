@@ -1,0 +1,58 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The 5 recent-task clouds float along the top of the sky, above the window. */
+.clouds {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+}
+
+.window {
+  width: 360px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+}
+
+.start {
+  align-self: center;
+  margin-top: 8px;
+}
+
+.error {
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.stopPopup {
+  width: 280px;
+}
+
+.stopPopup > div:first-child {
+  align-items: center;
+}
+
+.stopTitle {
+  max-width: 100%;
+  font-size: 22px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.elapsed {
+  font-size: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
