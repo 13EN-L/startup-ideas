@@ -6,7 +6,8 @@ import { GardenPage } from './pages/GardenPage'
 import { MainPage } from './pages/MainPage'
 import { TaskPage } from './pages/TaskPage'
 
-function App(): React.JSX.Element | null {
+// initialRoute skips the resume rule; only page previews pass it (see preview.ts).
+function App(props: { initialRoute?: Route }): React.JSX.Element | null {
   const api = useApi()
   const [route, setRoute] = useState<Route | null>(null)
   const [askForKey, setAskForKey] = useState(false)
@@ -17,14 +18,14 @@ function App(): React.JSX.Element | null {
     void Promise.all([api.tasks.listActive(), api.settings.hasApiKey()]).then(
       ([active, hasKey]) => {
         if (!alive) return
-        setRoute(active.length > 0 ? { page: 'task' } : { page: 'main' })
+        setRoute(props.initialRoute ?? (active.length > 0 ? { page: 'task' } : { page: 'main' }))
         setAskForKey(!hasKey)
       }
     )
     return () => {
       alive = false
     }
-  }, [api])
+  }, [api, props.initialRoute])
 
   if (!route) return null
   return (

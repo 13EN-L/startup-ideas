@@ -5,11 +5,12 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 import { createMockApi } from './api/mockApi'
 import { ApiProvider } from './api/useApi'
+import type { Route } from './navigation'
 
-function renderApp(api = createMockApi()): void {
+function renderApp(api = createMockApi(), initialRoute?: Route): void {
   render(
     <ApiProvider api={api}>
-      <App />
+      <App initialRoute={initialRoute} />
     </ApiProvider>
   )
 }
@@ -30,6 +31,11 @@ describe('App', () => {
     expect(await screen.findByRole('dialog', { name: 'Connect Claude' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'cancel' }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('starts on a requested page for previews, overriding the resume rule', async () => {
+    renderApp(createMockApi({ activeTasks: 2 }), { page: 'garden' })
+    expect(await screen.findByRole('main', { name: 'Garden page' })).toBeInTheDocument()
   })
 
   it('does not ask when a key is already saved', async () => {

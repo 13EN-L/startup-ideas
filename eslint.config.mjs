@@ -29,7 +29,7 @@ export default defineConfig(
     }
   },
   {
-    files: ['**/*.cjs'],
+    files: ['**/*.cjs', 'scripts/**/*.mjs'],
     rules: {
       '@typescript-eslint/no-require-imports': 'off',
       // Plain JavaScript can't declare return types.
