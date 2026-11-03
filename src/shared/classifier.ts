@@ -1,6 +1,7 @@
 import type { Category, Label } from './domain'
 
-// What is sent to Claude for one task: app name, window title, and domain only.
+// What is sent to Claude for one task: app name, window title, and domain only. Item ids are
+// unique within a request (they are task_items row ids).
 export interface ClassificationRequest {
   taskName: string
   category: Category
