@@ -1,7 +1,23 @@
+import { PixelButton, RecentClouds, Sky, SkyWindow } from '../components'
 import type { PageProps } from '../navigation'
+import { GardenPreview } from './main/GardenPreview'
+import styles from './main/MainPage.module.css'
 
-// Placeholder until the main page from docs/ui-spec.md is built.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- stub; the real page uses its props
-export function MainPage(_props: PageProps): React.JSX.Element {
-  return <main aria-label="Main page">Main page</main>
+export function MainPage(props: PageProps): React.JSX.Element {
+  const { navigate } = props
+  return (
+    <main aria-label="Main page" className={styles.page}>
+      <Sky heightFraction={3 / 4}>
+        <RecentClouds
+          className={styles.clouds}
+          onSelect={(taskId) => navigate({ page: 'task', openResultsFor: taskId })}
+        />
+        <SkyWindow className={styles.window}>
+          <h1 className={styles.title}>FocusGarden</h1>
+          <PixelButton onClick={() => navigate({ page: 'task' })}>Tasks</PixelButton>
+        </SkyWindow>
+      </Sky>
+      <GardenPreview onOpen={() => navigate({ page: 'garden' })} />
+    </main>
+  )
 }
