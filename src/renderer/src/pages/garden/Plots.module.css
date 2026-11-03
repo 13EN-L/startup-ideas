@@ -1,0 +1,60 @@
+.grass {
+  --gap: 16px;
+  --px: 8;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 var(--gap);
+  background: var(--color-grass);
+}
+
+/* Whole-number scale for the 16x24 plant sprites, smaller once 5 plots share a row so a
+   fully scaled-up plant still fits its plot. */
+.narrow {
+  --px: 6;
+}
+
+.row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--gap);
+}
+
+/* n plots fill n/(n+1) of the row, so each new one shrinks them a little and the row grows
+   outward from the center. */
+.plot {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc((100% - (var(--plots) - 1) * var(--gap)) / (var(--plots) + 1));
+  height: 90%;
+  background: var(--color-dark-brown);
+}
+
+.plant {
+  display: block;
+  width: calc(16px * var(--px));
+  height: calc(24px * var(--px));
+  transform-origin: bottom center;
+}
+
+.prestige {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-beige);
+}
+
+.hint {
+  margin: auto;
+  color: var(--color-dark-brown);
+}

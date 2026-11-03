@@ -1,0 +1,13 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Stands on the horizon at the sky's lower right, in front of the clouds. */
+.homeSign {
+  position: absolute;
+  right: 24px;
+  bottom: 0;
+  z-index: 1;
+}
