@@ -1,0 +1,28 @@
+/* Design tokens from docs/design-tokens.md */
+:root {
+  --dark-brown: #4c2802;
+  --light-brown: #8c4c0c;
+  --beige: #f7f3ec;
+  --grass: #7ab85f;
+  --input-white: #f3f3f3;
+  --sky: #c9ecf9;
+  --light-grey: #b7b7b7;
+  --dark-grey: #666666;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--sky);
+  color: var(--dark-brown);
+  font-family: system-ui, sans-serif;
+}
