@@ -1,6 +1,0 @@
-{
-  "minutesToFullGrowth": 60,
-  "plants": [
-    { "name": "Strawberry", "file": "strawberry_stages.gif" }
-  ]
-}
