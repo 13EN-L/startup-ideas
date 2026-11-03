@@ -8,8 +8,8 @@ import { GardenPage } from '../../../src/renderer/pages/GardenPage';
 import { CATEGORIES } from '../../../src/shared/constants';
 import { makeCompletedTask } from '../../fixtures';
 
-function renderGarden(plants: Plants, onNavigateHome = vi.fn()) {
-  render(<GardenPage plants={plants} recentTasks={[makeCompletedTask({ name: 'Essay' })]} onNavigateHome={onNavigateHome} />);
+function renderGarden(plants: Plants, onNavigateHome = vi.fn(), completedTasks = [makeCompletedTask({ name: 'Essay' })]) {
+  render(<GardenPage plants={plants} completedTasks={completedTasks} onNavigateHome={onNavigateHome} />);
   return { onNavigateHome };
 }
 
@@ -94,10 +94,62 @@ describe('#18 GardenPage trophies', () => {
   });
 });
 
+describe('GardenPage plant task history', () => {
+  const T = makeCompletedTask;
+  const tasks = [
+    T({ id: 'w-old', name: 'Old report', category: 'work', endedAt: 1_000 }),
+    T({ id: 'gym', name: 'Gym', category: 'health', endedAt: 2_000 }),
+    T({ id: 'w-new', name: 'New report', category: 'work', endedAt: 3_000 }),
+  ];
+  const plants: Plants = {
+    work: { category: 'work', totalMinutes: 10 },
+    health: { category: 'health', totalMinutes: 5 },
+  };
+
+  it('opens a list of only that category\'s tasks, newest first, when a plant is clicked', async () => {
+    renderGarden(plants, vi.fn(), tasks);
+    await userEvent.click(screen.getByRole('button', { name: 'Pine: Work tasks' }));
+    const list = screen.getByRole('list', { name: 'Work tasks' });
+    expect(within(list).getAllByRole('button').map((b) => b.querySelector('.task-history__name')?.textContent)).toEqual([
+      'New report',
+      'Old report',
+    ]);
+  });
+
+  it('opens a task\'s statistics on top of the list, and Escape closes only the top popup', async () => {
+    renderGarden(plants, vi.fn(), tasks);
+    await userEvent.click(screen.getByRole('button', { name: 'Pine: Work tasks' }));
+    await userEvent.click(screen.getByRole('button', { name: /Old report/ }));
+    expect(screen.getByRole('dialog', { name: 'Old report' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Work tasks' })).toBeInTheDocument();
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'Old report' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Work tasks' })).toBeInTheDocument();
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('starts with no task open when the list is reopened', async () => {
+    renderGarden(plants, vi.fn(), tasks);
+    await userEvent.click(screen.getByRole('button', { name: 'Pine: Work tasks' }));
+    await userEvent.click(screen.getByRole('button', { name: /New report/ }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'New report' })).getByRole('button', { name: 'Close' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Work tasks' })).getByRole('button', { name: 'Close' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Pine: Work tasks' }));
+    expect(screen.queryByRole('dialog', { name: 'New report' })).not.toBeInTheDocument();
+  });
+});
+
 describe('GardenPage chrome', () => {
-  it('moves the clouds like a conveyor belt', () => {
+  it('has decorative conveyor clouds without task names', () => {
     renderGarden({});
-    expect(screen.getByRole('list', { name: 'Recent tasks' })).toHaveAttribute('data-motion', 'conveyor');
+    const clouds = screen.getByTestId('decorative-clouds');
+    expect(clouds).toHaveClass('clouds--conveyor');
+    expect(clouds).toHaveTextContent('');
+    expect(screen.queryByText('Essay')).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Recent tasks' })).not.toBeInTheDocument();
   });
 
   it('navigates home', async () => {

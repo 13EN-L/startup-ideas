@@ -1,7 +1,7 @@
 // Issue #20: loads persisted state, restores the launch route, routes between
 // pages and saves after every change.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { recentTasks, resolveLaunchRoute } from '../core/persistence';
+import { createInitialState, recentTasks, resolveLaunchRoute } from '../core/persistence';
 import { completeTask, startTask, stopTask, type StartTaskInput } from '../core/tasks';
 import type { FocusGardenBridge, SetupStatus } from '../shared/bridge';
 import type { AppState, Route } from '../shared/types';
@@ -59,6 +59,8 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
   const stateRef = useRef(state);
   stateRef.current = state;
   const skipNextSave = useRef(true);
+  // Bumped by "Reset all data" so analyses still running can't re-add their task.
+  const resetCount = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,11 +115,12 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
       const { state: next, stopped } = stopTask(current, taskId);
       stateRef.current = next;
       setState(next);
+      const resetsBefore = resetCount.current;
 
       try {
         const completed = await bridge.finishTask(stopped, endedAt);
         const latest = stateRef.current;
-        if (!latest) return;
+        if (!latest || resetCount.current !== resetsBefore) return;
         const withResult = completeTask(latest, completed);
         stateRef.current = withResult;
         setState(withResult);
@@ -127,6 +130,17 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
     },
     [bridge],
   );
+
+  // Settings is only reachable from the Main page, where no task is active.
+  const handleReset = useCallback(async () => {
+    const next = createInitialState();
+    resetCount.current++;
+    skipNextSave.current = true;
+    stateRef.current = next;
+    setResultTaskId(undefined);
+    setState(next);
+    await bridge.saveState(next);
+  }, [bridge]);
 
   if (!state) {
     return <div className="loading">Loading your garden…</div>;
@@ -161,7 +175,11 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
         />
       )}
       {state.route === 'garden' && (
-        <GardenPage plants={state.plants} recentTasks={recent} onNavigateHome={() => navigate('main')} />
+        <GardenPage
+          plants={state.plants}
+          completedTasks={state.completedTasks}
+          onNavigateHome={() => navigate('main')}
+        />
       )}
 
       {setupOpen && (
@@ -180,6 +198,7 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
             await refreshSetup();
           }}
           onOpenLink={(link) => void bridge.openExternal(link)}
+          onResetData={handleReset}
           onClose={() => setSetupOpen(false)}
         />
       )}

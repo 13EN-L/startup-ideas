@@ -39,6 +39,8 @@ export const ANIMALS = [
 
 export const MAX_ACTIVE_TASKS = 3;
 export const RECENT_TASK_COUNT = 5;
+/** Unlabelled clouds drifting across the Garden sky, purely decorative. */
+export const GARDEN_CLOUD_COUNT = 5;
 
 export const GROWTH_STAGES = 6;
 export const MINUTES_PER_STAGE = 6;

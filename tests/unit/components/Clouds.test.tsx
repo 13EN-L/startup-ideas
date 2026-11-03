@@ -1,9 +1,10 @@
-// Issue #20: recent task clouds
+// Issue #20: recent task clouds; the Garden's clouds are decorative only
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CLOUD_IMAGE } from '../../../src/renderer/assets';
-import { Clouds } from '../../../src/renderer/components/Clouds';
+import { Clouds, DecorativeClouds } from '../../../src/renderer/components/Clouds';
+import { GARDEN_CLOUD_COUNT } from '../../../src/shared/constants';
 import { makeCompletedTask } from '../../fixtures';
 
 const tasks = Array.from({ length: 7 }, (_, i) => makeCompletedTask({ id: `c${i}`, name: `Task ${i}` }));
@@ -34,16 +35,25 @@ describe('#20 Clouds', () => {
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
-  it('defaults to static clouds and supports conveyor motion for the garden', () => {
-    const { rerender } = render(<Clouds tasks={tasks} />);
-    expect(screen.getByRole('list', { name: 'Recent tasks' })).toHaveAttribute('data-motion', 'static');
-    rerender(<Clouds tasks={tasks} motion="conveyor" />);
-    expect(screen.getByRole('list', { name: 'Recent tasks' })).toHaveAttribute('data-motion', 'conveyor');
+  it('stays still', () => {
+    render(<Clouds tasks={tasks} onSelect={() => {}} />);
+    expect(screen.getByRole('list', { name: 'Recent tasks' })).toHaveClass('clouds--static');
+  });
+});
+
+describe('DecorativeClouds', () => {
+  it('drifts a fixed number of unlabelled, unclickable clouds', () => {
+    render(<DecorativeClouds />);
+    const list = screen.getByTestId('decorative-clouds');
+    expect(list).toHaveClass('clouds--conveyor');
+    expect(list.querySelectorAll('li')).toHaveLength(GARDEN_CLOUD_COUNT);
+    expect(list).toHaveTextContent('');
+    expect(list.querySelector('button')).toBeNull();
   });
 
-  it('renders non-interactive clouds when no onSelect is given', () => {
-    render(<Clouds tasks={tasks} motion="conveyor" />);
-    expect(screen.queryAllByRole('button')).toHaveLength(0);
-    expect(screen.getByText('Task 0')).toBeInTheDocument();
+  it('is hidden from screen readers', () => {
+    render(<DecorativeClouds />);
+    expect(screen.getByTestId('decorative-clouds')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });
 });

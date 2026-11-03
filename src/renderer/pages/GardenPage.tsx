@@ -1,5 +1,7 @@
-// Issue #18: conveyor-belt clouds (top 1/3), grass with category plots
-// (bottom 2/3), trophies and global prestige under the logo.
+// Issue #18: decorative conveyor-belt clouds (top 1/3), grass with category
+// plots (bottom 2/3), trophies and global prestige under the logo. Clicking a
+// plot lists that category's completed tasks; clicking one shows its results.
+import { useState } from 'react';
 import {
   earnedTrophies,
   getPlantGrowth,
@@ -9,15 +11,19 @@ import {
   visiblePlots,
   type Plants,
 } from '../../core/growth';
+import { tasksInCategory } from '../../core/persistence';
 import { CATEGORIES } from '../../shared/constants';
 import type { CategoryId, CompletedTask, Trophy } from '../../shared/types';
 import { plantImage, trophyImage } from '../assets';
-import { Clouds } from '../components/Clouds';
+import { DecorativeClouds } from '../components/Clouds';
 import { HomeButton } from '../components/HomeButton';
+import { PlantTasksPopup } from '../components/PlantTasksPopup';
+import { TaskResultPopup } from '../components/TaskResultPopup';
 
 export interface GardenPageProps {
   plants: Plants;
-  recentTasks: CompletedTask[];
+  /** Every completed task, in any order. */
+  completedTasks: CompletedTask[];
   onNavigateHome: () => void;
 }
 
@@ -27,9 +33,13 @@ const TROPHY_LABELS: Record<Trophy, string> = {
   gold: 'Gold trophy',
 };
 
-export function GardenPage({ plants, recentTasks, onNavigateHome }: GardenPageProps) {
+export function GardenPage({ plants, completedTasks, onNavigateHome }: GardenPageProps) {
+  const [openCategory, setOpenCategory] = useState<CategoryId>();
+  const [resultTaskId, setResultTaskId] = useState<string>();
   const prestige = globalPrestige(plants);
   const rows = plotRows(visiblePlots(plants));
+  const categoryTasks = openCategory ? tasksInCategory(completedTasks, openCategory) : [];
+  const resultTask = categoryTasks.find((t) => t.id === resultTaskId);
 
   return (
     <div className="page page--garden">
@@ -43,7 +53,7 @@ export function GardenPage({ plants, recentTasks, onNavigateHome }: GardenPagePr
           </div>
           <p className="garden-logo__prestige">Total prestige: {prestige}</p>
         </div>
-        <Clouds tasks={recentTasks} motion="conveyor" />
+        <DecorativeClouds />
         <HomeButton activeTasks={[]} onClick={onNavigateHome} />
       </section>
 
@@ -52,16 +62,35 @@ export function GardenPage({ plants, recentTasks, onNavigateHome }: GardenPagePr
         {rows.map((row, index) => (
           <div key={index} className={`plot-row plot-row--of-${rows.length}`} data-testid={`plot-row-${index}`}>
             {row.map((category) => (
-              <Plot key={category} category={category} totalMinutes={plants[category]!.totalMinutes} />
+              <Plot
+                key={category}
+                category={category}
+                totalMinutes={plants[category]!.totalMinutes}
+                onOpen={() => setOpenCategory(category)}
+              />
             ))}
           </div>
         ))}
       </section>
+
+      {openCategory && (
+        <PlantTasksPopup
+          category={openCategory}
+          tasks={categoryTasks}
+          onSelectTask={setResultTaskId}
+          onClose={() => {
+            setOpenCategory(undefined);
+            setResultTaskId(undefined);
+          }}
+          active={!resultTask}
+        />
+      )}
+      {resultTask && <TaskResultPopup task={resultTask} onClose={() => setResultTaskId(undefined)} />}
     </div>
   );
 }
 
-function Plot({ category, totalMinutes }: { category: CategoryId; totalMinutes: number }) {
+function Plot({ category, totalMinutes, onOpen }: { category: CategoryId; totalMinutes: number; onOpen: () => void }) {
   const growth = getPlantGrowth(totalMinutes);
   const plant = CATEGORIES.find((c) => c.id === category)!;
   return (
@@ -74,6 +103,8 @@ function Plot({ category, totalMinutes }: { category: CategoryId; totalMinutes: 
       />
       <span className="plot__label">{plant.label}</span>
       {growth.prestige > 0 && <span className="plot__prestige">Prestige {growth.prestige}</span>}
+      {/* Covers the whole plot so the plant, label and dirt are all clickable. */}
+      <button type="button" className="plot__open" aria-label={`${plant.plantLabel}: ${plant.label} tasks`} onClick={onOpen} />
     </div>
   );
 }

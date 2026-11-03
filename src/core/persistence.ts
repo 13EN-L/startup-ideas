@@ -116,6 +116,11 @@ export function recentTasks(completed: CompletedTask[]): CompletedTask[] {
   return [...completed].sort((a, b) => b.endedAt - a.endedAt).slice(0, RECENT_TASK_COUNT);
 }
 
+/** Every completed task in one category, newest first (the plant's task history). */
+export function tasksInCategory(completed: CompletedTask[], category: CategoryId): CompletedTask[] {
+  return completed.filter((t) => t.category === category).sort((a, b) => b.endedAt - a.endedAt);
+}
+
 /** Whole-number percentages that sum to 100, or all zero for an empty task. */
 export function breakdown(metrics: TaskMetrics): BreakdownPercentages {
   const parts = [metrics.productiveSeconds, metrics.unproductiveSeconds, metrics.idleSeconds];

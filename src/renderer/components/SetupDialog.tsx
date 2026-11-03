@@ -11,6 +11,8 @@ export interface SetupDialogProps {
   onSaveApiKey: (key: string) => Promise<SaveApiKeyResult>;
   onClearApiKey: () => Promise<void>;
   onOpenLink: (link: ExternalLink) => void;
+  /** Erases tasks and the garden (not the API key). Omit to hide the option. */
+  onResetData?: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -24,6 +26,7 @@ export function SetupDialog({
   onSaveApiKey,
   onClearApiKey,
   onOpenLink,
+  onResetData,
   onClose,
 }: SetupDialogProps) {
   const titleId = useId();
@@ -166,6 +169,8 @@ export function SetupDialog({
                 </p>
               )}
             </section>
+
+            {onResetData && <ResetDataStep onReset={onResetData} />}
           </>
         )}
 
@@ -174,5 +179,63 @@ export function SetupDialog({
         </button>
       </div>
     </div>
+  );
+}
+
+/** "Reset all data", behind a confirmation because it can't be undone. */
+function ResetDataStep({ onReset }: { onReset: () => Promise<void> }) {
+  const [phase, setPhase] = useState<'idle' | 'confirming' | 'resetting' | 'done'>('idle');
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = async () => {
+    setPhase('resetting');
+    setError(null);
+    try {
+      await onReset();
+      setPhase('done');
+    } catch (e) {
+      setError(`Could not reset your data: ${(e as Error).message}`);
+      setPhase('confirming');
+    }
+  };
+
+  return (
+    <section className="setup-step">
+      <h3 className="setup-step__title">Your data</h3>
+      {phase === 'idle' || phase === 'done' ? (
+        <>
+          <p>Reset all data erases every task, plant, prestige and trophy. Your saved API key is kept.</p>
+          <div className="setup-step__actions">
+            <button type="button" className="btn btn--secondary" onClick={() => setPhase('confirming')}>
+              Reset all data
+            </button>
+          </div>
+          {phase === 'done' && (
+            <p className="setup-message setup-message--info" role="status">
+              All data was reset.
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p>
+            <strong>This can't be undone.</strong> Erase all your tasks and your garden?
+          </p>
+          <div className="setup-step__actions">
+            <button type="button" className="btn btn--danger" onClick={reset} disabled={phase === 'resetting'}>
+              {phase === 'resetting' ? 'Erasing…' : 'Yes, erase everything'}
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={() => setPhase('idle')} disabled={phase === 'resetting'}>
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+      {error && (
+        <p className="setup-message setup-message--error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }

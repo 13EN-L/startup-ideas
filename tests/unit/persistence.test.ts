@@ -9,6 +9,7 @@ import {
   resolveLaunchRoute,
   saveState,
   serializeState,
+  tasksInCategory,
   type StateStore,
 } from '../../src/core/persistence';
 import { makeActiveTask, makeCompletedTask, makeState, MINUTE, T0 } from '../fixtures';
@@ -112,6 +113,29 @@ describe('#20 recentTasks', () => {
   it('returns fewer than 5 when fewer exist', () => {
     expect(recentTasks([makeCompletedTask()])).toHaveLength(1);
     expect(recentTasks([])).toEqual([]);
+  });
+});
+
+describe('tasksInCategory', () => {
+  it('returns every task in the category, not just the 5 recent ones, newest first', () => {
+    const work = Array.from({ length: 7 }, (_, i) =>
+      makeCompletedTask({ name: `Work ${i}`, category: 'work', endedAt: T0 + i * MINUTE }),
+    );
+    const other = makeCompletedTask({ name: 'Gym', category: 'health', endedAt: T0 + 99 * MINUTE });
+    const stored = [work[2], other, work[6], work[0], work[4], work[1], work[5], work[3]];
+    expect(tasksInCategory(stored, 'work').map((t) => t.name)).toEqual([
+      'Work 6',
+      'Work 5',
+      'Work 4',
+      'Work 3',
+      'Work 2',
+      'Work 1',
+      'Work 0',
+    ]);
+  });
+
+  it('is empty for a category with no tasks', () => {
+    expect(tasksInCategory([makeCompletedTask({ category: 'work' })], 'finance')).toEqual([]);
   });
 });
 

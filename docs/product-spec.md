@@ -15,6 +15,7 @@
   - Top 3/4ths: Blue sky background (`#c9ecf9`) with a rectangular window in the center. Title `"FocusGarden"` in top center of the window. A `"Tasks"` button inside takes the user to the Task Page.
   - Outside the window: 5 clouds displaying the names of the 5 most recently completed tasks. Clicking a cloud opens the Task Page and automatically triggers that task's result popup.
   - Bottom 1/4th: Simplified garden representation.
+  - A `"Settings"` button opens the setup window (ActivityWatch status, Claude API key). It also offers `"Reset all data"`, which after a confirmation (`"Yes, erase everything"` / `"Cancel"`) erases all tasks, plants, prestige and trophies. The saved API key is kept.
 
 ### B. Task Page
 - **Layout & State**:
@@ -35,11 +36,15 @@
 
 ### C. Garden Page
 - **Layout**:
-  - Top 1/3rd: Blue sky with 5 clouds with conveyor belt movement.
+  - Top 1/3rd: Blue sky with 5 clouds with conveyor belt movement. These clouds are purely decorative: no task labels, not clickable.
   - Bottom 2/3rds: Green grass (`#7ab85f`) containing brown rectangular plant plots (90% height of the grass).
 - **Plots & Layout**:
   - 10 total plots mapped to the 10 task categories. Plots only appear once a task in that category has been completed.
   - If < 5 plants, centered and symmetric. If > 5 plants, plots 1–5 are in the upper half, and plots 6–10 are in the lower half.
+- **Task History (plant click)**:
+  - Every completed task is stored, not only the 5 shown as clouds.
+  - Clicking a plot opens a vertical popup titled `"<Category> tasks"` (e.g. `"Work tasks"` for the Pine) with a scrollable list of **all** completed tasks in that category, newest first. Each row shows the task name, completion date and on-task time.
+  - Clicking a row opens that task's result popup (same as clicking a cloud: title, breakdown bar, `"What you did:"`) on top of the list. Closing it (Close or Esc) returns to the list.
 - **Trophy & Prestige System**:
   - Global prestige counter sums up all individual plant prestiges.
   - Trophies under the FocusGarden logo in the upper left:

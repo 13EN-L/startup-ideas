@@ -98,6 +98,41 @@ describe('SetupDialog: API key', () => {
   });
 });
 
+describe('SetupDialog: reset all data', () => {
+  const READY = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' as const };
+
+  it('is hidden unless a reset handler is given', () => {
+    setup({ status: READY });
+    expect(screen.queryByRole('button', { name: 'Reset all data' })).not.toBeInTheDocument();
+  });
+
+  it('asks for confirmation, and Cancel erases nothing', async () => {
+    const onResetData = vi.fn(async () => {});
+    setup({ status: READY, onResetData });
+    await userEvent.click(screen.getByRole('button', { name: 'Reset all data' }));
+    expect(screen.getByText(/can't be undone/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onResetData).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Reset all data' })).toBeInTheDocument();
+  });
+
+  it('resets once confirmed and says so', async () => {
+    const onResetData = vi.fn(async () => {});
+    setup({ status: READY, onResetData });
+    await userEvent.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
+    expect(onResetData).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText('All data was reset.')).toBeInTheDocument();
+  });
+
+  it('shows why a reset failed', async () => {
+    setup({ status: READY, onResetData: vi.fn(async () => Promise.reject(new Error('disk full'))) });
+    await userEvent.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not reset your data: disk full');
+  });
+});
+
 describe('SetupDialog: closing', () => {
   it('says "Start" when everything is ready', async () => {
     const props = setup({ status: { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' } });

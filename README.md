@@ -66,7 +66,7 @@ On Windows, the ActivityWatch that comes with FocusGarden appears as an icon in 
 - **Zip:** quit ActivityWatch from its tray icon, then delete the folder.
 - **macOS:** drag FocusGarden from Applications to the Trash.
 
-Your garden and settings are kept in case you reinstall. To remove them too, delete the data folder listed under [Your data](#your-data). ActivityWatch keeps its own history in `%LOCALAPPDATA%\activitywatch`; delete that folder too if you want it gone.
+Your garden and settings are kept in case you reinstall. To remove them too, use **Settings → Reset all data** before uninstalling, or delete the data folder listed under [Your data](#your-data). ActivityWatch keeps its own history in `%LOCALAPPDATA%\activitywatch`; delete that folder too if you want it gone.
 
 ## Using FocusGarden
 
@@ -77,7 +77,7 @@ The sky shows the **FocusGarden** window with a **Tasks** button. Clouds around 
 - **Tasks** opens the Task page.
 - **Click a cloud** to jump to the Task page with that task's results open.
 - **Click the garden strip** to open the Garden page.
-- **Settings** reopens the setup window (ActivityWatch status and your API key).
+- **Settings** reopens the setup window (ActivityWatch status and your API key) and has **Reset all data**.
 
 ### Starting a task
 
@@ -102,10 +102,12 @@ Click **Close** (or press Esc) to dismiss the popup without stopping the task.
 
 ### Reviewing a task
 
-Click any cloud to open that task's results:
+Click any cloud on the Main or Task page to open that task's results:
 
 - A **bar** showing the split between on-task (green), off-task (brown) and idle (grey) time.
 - **What you did:** every app and website from the session, with time spent and whether it counted as on-task or off-task, longest first.
+
+The clouds only show your five newest tasks, but FocusGarden keeps every task you complete. To find an older one, open the Garden and click the plant for its category (see [Task history](#task-history)).
 
 ### The garden
 
@@ -136,6 +138,14 @@ Each of the ten categories grows its own plant. A plot appears the first time yo
 | 10 | Silver |
 | 100 | Gold |
 
+The clouds drifting across the Garden sky are decoration only: they carry no task names and can't be clicked.
+
+### Task history
+
+Click a plant in the Garden to see **every completed task in its category**, newest first. For example, clicking the Pine lists all your Work tasks. Each row shows the task name, the date you finished it and its on-task time. The list scrolls when it gets long.
+
+Click a task in the list to open its results (the same breakdown bar and **What you did:** list as a cloud). **Close** or Esc closes the results and returns you to the list; press it again to close the list.
+
 ### Closing and reopening
 
 FocusGarden saves after every change. If you close it with tasks running, it reopens on the Task page with your animals still in the pen and their timers still counting from when you started. Otherwise it reopens on the page you left.
@@ -150,7 +160,11 @@ Your garden (`focusgarden-state.json`) and settings (`settings.json`) live in on
 | macOS | `~/Library/Application Support/FocusGarden` |
 | Linux | `~/.config/FocusGarden` |
 
-Deleting `focusgarden-state.json` resets your garden. Your API key in `settings.json` is encrypted with your operating system's credential protection, so it only works for your user account on this computer.
+`focusgarden-state.json` holds your running tasks and **every** task you've completed (not just the five shown as clouds), plus your plants' growth.
+
+**Starting over.** Open **Settings** on the main page and click **Reset all data**, then **Yes, erase everything**. This erases all tasks, plants, prestige and trophies and can't be undone. Your saved API key is kept; use **Remove saved key** if you want that gone too. Deleting `focusgarden-state.json` while FocusGarden is closed does the same thing.
+
+Your API key in `settings.json` is encrypted with your operating system's credential protection, so it only works for your user account on this computer.
 
 ## Privacy
 

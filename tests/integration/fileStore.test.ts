@@ -41,6 +41,25 @@ describe('#20 createFileStore', () => {
     await createFileStore(file).save('{}');
     expect(await readdir(dir)).toEqual(['focusgarden-state.json']);
   });
+
+  it('handles many saves at once, and the last one called wins', async () => {
+    const store = createFileStore(file);
+    const results = await Promise.allSettled(Array.from({ length: 20 }, (_, i) => store.save(`{"n":${i}}`)));
+    expect(results.filter((r) => r.status === 'rejected')).toEqual([]);
+    await expect(readFile(file, 'utf8')).resolves.toBe('{"n":19}');
+    expect(await readdir(dir)).toEqual(['focusgarden-state.json']);
+  });
+
+  it('keeps saving after a failed save', async () => {
+    const blocked = path.join(dir, 'blocker');
+    await writeFile(blocked, '');
+    // The parent "directory" is a file, so this save fails.
+    const store = createFileStore(path.join(blocked, 'state.json'));
+    await expect(store.save('{}')).rejects.toThrow();
+    await rm(blocked);
+    await store.save('{"ok":true}');
+    await expect(readFile(path.join(blocked, 'state.json'), 'utf8')).resolves.toBe('{"ok":true}');
+  });
 });
 
 describe('#20 restart round trip', () => {

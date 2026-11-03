@@ -92,6 +92,50 @@ describe('first-run setup', () => {
   });
 });
 
+describe('reset all data', () => {
+  it('erases tasks and the garden from Settings, saves that, and keeps the API key', async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge(
+      makeState({
+        completedTasks: [makeCompletedTask({ name: 'Old essay', category: 'work' })],
+        plants: { work: { category: 'work', totalMinutes: 40 } },
+      }),
+    );
+    renderApp(bridge);
+    expect(await screen.findByRole('button', { name: 'Old essay' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
+
+    expect(await screen.findByText('All data was reset.')).toBeInTheDocument();
+    expect(lastSaved(bridge)).toEqual(makeState());
+    expect(bridge.clearApiKey).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Old essay' })).not.toBeInTheDocument();
+  });
+
+  it('drops a task whose analysis finishes after the reset', async () => {
+    const user = userEvent.setup();
+    let finish!: (task: CompletedTask) => void;
+    const bridge = fakeBridge(makeState({ route: 'task', activeTasks: [makeActiveTask({ id: 'a1', name: 'Essay', animal: 'cow' })] }));
+    bridge.finishTask.mockImplementation(() => new Promise<CompletedTask>((resolve) => (finish = resolve)));
+    renderApp(bridge);
+
+    await user.click(await screen.findByRole('button', { name: 'Essay (cow)' }));
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    fireEvent.animationEnd(screen.getByRole('button', { name: 'Essay (cow)' }));
+    await user.click(await screen.findByRole('button', { name: 'Home' }));
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
+    await screen.findByText('All data was reset.');
+
+    finish(makeCompletedTask({ name: 'Essay' }));
+    await waitFor(() => expect(lastSaved(bridge)).toEqual(makeState()));
+    expect(screen.queryByRole('button', { name: 'Essay' })).not.toBeInTheDocument();
+  });
+});
+
 describe('#20 saving state', () => {
   it('saves the page when navigating', async () => {
     const bridge = fakeBridge(makeState());
