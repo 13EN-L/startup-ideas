@@ -142,6 +142,7 @@ describe('task service', () => {
       expect(h.service.getResults(id)).toEqual({
         task: expect.objectContaining({ id, status: 'done' }),
         buckets: { productiveSeconds: 25 * 60, unproductiveSeconds: 5 * 60, idleSeconds: 10 * 60 },
+        waiting: null,
         items: [
           { name: 'docs.google.com', seconds: 25 * 60, label: 'on-task' },
           { name: 'reddit.com', seconds: 5 * 60, label: 'off-task' }
@@ -329,7 +330,8 @@ describe('task service', () => {
       const h = harness()
       h.getSummary.mockRejectedValue(new Error('down'))
       const id = await runTask(h)
-      expect(h.events).toEqual([`results:${id}`])
+      // stopped, then the reason changed to "waiting for ActivityWatch"
+      expect(h.events).toEqual([`results:${id}`, `results:${id}`])
       expect(h.service.listRecent().map((t) => t.id)).toEqual([id])
     })
 
@@ -456,6 +458,84 @@ describe('task service', () => {
       await runTask(h)
       await h.service.retryPending()
       expect(h.classify).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('why a task is waiting', () => {
+    const stopTask = (h: Harness): number => {
+      h.clock.now = T0
+      const task = h.service.start({ name: 'Essay', category: 'School / Study' })
+      h.clock.now = T0 + 40 * MIN
+      h.service.stop(task.id)
+      return task.id
+    }
+
+    it('is reading activity right after stop', () => {
+      const h = harness()
+      h.getSummary.mockReturnValueOnce(new Promise(() => {}))
+      expect(h.service.getResults(stopTask(h)).waiting).toBe('reading-activity')
+    })
+
+    it('is waiting for ActivityWatch when it cannot be reached', async () => {
+      const h = harness()
+      h.getSummary.mockRejectedValue(new Error('down'))
+      const id = stopTask(h)
+      await h.service.settled()
+      expect(h.service.getResults(id).waiting).toBe('activitywatch')
+    })
+
+    it('is labeling while Claude works', async () => {
+      const h = harness()
+      h.classify.mockReturnValueOnce(new Promise(() => {}))
+      const id = stopTask(h)
+      await vi.waitFor(() => expect(h.classify).toHaveBeenCalled())
+      expect(h.service.getResults(id).waiting).toBe('labeling')
+    })
+
+    it.each([
+      [new ClassificationError('overloaded', true), 'retrying'],
+      [
+        new ClassificationError('No Claude API key is set', false, { kind: 'no-api-key' }),
+        'no-api-key'
+      ],
+      [
+        new ClassificationError('rejected', false, { kind: 'api-key-rejected' }),
+        'api-key-rejected'
+      ],
+      [new ClassificationError('bad request', false), 'claude-error']
+    ] as const)('shows %s as %s', async (error, reason) => {
+      const h = harness()
+      h.classify.mockRejectedValueOnce(error)
+      const id = stopTask(h)
+      await h.service.settled()
+      expect(h.service.getResults(id).waiting).toBe(reason)
+    })
+
+    it('is not waiting once the task is done', async () => {
+      const h = harness()
+      h.classify.mockRejectedValueOnce(
+        new ClassificationError('rejected', false, { kind: 'api-key-rejected' })
+      )
+      const id = stopTask(h)
+      await h.service.settled()
+      await h.service.retryPending()
+      expect(h.service.getResults(id).waiting).toBeNull()
+    })
+
+    it('is labeling again for a pending task after the app is reopened', async () => {
+      const h = harness()
+      h.classify.mockRejectedValueOnce(
+        new ClassificationError('No key', false, { kind: 'no-api-key' })
+      )
+      const id = stopTask(h)
+      await h.service.settled()
+      const reopened = createTaskService({
+        db: h.db,
+        activity: { getSummary: h.getSummary },
+        getClassifier: () => h.classify,
+        notify: { taskResults: () => {}, gardenChanged: () => {} }
+      })
+      expect(reopened.getResults(id).waiting).toBe('labeling')
     })
   })
 

@@ -43,6 +43,7 @@ function labeledResults(task: Task): TaskResults {
   const sum = (label: Label): number =>
     SAMPLE_ITEMS.filter((i) => i.label === label).reduce((s, i) => s + i.seconds, 0)
   return {
+    waiting: null,
     task,
     buckets: {
       productiveSeconds: sum('on-task'),
@@ -55,6 +56,7 @@ function labeledResults(task: Task): TaskResults {
 
 function pendingResults(task: Task): TaskResults {
   return {
+    waiting: 'labeling',
     task,
     buckets: {
       productiveSeconds: null,

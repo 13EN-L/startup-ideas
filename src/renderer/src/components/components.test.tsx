@@ -33,6 +33,7 @@ const task = {
 }
 
 const doneResults: TaskResults = {
+  waiting: null,
   task,
   buckets: { productiveSeconds: 1500, unproductiveSeconds: 300, idleSeconds: 600 },
   items: [
@@ -42,6 +43,7 @@ const doneResults: TaskResults = {
 }
 
 const pendingResults: TaskResults = {
+  waiting: 'labeling',
   task: { ...task, status: 'pending' },
   buckets: { productiveSeconds: null, unproductiveSeconds: null, idleSeconds: 600 },
   items: doneResults.items.map((i) => ({ ...i, label: null }))
@@ -235,6 +237,33 @@ describe('TimeBar', () => {
   })
 })
 
+describe('TimeBar while waiting', () => {
+  it.each([
+    ['reading-activity', 'Reading what you did…'],
+    ['activitywatch', 'Waiting for ActivityWatch…'],
+    ['labeling', 'Sorting the harvest…'],
+    ['retrying', 'Claude is busy. Trying again soon…']
+  ] as const)('shows a spinner with the reason for %s', (waiting, message) => {
+    render(<TimeBar results={{ ...pendingResults, waiting }} />)
+    expect(screen.getByRole('status')).toHaveTextContent(message)
+    expect(screen.getByTestId('segment-pending')).toHaveAttribute('data-blocked', 'false')
+  })
+
+  it.each([
+    ['no-api-key', 'Needs a Claude API key'],
+    ['api-key-rejected', 'API key rejected'],
+    ['claude-error', 'Claude couldn’t sort this']
+  ] as const)(
+    'shows %s without a spinner, since nothing is happening until you act',
+    (waiting, message) => {
+      render(<TimeBar results={{ ...pendingResults, waiting }} />)
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      expect(screen.getByTestId('segment-pending')).toHaveTextContent(message)
+      expect(screen.getByTestId('segment-pending')).toHaveAttribute('data-blocked', 'true')
+    }
+  )
+})
+
 describe('TaskResultsPopup', () => {
   function apiReturning(results: TaskResults[]): FocusGardenApi & {
     fire: (taskId: number) => void
@@ -289,6 +318,41 @@ describe('TaskResultsPopup', () => {
     act(() => api.fire(2))
     act(() => api.fire(1))
     expect(await within(list).findByText('on-task')).toBeInTheDocument()
+  })
+})
+
+describe('TaskResultsPopup when the API key is the problem', () => {
+  function apiWith(results: TaskResults): FocusGardenApi {
+    const base = createMockApi()
+    return { ...base, tasks: { ...base.tasks, getResults: async () => results } }
+  }
+
+  it.each([
+    ['no-api-key', 'add key', 'Add your Claude API key'],
+    ['api-key-rejected', 'change key', 'didn’t accept your API key'],
+    ['claude-error', 'change key', 'Check your API key and account']
+  ] as const)(
+    'explains %s and offers a "%s" button that opens the key popup',
+    async (waiting, button, note) => {
+      const api = apiWith({ ...pendingResults, waiting })
+      const setApiKey = vi.spyOn(api.settings, 'setApiKey')
+      withApi(api, <TaskResultsPopup taskId={1} onClose={() => {}} />)
+
+      expect(await screen.findByText(new RegExp(note))).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: button }))
+      const keyPopup = screen.getByRole('dialog', { name: 'Connect Claude' })
+      await userEvent.type(within(keyPopup).getByLabelText('Claude API key'), 'sk-ant-new')
+      await userEvent.click(within(keyPopup).getByRole('button', { name: 'save' }))
+
+      expect(setApiKey).toHaveBeenCalledWith('sk-ant-new')
+      expect(screen.queryByRole('dialog', { name: 'Connect Claude' })).not.toBeInTheDocument()
+    }
+  )
+
+  it('offers no key button while Claude is simply working', async () => {
+    withApi(apiWith(pendingResults), <TaskResultsPopup taskId={1} onClose={() => {}} />)
+    await screen.findByRole('dialog', { name: 'Essay' })
+    expect(screen.queryByRole('button', { name: /key/ })).not.toBeInTheDocument()
   })
 })
 

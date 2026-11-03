@@ -44,3 +44,8 @@
   background: var(--color-beige);
   font-size: 14px;
 }
+
+/* Waiting on the user, not working: no spinner, and the text stands out. */
+.blocked .label {
+  color: var(--color-light-brown);
+}

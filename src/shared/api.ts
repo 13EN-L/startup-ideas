@@ -1,8 +1,19 @@
 import type { Category, Label, Plant, Task, Trophy } from './domain'
 
+// Why a stopped task has no labels yet, shown under the spinner in the results popup.
+export type WaitReason =
+  | 'reading-activity' // reading what you did from ActivityWatch
+  | 'activitywatch' // ActivityWatch can't be reached; retrying
+  | 'labeling' // Claude is labeling the items
+  | 'retrying' // Claude failed for now; retrying
+  | 'no-api-key' // waiting for a Claude API key
+  | 'api-key-rejected' // Claude rejected the saved key
+  | 'claude-error' // Claude refused the request for another reason; waiting for a new key
+
 // What the results popup shows. While a task is pending, productive/unproductive seconds and
 // item labels are null, but idle time and the item list (from ActivityWatch) are already known.
 export interface TaskResults {
+  waiting: WaitReason | null // null once the task is done
   task: Task
   buckets: {
     productiveSeconds: number | null

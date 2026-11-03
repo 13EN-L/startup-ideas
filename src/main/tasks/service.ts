@@ -1,7 +1,11 @@
 import type { DatabaseSync } from 'node:sqlite'
-import type { TaskResults } from '../../shared/api'
+import type { TaskResults, WaitReason } from '../../shared/api'
 import type { ActivityReader } from '../../shared/activity'
-import { ClassificationError, type Classifier } from '../../shared/classifier'
+import {
+  ClassificationError,
+  type ClassificationErrorKind,
+  type Classifier
+} from '../../shared/classifier'
 import { CATEGORIES, MAX_ACTIVE_TASKS, type Category, type Task } from '../../shared/domain'
 import {
   getTask,
@@ -56,11 +60,28 @@ export function createTaskService(deps: TaskServiceDeps): TaskService {
   // Consecutive failures this app session; reset by retryPending.
   const classifyFailures = new Map<number, number>()
   const summaryFailures = new Map<number, number>()
+  // Why each pending task is waiting, as last seen this session (shown in the results popup).
+  const waiting = new Map<number, WaitReason>()
   let disposed = false
+
+  const WAIT_FOR_ERROR: Record<ClassificationErrorKind, WaitReason> = {
+    temporary: 'retrying',
+    'no-api-key': 'no-api-key',
+    'api-key-rejected': 'api-key-rejected',
+    failed: 'claude-error'
+  }
+
+  // Records a new reason and tells the UI, so an open results popup can show it.
+  function setWaiting(taskId: number, reason: WaitReason): void {
+    if (waiting.get(taskId) === reason) return
+    waiting.set(taskId, reason)
+    notify.taskResults(taskId)
+  }
 
   function finish(taskId: number): void {
     classifyFailures.delete(taskId)
     summaryFailures.delete(taskId)
+    waiting.delete(taskId)
     notify.taskResults(taskId)
     notify.gardenChanged()
   }
@@ -75,16 +96,19 @@ export function createTaskService(deps: TaskServiceDeps): TaskService {
         saveSummary(db, task, summary)
         notify.taskResults(taskId)
       } catch {
+        setWaiting(taskId, 'activitywatch')
         return 'retry-summary'
       }
     }
 
     try {
+      waiting.set(taskId, 'labeling')
       const labels = await getClassifier()(classificationRequest(db, task))
       if (completeTask(db, taskId, labels)) finish(taskId)
       return 'done'
     } catch (error) {
       if (!(error instanceof ClassificationError)) throw error
+      setWaiting(taskId, WAIT_FOR_ERROR[error.kind])
       return error.retryable ? 'retry-classify' : 'wait'
     }
   }
@@ -162,7 +186,12 @@ export function createTaskService(deps: TaskServiceDeps): TaskService {
 
     listActive: () => listActiveTasks(db),
     listRecent: () => listRecentStoppedTasks(db),
-    getResults: (id) => getTaskResults(db, id),
+    getResults(id) {
+      const results = getTaskResults(db, id)
+      if (results.task.status !== 'pending') return results
+      const fallback = isSummarized(db, id) ? 'labeling' : 'reading-activity'
+      return { ...results, waiting: waiting.get(id) ?? fallback }
+    },
 
     async retryPending() {
       const pending = listPendingTasks(db)

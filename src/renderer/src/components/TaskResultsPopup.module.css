@@ -65,3 +65,14 @@
 .off-task {
   color: var(--color-light-brown);
 }
+
+.keyProblem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.keyProblem p {
+  flex: 1;
+}

@@ -106,7 +106,27 @@ A vertical rectangle, top to bottom:
 **While results are pending** (classification still running, or failed and retrying):
 
 - A farm-themed loading spinner with a short message in place of the on-task and
-  off-task sections of the bar.
+  off-task sections of the bar. The message says why the task is waiting:
+
+  | Reason                                   | Message                              |
+  | ---------------------------------------- | ------------------------------------ |
+  | Reading the activity from ActivityWatch  | "Reading what you did…"              |
+  | ActivityWatch can't be reached (retries) | "Waiting for ActivityWatch…"         |
+  | Claude is labeling                       | "Sorting the harvest…"               |
+  | Claude failed for now (retries)          | "Claude is busy. Trying again soon…" |
+
+- **When the task needs the user to act**, the bar shows a short message with no
+  spinner, in light brown, and a line under the bar explains it next to a button
+  that opens the API key popup:
+
+  | Reason                   | Bar                         | Line under the bar                                                                      | Button       |
+  | ------------------------ | --------------------------- | --------------------------------------------------------------------------------------- | ------------ |
+  | No API key saved         | "Needs a Claude API key"    | "Add your Claude API key so Claude can sort this task."                                 | "add key"    |
+  | Claude rejected the key  | "API key rejected"          | "Claude didn't accept your API key. Check it and enter it again."                       | "change key" |
+  | Claude refused otherwise | "Claude couldn't sort this" | "Claude refused the request. Check your API key and account, then enter the key again." | "change key" |
+
+  Saving a key from there retries the task, and the popup updates on its own.
+
 - The idle percentage and the app/site list (names and times) show right away, since
   they come from ActivityWatch.
 - On-task/off-task labels and percentages fill in once Claude's results arrive.

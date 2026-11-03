@@ -9,11 +9,15 @@ export function toClassificationError(error: unknown): ClassificationError {
     return new ClassificationError('Could not reach the Claude API', true, { cause: error })
   }
   if (error instanceof Anthropic.AuthenticationError) {
-    return new ClassificationError('Claude API key was rejected (401)', false, { cause: error })
+    return new ClassificationError('Claude API key was rejected (401)', false, {
+      cause: error,
+      kind: 'api-key-rejected'
+    })
   }
   if (error instanceof Anthropic.PermissionDeniedError) {
     return new ClassificationError('Claude API key lacks permission (403)', false, {
-      cause: error
+      cause: error,
+      kind: 'api-key-rejected'
     })
   }
   if (error instanceof Anthropic.BadRequestError) {

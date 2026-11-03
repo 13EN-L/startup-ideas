@@ -275,7 +275,8 @@ describe('API key', () => {
     async (key) => {
       const create = vi.fn()
       const classify = createClassifier({ apiKey: key as string, client: { messages: { create } } })
-      await expectFailure(classify(request), false)
+      const error = await expectFailure(classify(request), false)
+      expect(error.kind).toBe('no-api-key')
       expect(create).not.toHaveBeenCalled()
     }
   )
@@ -354,30 +355,39 @@ describe('API errors', () => {
       headers
     )
 
-  const cases: [string, unknown, boolean][] = [
-    ['a connection error', new Anthropic.APIConnectionError({ message: 'ECONNRESET' }), true],
-    ['a timeout', new Anthropic.APIConnectionTimeoutError(), true],
-    ['429 rate limit', apiError(429, 'rate_limit_error'), true],
-    ['500 server error', apiError(500, 'api_error'), true],
-    ['503 unavailable', apiError(503, 'api_error'), true],
-    ['529 overloaded', apiError(529, 'overloaded_error'), true],
-    ['408 request timeout', apiError(408, 'timeout_error'), true],
-    ['401 authentication', apiError(401, 'authentication_error'), false],
-    ['403 permission', apiError(403, 'permission_error'), false],
-    ['400 bad request', apiError(400, 'invalid_request_error'), false],
-    ['402 billing', apiError(402, 'billing_error'), false],
-    ['404 not found (bad model id)', apiError(404, 'not_found_error'), false],
-    ['413 request too large', apiError(413, 'request_too_large'), false],
-    ['an unexpected error', new TypeError('fetch failed'), true]
+  const cases: [string, unknown, boolean, string][] = [
+    [
+      'a connection error',
+      new Anthropic.APIConnectionError({ message: 'ECONNRESET' }),
+      true,
+      'temporary'
+    ],
+    ['a timeout', new Anthropic.APIConnectionTimeoutError(), true, 'temporary'],
+    ['429 rate limit', apiError(429, 'rate_limit_error'), true, 'temporary'],
+    ['500 server error', apiError(500, 'api_error'), true, 'temporary'],
+    ['503 unavailable', apiError(503, 'api_error'), true, 'temporary'],
+    ['529 overloaded', apiError(529, 'overloaded_error'), true, 'temporary'],
+    ['408 request timeout', apiError(408, 'timeout_error'), true, 'temporary'],
+    ['401 authentication', apiError(401, 'authentication_error'), false, 'api-key-rejected'],
+    ['403 permission', apiError(403, 'permission_error'), false, 'api-key-rejected'],
+    ['400 bad request', apiError(400, 'invalid_request_error'), false, 'failed'],
+    ['402 billing', apiError(402, 'billing_error'), false, 'failed'],
+    ['404 not found (bad model id)', apiError(404, 'not_found_error'), false, 'failed'],
+    ['413 request too large', apiError(413, 'request_too_large'), false, 'failed'],
+    ['an unexpected error', new TypeError('fetch failed'), true, 'temporary']
   ]
 
-  it.each(cases)('%s maps to retryable=%s and keeps the cause', async (_name, cause, retryable) => {
-    const { classify } = setup(async () => {
-      throw cause
-    })
-    const error = await expectFailure(classify(request), retryable)
-    expect(error.cause).toBe(cause)
-  })
+  it.each(cases)(
+    '%s maps to retryable=%s, kind %s, and keeps the cause',
+    async (_name, cause, retryable, kind) => {
+      const { classify } = setup(async () => {
+        throw cause
+      })
+      const error = await expectFailure(classify(request), retryable)
+      expect(error.kind).toBe(kind)
+      expect(error.cause).toBe(cause)
+    }
+  )
 })
 
 describe('privacy', () => {

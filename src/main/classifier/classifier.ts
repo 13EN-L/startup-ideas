@@ -36,7 +36,7 @@ export function createClassifier({ apiKey, client }: ClassifierOptions): Classif
     validateRequest(request)
     if (request.items.length === 0) return []
     if (typeof apiKey !== 'string' || apiKey.trim() === '') {
-      throw new ClassificationError('No Claude API key is set', false)
+      throw new ClassificationError('No Claude API key is set', false, { kind: 'no-api-key' })
     }
     // maxRetries 0: one HTTP call per classification; the task pipeline owns retrying.
     anthropic ??= new Anthropic({ apiKey, maxRetries: 0, timeout: REQUEST_TIMEOUT_MS })

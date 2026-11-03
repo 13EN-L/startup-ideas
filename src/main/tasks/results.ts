@@ -3,10 +3,12 @@ import type { TaskResults } from '../../shared/api'
 import { getTask, getTaskBuckets, getTaskItems } from '../db'
 
 // What the results popup shows. Before the summary is saved there are no items and no idle time.
+// waiting is filled in by the task service, which knows why a pending task is waiting.
 export function getTaskResults(db: DatabaseSync, taskId: number): TaskResults {
   const task = getTask(db, taskId)
   if (!task) throw new Error(`Task ${taskId} not found`)
   return {
+    waiting: null,
     task,
     buckets: getTaskBuckets(db, taskId) ?? {
       productiveSeconds: null,

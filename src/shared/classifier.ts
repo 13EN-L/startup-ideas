@@ -18,16 +18,23 @@ export interface ItemLabel {
 // partial results or defaults anything to on-task.
 export type Classifier = (request: ClassificationRequest) => Promise<ItemLabel[]>
 
+// What went wrong, so the UI can say why a task is waiting. 'temporary' failures are retryable;
+// the others aren't.
+export type ClassificationErrorKind = 'temporary' | 'no-api-key' | 'api-key-rejected' | 'failed'
+
 export class ClassificationError extends Error {
+  readonly kind: ClassificationErrorKind
+
   // retryable: the task should stay pending and be retried later (network, rate limit,
   // server error, invalid output). Not retryable: retrying won't help until something
   // changes, e.g. a missing or rejected API key.
   constructor(
     message: string,
     readonly retryable: boolean,
-    options?: { cause?: unknown }
+    options?: { cause?: unknown; kind?: ClassificationErrorKind }
   ) {
     super(message, options)
     this.name = 'ClassificationError'
+    this.kind = options?.kind ?? (retryable ? 'temporary' : 'failed')
   }
 }
