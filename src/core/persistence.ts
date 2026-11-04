@@ -58,7 +58,7 @@ const AppStateSchema = z.object({
   completedTasks: z.array(CompletedTaskSchema),
   plants: z.partialRecord(
     z.enum(categoryIds),
-    z.object({ category: z.enum(categoryIds), totalMinutes: seconds }),
+    z.object({ category: z.enum(categoryIds), totalMinutes: seconds, viewedMinutes: seconds.optional() }),
   ),
 });
 

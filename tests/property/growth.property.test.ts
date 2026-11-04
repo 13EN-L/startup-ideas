@@ -3,15 +3,18 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   addProductiveMinutes,
+  animatedMinutes,
   applyCompletedTask,
   earnedTrophies,
   getPlantGrowth,
   globalPrestige,
+  growthAnimationDuration,
   plantScale,
   plotRows,
   visiblePlots,
 } from '../../src/core/growth';
 import {
+  GROWTH_ANIMATION_MAX_MS,
   GROWTH_STAGES,
   MID_STAGE_MAX_SCALE,
   MINUTES_PER_CYCLE,
@@ -199,6 +202,29 @@ describe('#18 plot layout properties', () => {
           expect(row.length).toBeLessThanOrEqual(PLOTS_PER_ROW);
         }
       }),
+    );
+  });
+});
+
+describe('Garden growth replay (property)', () => {
+  it('stays between the viewed and current totals, never shrinks, and ends on the current total', () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: 0, max: 10_000, noNaN: true }),
+        fc.double({ min: 0, max: 10_000, noNaN: true }),
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        fc.double({ min: 0, max: 1, noNaN: true }),
+        (viewed, gained, f1, f2) => {
+          const to = viewed + gained;
+          const duration = growthAnimationDuration(viewed, to);
+          const [a, b] = [f1, f2].sort((x, y) => x - y).map((f) => animatedMinutes(viewed, to, f * duration));
+          expect(a).toBeGreaterThanOrEqual(viewed);
+          expect(b).toBeLessThanOrEqual(to);
+          expect(b).toBeGreaterThanOrEqual(a);
+          expect(animatedMinutes(viewed, to, duration)).toBe(to);
+          expect(duration).toBeLessThanOrEqual(GROWTH_ANIMATION_MAX_MS);
+        },
+      ),
     );
   });
 });

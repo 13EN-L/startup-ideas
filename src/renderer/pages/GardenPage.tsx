@@ -1,6 +1,7 @@
 // Issue #18: decorative conveyor-belt clouds (top 1/3), grass with category
 // plots (bottom 2/3), trophies and global prestige under the logo. Clicking a
 // plot lists that category's completed tasks; clicking one shows its results.
+// Opening the garden replays the growth earned since it was last opened.
 import { useEffect, useState } from 'react';
 import {
   earnedTrophies,
@@ -8,6 +9,7 @@ import {
   globalPrestige,
   plantScale,
   plotRows,
+  viewedMinutes,
   visiblePlots,
   type Plants,
 } from '../../core/growth';
@@ -19,6 +21,7 @@ import { DecorativeClouds } from '../components/Clouds';
 import { HomeButton } from '../components/HomeButton';
 import { PlantTasksPopup } from '../components/PlantTasksPopup';
 import { TaskResultPopup } from '../components/TaskResultPopup';
+import { useGrowthReplay } from '../components/useGrowthReplay';
 
 export interface GardenPageProps {
   plants: Plants;
@@ -27,6 +30,8 @@ export interface GardenPageProps {
   /** Reads assets/plants/<plant>/about.txt; resolves null when there is none. */
   loadPlantAbout: (category: CategoryId) => Promise<string | null>;
   onNavigateHome: () => void;
+  /** Called once the garden has started showing growth the user hadn't seen. */
+  onPlantsViewed?: () => void;
 }
 
 const TROPHY_LABELS: Record<Trophy, string> = {
@@ -35,7 +40,7 @@ const TROPHY_LABELS: Record<Trophy, string> = {
   gold: 'Gold trophy',
 };
 
-export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateHome }: GardenPageProps) {
+export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateHome, onPlantsViewed }: GardenPageProps) {
   const [openCategory, setOpenCategory] = useState<CategoryId>();
   const [resultTaskId, setResultTaskId] = useState<string>();
   const [about, setAbout] = useState<{ category: CategoryId; text: string | null }>();
@@ -54,8 +59,16 @@ export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateH
     };
   }, [openCategory, loadPlantAbout]);
 
-  const prestige = globalPrestige(plants);
-  const rows = plotRows(visiblePlots(plants));
+  // What the plots and trophies draw; catches up with `plants` as growth replays.
+  const shownPlants = useGrowthReplay(plants);
+
+  const hasUnviewedGrowth = Object.values(plants).some((p) => p && viewedMinutes(p) !== p.totalMinutes);
+  useEffect(() => {
+    if (hasUnviewedGrowth) onPlantsViewed?.();
+  }, [hasUnviewedGrowth, onPlantsViewed]);
+
+  const prestige = globalPrestige(shownPlants);
+  const rows = plotRows(visiblePlots(shownPlants));
   const categoryTasks = openCategory ? tasksInCategory(completedTasks, openCategory) : [];
   const resultTask = categoryTasks.find((t) => t.id === resultTaskId);
 
@@ -83,7 +96,7 @@ export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateH
               <Plot
                 key={category}
                 category={category}
-                totalMinutes={plants[category]!.totalMinutes}
+                totalMinutes={shownPlants[category]!.totalMinutes}
                 onOpen={() => setOpenCategory(category)}
               />
             ))}

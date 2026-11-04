@@ -1,6 +1,7 @@
 // Issue #20: loads persisted state, restores the launch route, routes between
 // pages and saves after every change.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { markPlantsViewed } from '../core/growth';
 import { createInitialState, recentTasks, resolveLaunchRoute } from '../core/persistence';
 import { completeTask, startTask, stopTask, type StartTaskInput } from '../core/tasks';
 import type { FocusGardenBridge, SetupStatus } from '../shared/bridge';
@@ -131,6 +132,17 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
     [bridge],
   );
 
+  // The garden replays unseen growth once; afterwards it opens as it was left.
+  const handlePlantsViewed = useCallback(() => {
+    const current = stateRef.current;
+    if (!current) return;
+    const plants = markPlantsViewed(current.plants);
+    if (plants === current.plants) return;
+    const next = { ...current, plants };
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
   // Settings is only reachable from the Main page, where no task is active.
   const handleReset = useCallback(async () => {
     const next = createInitialState();
@@ -180,6 +192,7 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
           completedTasks={state.completedTasks}
           loadPlantAbout={bridge.getPlantAbout}
           onNavigateHome={() => navigate('main')}
+          onPlantsViewed={handlePlantsViewed}
         />
       )}
 

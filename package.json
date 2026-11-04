@@ -26,7 +26,8 @@
     "test:property": "vitest run --project property",
     "test:e2e": "npm run build && playwright test",
     "test:mutation": "stryker run",
-    "assets:placeholders": "node scripts/generate-placeholders.mjs"
+    "assets:placeholders": "node scripts/generate-placeholders.mjs",
+    "assets:plant": "node scripts/import-plant-gif.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",

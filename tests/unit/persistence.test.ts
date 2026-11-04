@@ -43,7 +43,10 @@ describe('#20 serialize / deserialize', () => {
       route: 'task',
       activeTasks: [makeActiveTask({ slot: 2, animal: 'goat' })],
       completedTasks: [makeCompletedTask()],
-      plants: { school: { category: 'school', totalMinutes: 47.5 } },
+      plants: {
+        school: { category: 'school', totalMinutes: 47.5 },
+        work: { category: 'work', totalMinutes: 50, viewedMinutes: 12 },
+      },
     });
     expect(deserializeState(serializeState(state))).toEqual(state);
   });

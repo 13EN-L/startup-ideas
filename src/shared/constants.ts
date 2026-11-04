@@ -49,6 +49,16 @@ export const MINUTES_PER_CYCLE = GROWTH_STAGES * MINUTES_PER_STAGE; // 36
 /** Image scale at the very end of a stage; 1.0 at the start of a stage. */
 export const MID_STAGE_MAX_SCALE = 1.15;
 
+/**
+ * Garden growth replay: productive time earned since the garden was last
+ * opened plays back at this rate (one 6-minute stage = 0.36 s), capped so
+ * long sessions still finish quickly, after a short pause to show the
+ * starting point.
+ */
+export const GROWTH_ANIMATION_MS_PER_MINUTE = 60;
+export const GROWTH_ANIMATION_MAX_MS = 5000;
+export const GROWTH_ANIMATION_DELAY_MS = 500;
+
 /** Plots per row in the garden before wrapping to a second row. */
 export const PLOTS_PER_ROW = 5;
 

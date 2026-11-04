@@ -199,7 +199,7 @@ describe('#19/#17 stopping a task end to end', () => {
       const saved = lastSaved(bridge);
       expect(saved?.activeTasks).toEqual([]);
       expect(saved?.completedTasks).toEqual([finished]);
-      expect(saved?.plants.school).toEqual({ category: 'school', totalMinutes: 12 });
+      expect(saved?.plants.school).toEqual({ category: 'school', totalMinutes: 12, viewedMinutes: 0 });
     });
   });
 
@@ -215,5 +215,25 @@ describe('#19/#17 stopping a task end to end', () => {
     fireEvent.animationEnd(screen.getByRole('button', { name: 'Essay (cow)' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/ActivityWatch is not running/);
+  });
+});
+
+describe('Garden growth replay is saved as seen', () => {
+  it('records the growth as viewed when the garden shows it, so a restart does not replay it', async () => {
+    const bridge = fakeBridge(
+      makeState({ route: 'garden', plants: { work: { category: 'work', totalMinutes: 40, viewedMinutes: 4 } } }),
+    );
+    renderApp(bridge);
+    expect(await screen.findByTestId('plot-work')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(lastSaved(bridge)?.plants.work).toEqual({ category: 'work', totalMinutes: 40, viewedMinutes: 40 });
+    });
+  });
+
+  it('saves nothing extra when the garden has no new growth', async () => {
+    const bridge = fakeBridge(makeState({ route: 'garden', plants: { work: { category: 'work', totalMinutes: 40 } } }));
+    renderApp(bridge);
+    expect(await screen.findByTestId('plot-work')).toBeInTheDocument();
+    expect(bridge.saveState).not.toHaveBeenCalled();
   });
 });

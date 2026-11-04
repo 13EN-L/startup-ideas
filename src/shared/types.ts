@@ -56,6 +56,12 @@ export interface CompletedTask {
 export interface PlantState {
   category: CategoryId;
   totalMinutes: number;
+  /**
+   * totalMinutes as of the last time the Garden page showed this plant; the
+   * Garden animates the growth between the two. Missing (saves from before
+   * this existed) means the plant has been seen at its current growth.
+   */
+  viewedMinutes?: number;
 }
 
 export interface PlantGrowth {

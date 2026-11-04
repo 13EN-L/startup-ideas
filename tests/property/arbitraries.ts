@@ -78,9 +78,21 @@ export const completedTaskArb: fc.Arbitrary<CompletedTask> = fc
 
 export const plantsArb: fc.Arbitrary<Partial<Record<CategoryId, PlantState>>> = fc
   .subarray(categoryIds)
-  .chain((ids) => fc.tuple(...ids.map(() => minutesArb)).map((minutes) => ({ ids, minutes })))
-  .map(({ ids, minutes }) =>
-    Object.fromEntries(ids.map((id, i) => [id, { category: id, totalMinutes: minutes[i] }])),
+  .chain((ids) =>
+    fc
+      .tuple(...ids.map(() => fc.tuple(minutesArb, fc.option(fc.double({ min: 0, max: 1, noNaN: true }), { nil: undefined }))))
+      .map((growth) => ({ ids, growth })),
+  )
+  .map(({ ids, growth }) =>
+    Object.fromEntries(
+      ids.map((id, i) => {
+        const [totalMinutes, viewedShare] = growth[i];
+        // Optionally part-way unviewed; older saves have no viewedMinutes at all.
+        const plant: PlantState = { category: id, totalMinutes };
+        if (viewedShare !== undefined) plant.viewedMinutes = totalMinutes * viewedShare;
+        return [id, plant];
+      }),
+    ),
   );
 
 /** Any state the app could legitimately have saved: at most 3 tasks, unique slots. */

@@ -825,8 +825,6 @@ button.cloud__body:hover {
   min-height: 0;
   object-fit: contain;
   transform-origin: bottom center;
-  outline: 2px dashed rgba(247, 243, 236, 0.35);
-  border-radius: 6px;
 }
 
 .plot__open {

@@ -136,7 +136,7 @@ describe('#19 completeTask', () => {
     });
     const state = completeTask(makeState(), done);
     expect(state.completedTasks).toEqual([done]);
-    expect(state.plants.health).toEqual({ category: 'health', totalMinutes: 18 });
+    expect(state.plants.health).toEqual({ category: 'health', totalMinutes: 18, viewedMinutes: 0 });
   });
 });
 

@@ -2,16 +2,25 @@
 import { describe, expect, it } from 'vitest';
 import {
   addProductiveMinutes,
+  animatedMinutes,
   applyCompletedTask,
   earnedTrophies,
   getPlantGrowth,
   globalPrestige,
+  growthAnimationDuration,
+  markPlantsViewed,
   plantScale,
   plotRows,
   visiblePlots,
+  viewedMinutes,
   type Plants,
 } from '../../src/core/growth';
-import { CATEGORIES, MID_STAGE_MAX_SCALE } from '../../src/shared/constants';
+import {
+  CATEGORIES,
+  GROWTH_ANIMATION_MAX_MS,
+  GROWTH_ANIMATION_MS_PER_MINUTE,
+  MID_STAGE_MAX_SCALE,
+} from '../../src/shared/constants';
 import type { CategoryId } from '../../src/shared/types';
 import { makeCompletedTask } from '../fixtures';
 
@@ -108,7 +117,7 @@ describe('#18 applyCompletedTask: growth happens on task completion', () => {
       metrics: { productiveSeconds: 15 * 60, unproductiveSeconds: 600, idleSeconds: 300 },
     });
     const plants = applyCompletedTask({}, task);
-    expect(plants.creative).toEqual({ category: 'creative', totalMinutes: 15 });
+    expect(plants.creative).toEqual({ category: 'creative', totalMinutes: 15, viewedMinutes: 0 });
   });
 
   it('ignores unproductive and idle time', () => {
@@ -116,7 +125,7 @@ describe('#18 applyCompletedTask: growth happens on task completion', () => {
       category: 'work',
       metrics: { productiveSeconds: 0, unproductiveSeconds: 3600, idleSeconds: 3600 },
     });
-    expect(applyCompletedTask({}, task).work).toEqual({ category: 'work', totalMinutes: 0 });
+    expect(applyCompletedTask({}, task).work).toEqual({ category: 'work', totalMinutes: 0, viewedMinutes: 0 });
   });
 
   it('adds to an existing plant and leaves other plants untouched', () => {
@@ -202,5 +211,92 @@ describe('#18 plot visibility and layout', () => {
 
   it('returns no rows for an empty garden', () => {
     expect(plotRows([])).toEqual([]);
+  });
+});
+
+describe('Garden growth replay: viewed growth', () => {
+  it('treats a plant without viewedMinutes (older saves) as already seen', () => {
+    expect(viewedMinutes({ category: 'work', totalMinutes: 40 })).toBe(40);
+    expect(viewedMinutes({ category: 'work', totalMinutes: 40, viewedMinutes: 4 })).toBe(4);
+  });
+
+  it('leaves the growth from a completed task unviewed', () => {
+    const before: Plants = { work: { category: 'work', totalMinutes: 10, viewedMinutes: 10 } };
+    const task = makeCompletedTask({
+      category: 'work',
+      metrics: { productiveSeconds: 40 * 60, unproductiveSeconds: 0, idleSeconds: 0 },
+    });
+    expect(applyCompletedTask(before, task).work).toEqual({ category: 'work', totalMinutes: 50, viewedMinutes: 10 });
+  });
+
+  it('keeps unviewed growth from earlier tasks when another finishes', () => {
+    const before: Plants = { work: { category: 'work', totalMinutes: 30, viewedMinutes: 10 } };
+    const task = makeCompletedTask({
+      category: 'work',
+      metrics: { productiveSeconds: 5 * 60, unproductiveSeconds: 0, idleSeconds: 0 },
+    });
+    expect(applyCompletedTask(before, task).work?.viewedMinutes).toBe(10);
+  });
+
+  it('starts unviewed growth from what an older save already showed', () => {
+    const task = makeCompletedTask({
+      category: 'work',
+      metrics: { productiveSeconds: 5 * 60, unproductiveSeconds: 0, idleSeconds: 0 },
+    });
+    expect(applyCompletedTask({ work: { category: 'work', totalMinutes: 30 } }, task).work).toEqual({
+      category: 'work',
+      totalMinutes: 35,
+      viewedMinutes: 30,
+    });
+  });
+
+  it('marks every plant viewed at its current growth', () => {
+    const plants: Plants = {
+      work: { category: 'work', totalMinutes: 50, viewedMinutes: 10 },
+      home: { category: 'home', totalMinutes: 5 },
+    };
+    expect(markPlantsViewed(plants)).toEqual({
+      work: { category: 'work', totalMinutes: 50, viewedMinutes: 50 },
+      home: { category: 'home', totalMinutes: 5, viewedMinutes: 5 },
+    });
+  });
+
+  it('returns the same object when nothing is unviewed', () => {
+    const plants: Plants = { work: { category: 'work', totalMinutes: 5, viewedMinutes: 5 }, home: { category: 'home', totalMinutes: 1 } };
+    expect(markPlantsViewed(plants)).toBe(plants);
+  });
+});
+
+describe('Garden growth replay: timing', () => {
+  it('plays each minute at a fixed rate', () => {
+    expect(growthAnimationDuration(0, 6)).toBe(6 * GROWTH_ANIMATION_MS_PER_MINUTE);
+    expect(growthAnimationDuration(10, 10)).toBe(0);
+  });
+
+  it('caps long replays', () => {
+    expect(growthAnimationDuration(0, 36 * 50)).toBe(GROWTH_ANIMATION_MAX_MS);
+  });
+
+  it('moves evenly from the viewed total to the new total', () => {
+    const duration = growthAnimationDuration(0, 40);
+    expect(animatedMinutes(0, 40, -100)).toBe(0);
+    expect(animatedMinutes(0, 40, 0)).toBe(0);
+    expect(animatedMinutes(0, 40, duration / 4)).toBeCloseTo(10);
+    expect(animatedMinutes(0, 40, duration)).toBe(40);
+    expect(animatedMinutes(0, 40, duration * 2)).toBe(40);
+  });
+
+  it('passes through every stage and wraps to stage 1 with one more prestige (the 40-minute carrot)', () => {
+    const duration = growthAnimationDuration(0, 40);
+    const seen: string[] = [];
+    for (let t = 0; t <= duration; t += 5) {
+      const g = getPlantGrowth(animatedMinutes(0, 40, t));
+      const key = `${g.prestige}:${g.stage}`;
+      if (seen.at(-1) !== key) seen.push(key);
+    }
+    expect(seen).toEqual(['0:1', '0:2', '0:3', '0:4', '0:5', '0:6', '1:1']);
+    const end = getPlantGrowth(animatedMinutes(0, 40, duration));
+    expect(end).toMatchObject({ prestige: 1, stage: 1 });
+    expect(end.stageProgress).toBeCloseTo(4 / 6);
   });
 });

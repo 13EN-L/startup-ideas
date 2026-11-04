@@ -1,11 +1,11 @@
 // Issue #18: Garden page plots, growth images, trophies
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Plants } from '../../../src/core/growth';
 import { plantImage, trophyImage } from '../../../src/renderer/assets';
 import { GardenPage } from '../../../src/renderer/pages/GardenPage';
-import { CATEGORIES } from '../../../src/shared/constants';
+import { CATEGORIES, GROWTH_ANIMATION_DELAY_MS, GROWTH_ANIMATION_MS_PER_MINUTE } from '../../../src/shared/constants';
 import { makeCompletedTask } from '../../fixtures';
 
 function renderGarden(
@@ -179,5 +179,94 @@ describe('GardenPage chrome', () => {
     const { onNavigateHome } = renderGarden({});
     await userEvent.click(screen.getByRole('button', { name: 'Home' }));
     expect(onNavigateHome).toHaveBeenCalled();
+  });
+});
+
+describe('GardenPage growth replay', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance', 'setTimeout', 'clearTimeout'] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  const advance = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+  const carrot = () => within(screen.getByTestId('plot-personal-growth'));
+  /** 40 productive minutes on a seed nobody has looked at yet. */
+  const unviewedCarrot: Plants = { 'personal-growth': { category: 'personal-growth', totalMinutes: 40, viewedMinutes: 0 } };
+
+  it('opens on the growth last seen, not the new total', () => {
+    renderGarden(unviewedCarrot);
+    expect(carrot().getByRole('img')).toHaveAccessibleName('Carrot, stage 1');
+    expect(carrot().getByRole('img')).toHaveStyle({ transform: 'scale(1)' });
+    expect(carrot().queryByText(/Prestige/)).not.toBeInTheDocument();
+  });
+
+  it('grows through the stages, wraps to stage 1 with +1 prestige, and stops at the new total', () => {
+    renderGarden(unviewedCarrot);
+    advance(GROWTH_ANIMATION_DELAY_MS + 20 * GROWTH_ANIMATION_MS_PER_MINUTE); // 20 minutes in
+    expect(carrot().getByRole('img')).toHaveAccessibleName('Carrot, stage 4');
+    expect(carrot().getByRole('img')).toHaveAttribute('src', plantImage('personal-growth', 4));
+    expect(screen.getByText('Total prestige: 0')).toBeInTheDocument();
+
+    advance(20 * GROWTH_ANIMATION_MS_PER_MINUTE + 100);
+    expect(carrot().getByRole('img')).toHaveAccessibleName('Carrot, stage 1');
+    expect(carrot().getByText('Prestige 1')).toBeInTheDocument();
+    expect(screen.getByText('Total prestige: 1')).toBeInTheDocument();
+    // 4 minutes into the new cycle: two thirds of the way through stage 1.
+    expect(Number(/scale\((.+)\)/.exec(carrot().getByRole('img').style.transform)?.[1])).toBeCloseTo(1.1);
+
+    const settled = carrot().getByRole('img').outerHTML;
+    advance(10_000);
+    expect(carrot().getByRole('img').outerHTML).toBe(settled);
+  });
+
+  it('marks unseen growth as viewed so it only replays once', () => {
+    const onPlantsViewed = vi.fn();
+    render(
+      <GardenPage plants={unviewedCarrot} completedTasks={[]} loadPlantAbout={async () => null} onNavigateHome={() => {}} onPlantsViewed={onPlantsViewed} />,
+    );
+    expect(onPlantsViewed).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps replaying after the plants are marked viewed', () => {
+    const { rerender } = render(
+      <GardenPage plants={unviewedCarrot} completedTasks={[]} loadPlantAbout={async () => null} onNavigateHome={() => {}} />,
+    );
+    advance(GROWTH_ANIMATION_DELAY_MS + 10 * GROWTH_ANIMATION_MS_PER_MINUTE);
+    rerender(
+      <GardenPage
+        plants={{ 'personal-growth': { category: 'personal-growth', totalMinutes: 40, viewedMinutes: 40 } }}
+        completedTasks={[]}
+        loadPlantAbout={async () => null}
+        onNavigateHome={() => {}}
+      />,
+    );
+    expect(carrot().getByRole('img')).toHaveAccessibleName('Carrot, stage 2');
+    advance(30 * GROWTH_ANIMATION_MS_PER_MINUTE + 100);
+    expect(carrot().getByText('Prestige 1')).toBeInTheDocument();
+  });
+
+  it('does not replay growth that has already been seen', () => {
+    const onPlantsViewed = vi.fn();
+    render(
+      <GardenPage
+        plants={{ 'personal-growth': { category: 'personal-growth', totalMinutes: 40 } }}
+        completedTasks={[]}
+        loadPlantAbout={async () => null}
+        onNavigateHome={() => {}}
+        onPlantsViewed={onPlantsViewed}
+      />,
+    );
+    expect(carrot().getByRole('img')).toHaveAccessibleName('Carrot, stage 1');
+    expect(carrot().getByText('Prestige 1')).toBeInTheDocument();
+    expect(onPlantsViewed).not.toHaveBeenCalled();
+  });
+
+  it('shows the new growth straight away when the system asks for reduced motion', () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query }));
+    renderGarden(unviewedCarrot);
+    expect(carrot().getByText('Prestige 1')).toBeInTheDocument();
   });
 });
