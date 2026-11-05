@@ -70,5 +70,5 @@ export const TROPHY_THRESHOLDS = {
 
 export const ACTIVITYWATCH_URL = 'http://localhost:5600';
 
-export const CLASSIFIER_MODEL = 'claude-opus-5-5';
+export const CLASSIFIER_MODEL = 'claude-haiku-5-5';
 export const CLASSIFIER_MAX_ATTEMPTS = 3;

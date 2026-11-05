@@ -181,7 +181,7 @@ describe('#17 createAnthropicClassifierModel', () => {
 
     const params = parse.mock.calls[0][0];
     expect(params.model).toBe(CLASSIFIER_MODEL);
-    expect(params.model).toBe('claude-opus-5-5');
+    expect(params.model).toBe('claude-haiku-5-5');
     expect(params.system).toBe('sys');
     expect(params.messages).toEqual(request.messages);
     expect(params.output_config?.format).toBeDefined();
