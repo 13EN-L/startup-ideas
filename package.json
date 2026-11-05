@@ -27,7 +27,8 @@
     "test:e2e": "npm run build && playwright test",
     "test:mutation": "stryker run",
     "assets:placeholders": "node scripts/generate-placeholders.mjs",
-    "assets:plant": "node scripts/import-plant-gif.mjs"
+    "assets:plant": "node scripts/import-plant-gif.mjs",
+    "assets:animals": "node scripts/generate-animal-sprites.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",

@@ -418,12 +418,10 @@ button.cloud__body:hover {
 .animal--slot-2 { left: calc(500% / 6); }
 
 .animal__sprite {
+  /* Sprites share a 40x32 pixel-art canvas (see scripts/generate-animal-sprites.mjs). */
   width: clamp(64px, 9vw, 104px);
-  height: clamp(64px, 9vw, 104px);
+  aspect-ratio: 40 / 32;
   object-fit: contain;
-  /* Visible placement while the art is still a transparent placeholder. */
-  outline: 2px dashed rgba(247, 243, 236, 0.45);
-  border-radius: 8px;
 }
 
 .animal[data-state='walking'] .animal__sprite {
