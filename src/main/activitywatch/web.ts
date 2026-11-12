@@ -93,6 +93,27 @@ const SEARCH_TITLES: { engine: string; pattern: RegExp }[] = [
   { engine: 'Brave', pattern: /^(.+) - Brave Search$/ },
 ];
 
+// A browser's own new-tab page: chrome://newtab/, edge://newtab/, about:newtab,
+// opera://startpage, Chrome's Google-hosted new tab page, and so on.
+const NEW_TAB_URL =
+  /^(?:(?:chrome|edge|brave|vivaldi|opera):\/\/(?:newtab|new-tab-page|startpage)\b|about:(?:newtab|home)\b|https:\/\/www\.google\.[a-z.]+\/_\/chrome\/newtab\b)/i;
+// "New Tab" (Chrome, Firefox, Brave), "New tab" (Edge), "New Private Tab", "New Incognito Tab".
+const NEW_TAB_TITLE = /^New (?:Private |Incognito |InPrivate )?Tab$/i;
+
+/**
+ * True for an empty new tab reported by the aw-watcher-web extension. Time on
+ * one counts as idle: nothing has been opened yet, so there is nothing to classify.
+ */
+export function isNewTabPage(url: string, title = ''): boolean {
+  return NEW_TAB_URL.test(url.trim()) || (url.trim() === '' && NEW_TAB_TITLE.test(title.trim()));
+}
+
+/** True for a browser window showing a new tab, judged by its window title. */
+export function isNewTabWindowTitle(title: string): boolean {
+  const page = title.trim().replace(BROWSER_SUFFIX, '').replace(MORE_TABS, '').trim();
+  return NEW_TAB_TITLE.test(page);
+}
+
 /**
  * Fallback when the extension isn't installed: the browser window's title,
  * minus the browser name, is the page title; results pages become searches.

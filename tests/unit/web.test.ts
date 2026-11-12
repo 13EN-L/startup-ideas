@@ -1,6 +1,12 @@
 // Websites and searches from browser URLs (extension) and window titles (fallback)
 import { describe, expect, it } from 'vitest';
-import { activityFromPageTitle, activityFromUrl, isBrowserApp } from '../../src/main/activitywatch/web';
+import {
+  activityFromPageTitle,
+  activityFromUrl,
+  isBrowserApp,
+  isNewTabPage,
+  isNewTabWindowTitle,
+} from '../../src/main/activitywatch/web';
 
 describe('isBrowserApp', () => {
   it.each(['chrome.exe', 'msedge.exe', 'firefox.exe', 'brave.exe', 'Google Chrome', 'Safari', 'Microsoft Edge', 'Google-chrome', 'Arc'])(
@@ -99,4 +105,47 @@ describe('activityFromPageTitle', () => {
     expect(activityFromPageTitle('')).toEqual({ name: 'Untitled page', source: 'web' });
     expect(activityFromPageTitle(' - Google Chrome')).toEqual({ name: 'Untitled page', source: 'web' });
   });
+});
+
+describe('isNewTabPage', () => {
+  it.each([
+    ['chrome://newtab/', 'New Tab'],
+    ['chrome://new-tab-page/', ''],
+    ['edge://newtab/', 'New tab'],
+    ['brave://newtab/', ''],
+    ['vivaldi://startpage/', ''],
+    ['opera://startpage/', ''],
+    ['about:newtab', 'New Tab'],
+    ['about:home', ''],
+    ['https://www.google.com/_/chrome/newtab?ie=UTF-8', 'New Tab'],
+    ['', 'New Tab'],
+  ])('recognises %s as a new tab', (url, title) => {
+    expect(isNewTabPage(url, title)).toBe(true);
+  });
+
+  it.each([
+    ['https://www.google.com/', 'Google'],
+    ['about:blank', ''],
+    ['chrome://settings/', 'Settings'],
+    ['https://example.com/new-tab', 'New Tab'],
+    ['https://newtab.example.com/', ''],
+  ])('does not treat %s as a new tab', (url, title) => {
+    expect(isNewTabPage(url, title)).toBe(false);
+  });
+});
+
+describe('isNewTabWindowTitle', () => {
+  it.each([
+    'New Tab - Google Chrome',
+    'New Tab — Mozilla Firefox',
+    'New tab - Microsoft​ Edge',
+    'New tab and 3 more pages - Microsoft Edge',
+    'New Incognito Tab - Google Chrome',
+    'New Tab',
+  ])('recognises "%s"', (title) => expect(isNewTabWindowTitle(title)).toBe(true));
+
+  it.each(['How to open a new tab - Google Search - Google Chrome', 'New Tab Ideas - Google Docs - Google Chrome', ''])(
+    'does not treat "%s" as a new tab',
+    (title) => expect(isNewTabWindowTitle(title)).toBe(false),
+  );
 });

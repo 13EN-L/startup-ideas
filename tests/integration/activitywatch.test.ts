@@ -142,6 +142,87 @@ describe('#17 collectTaskActivity', () => {
     expect(idleSeconds).toBe(240);
   });
 
+  it.each([
+    ['FocusGarden.exe', 'FocusGarden'],
+    ['FocusGarden', 'FocusGarden'],
+    ['focusgarden', 'Garden'],
+    ['electron.exe', 'FocusGarden'],
+    ['Electron', 'FocusGarden'],
+  ])('counts time in FocusGarden itself (%s) as idle and never lists it', async (app, title) => {
+    const at = (minutes: number) => new Date(TASK_RANGE.start.getTime() + minutes * 60_000).toISOString();
+    const { activities, idleSeconds } = await collect(BUCKETS, {
+      'aw-watcher-window_desk': [
+        { timestamp: at(0), duration: 600, data: { app: 'Code', title: 'auth.ts' } },
+        { timestamp: at(10), duration: 600, data: { app, title } },
+        { timestamp: at(20), duration: 600, data: { app: 'Code', title: 'auth.ts' } },
+      ],
+      'aw-watcher-web-chrome_desk': [],
+      // Away for minutes 15-25: 15-20 is in FocusGarden, 20-25 in Code.
+      'aw-watcher-afk_desk': [{ timestamp: at(15), duration: 600, data: { status: 'afk' } }],
+    });
+    expect(activities).toEqual([{ id: 'app:Code', name: 'Code', source: 'app', seconds: 900 }]);
+    // FocusGarden 10-15 plus AFK 15-25, with the overlap counted once.
+    expect(idleSeconds).toBe(900);
+  });
+
+  describe('empty new tabs count as idle and are never listed', () => {
+    const at = (minutes: number) => new Date(TASK_RANGE.start.getTime() + minutes * 60_000).toISOString();
+
+    it('from the extension', async () => {
+      const { activities, idleSeconds } = await collect(BUCKETS, {
+        'aw-watcher-window_desk': [{ timestamp: at(0), duration: 1800, data: { app: 'chrome.exe', title: 'whatever - Google Chrome' } }],
+        'aw-watcher-web-chrome_desk': [
+          { timestamp: at(0), duration: 300, data: { url: 'chrome://newtab/', title: 'New Tab' } },
+          { timestamp: at(5), duration: 1200, data: { url: 'https://github.com/org/repo', title: 'org/repo' } },
+          // Away for minutes 20-30, part of it on the new tab: counted once.
+          { timestamp: at(25), duration: 300, data: { url: 'chrome://newtab/', title: 'New Tab' } },
+        ],
+        'aw-watcher-afk_desk': [{ timestamp: at(20), duration: 600, data: { status: 'afk' } }],
+      });
+      expect(activities).toEqual([
+        { id: 'web:github.com — org/repo', name: 'github.com — org/repo', source: 'web', seconds: 900 },
+      ]);
+      // New tab 0-5 (300) + AFK 20-30 (600), which already covers the second new tab.
+      expect(idleSeconds).toBe(900);
+    });
+
+    it('from the window title when the extension is not installed', async () => {
+      const buckets = BUCKETS.filter((b) => b.type !== 'web.tab.current');
+      const { activities, idleSeconds } = await collect(buckets, {
+        'aw-watcher-window_desk': [
+          { timestamp: at(0), duration: 300, data: { app: 'msedge.exe', title: 'New tab - Microsoft​ Edge' } },
+          { timestamp: at(5), duration: 300, data: { app: 'firefox.exe', title: 'New Tab — Mozilla Firefox' } },
+          { timestamp: at(10), duration: 600, data: { app: 'chrome.exe', title: 'Docs - Google Chrome' } },
+        ],
+        'aw-watcher-afk_desk': [],
+      });
+      expect(activities.map((a) => [a.name, a.seconds])).toEqual([['Docs', 600]]);
+      expect(idleSeconds).toBe(600);
+    });
+
+    it('without a window watcher', async () => {
+      const buckets = BUCKETS.filter((b) => b.type !== 'currentwindow');
+      const { activities, idleSeconds } = await collect(buckets, {
+        'aw-watcher-web-chrome_desk': [
+          { timestamp: at(0), duration: 120, data: { url: 'about:newtab', title: 'New Tab' } },
+          { timestamp: at(2), duration: 180, data: { url: 'https://example.com/', title: 'Example' } },
+        ],
+        'aw-watcher-afk_desk': [],
+      });
+      expect(activities.map((a) => [a.name, a.seconds])).toEqual([['example.com — Example', 180]]);
+      expect(idleSeconds).toBe(120);
+    });
+  });
+
+  it('still lists other Electron apps', async () => {
+    const { activities } = await collect(BUCKETS, {
+      'aw-watcher-window_desk': [{ timestamp: TASK_RANGE.start.toISOString(), duration: 600, data: { app: 'electron.exe', title: 'My other app' } }],
+      'aw-watcher-web-chrome_desk': [],
+      'aw-watcher-afk_desk': [],
+    });
+    expect(activities.map((a) => a.name)).toEqual(['electron.exe']);
+  });
+
   it('returns empty activity for a window with no events', async () => {
     await expect(
       collect(BUCKETS, { 'aw-watcher-window_desk': [], 'aw-watcher-web-chrome_desk': [], 'aw-watcher-afk_desk': [] }),

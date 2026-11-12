@@ -276,6 +276,7 @@ If the window opens blank when launched from an editor's terminal, the editor ma
 | `npm test` | Unit, integration and property-based tests |
 | `npm run test:e2e` | Builds, then drives the real app with Playwright, using fake ActivityWatch and Claude services |
 | `npm run test:mutation` | Mutation testing with Stryker (requires the other tests to pass) |
+| `npm run test:benchmark -- --api-key <key>` | Checks Haiku's on-/off-task labels against hand-picked benchmarks with real Claude API calls (costs a little; not part of `npm test`) |
 | `npm run typecheck` | TypeScript checks for the app and tests |
 
 ### Publishing a release

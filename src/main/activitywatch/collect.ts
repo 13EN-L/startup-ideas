@@ -8,6 +8,9 @@
 //    it: from the aw-watcher-web extension where it reported, otherwise from
 //    the browser window's page title. The browser itself is not listed, so
 //    nothing is counted twice.
+// 3. Time with FocusGarden itself in front, or on an empty browser new tab,
+//    counts as idle: it is never listed as an activity, so it is never sent
+//    to Claude.
 import type { ActivityItem, ActivitySource } from '../../shared/types';
 import type {
   ActivityWatchClient,
@@ -18,7 +21,18 @@ import type {
   WebData,
   WindowData,
 } from './client';
-import { activityFromPageTitle, activityFromUrl, isBrowserApp } from './web';
+import {
+  activityFromPageTitle,
+  activityFromUrl,
+  isBrowserApp,
+  isNewTabPage,
+  isNewTabWindowTitle,
+  type NamedActivity,
+} from './web';
+
+/** Credit time to an activity, or to IDLE for time that is counted as idle and never classified. */
+const IDLE = 'idle' as const;
+type Credit = NamedActivity | typeof IDLE;
 
 export interface TaskActivity {
   /** Apps by app name, web pages ("hostname — title", or the title alone), and searches; sorted by time spent, descending. */
@@ -85,6 +99,20 @@ async function eventsOfType<TData>(
 
 export const isWebBucket = (type: string) => type.startsWith('web.tab');
 
+const APP_TITLE = 'FocusGarden';
+
+/**
+ * True for FocusGarden's own window as aw-watcher-window reports it: the
+ * installed app ("FocusGarden.exe" on Windows, "FocusGarden" on macOS,
+ * "focusgarden" on Linux), or the Electron binary showing the FocusGarden
+ * window during development (`npm run dev`).
+ */
+export function isFocusGardenWindow({ app, title }: WindowData): boolean {
+  const name = app.toLowerCase().replace(/\.exe$/, '').replace(/[^a-z]/g, '');
+  if (name === 'focusgarden') return true;
+  return name === 'electron' && title.trim() === APP_TITLE;
+}
+
 /**
  * Reads the window, web and AFK buckets, clips every event to the task's
  * start/end timestamps, removes idle time, and sums time per app, website
@@ -108,8 +136,15 @@ export async function collectTaskActivity(
       .filter((span): span is Span => span !== null),
   );
 
+  /** Active (non-AFK) time that still counts as idle: FocusGarden itself and empty new tabs. */
+  const alsoIdle: Span[] = [];
+
   const totals = new Map<string, { name: string; source: ActivitySource; seconds: number }>();
-  const add = (activity: { name: string; source: ActivitySource }, spans: Span[]) => {
+  const add = (activity: Credit, spans: Span[]) => {
+    if (activity === IDLE) {
+      alsoIdle.push(...spans);
+      return;
+    }
     const time = seconds(spans);
     if (time <= 0) return;
     const id = `${activity.source}:${activity.name}`;
@@ -119,12 +154,15 @@ export async function collectTaskActivity(
   };
 
   const web = webEvents
-    .map((e) => ({ span: clip(e, range), activity: activityFromUrl(e.data.url, e.data.title) }))
-    .filter((w): w is { span: Span; activity: ReturnType<typeof activityFromUrl> } => w.span !== null)
+    .map((e) => ({
+      span: clip(e, range),
+      activity: isNewTabPage(e.data.url, e.data.title) ? IDLE : activityFromUrl(e.data.url, e.data.title),
+    }))
+    .filter((w): w is { span: Span; activity: Credit } => w.span !== null)
     .sort((a, b) => a.span[0] - b.span[0]);
 
   /** Credits the active (non-idle) part of a browser span to the websites seen in it. */
-  const addBrowserTime = (span: Span, fallback: { name: string; source: ActivitySource } | null) => {
+  const addBrowserTime = (span: Span, fallback: Credit | null) => {
     const claimed: Span[] = [];
     for (const w of web) {
       const overlap = intersect(span, w.span);
@@ -143,8 +181,11 @@ export async function collectTaskActivity(
       const span = clip(event, range);
       if (!span) continue;
       for (const active of subtract(span, idle)) {
-        if (isBrowserApp(event.data.app)) {
-          addBrowserTime(active, activityFromPageTitle(event.data.title));
+        if (isFocusGardenWindow(event.data)) {
+          add(IDLE, [active]);
+        } else if (isBrowserApp(event.data.app)) {
+          const title = event.data.title;
+          addBrowserTime(active, isNewTabWindowTitle(title) ? IDLE : activityFromPageTitle(title));
         } else {
           add({ name: event.data.app, source: 'app' }, [active]);
         }
@@ -161,5 +202,5 @@ export async function collectTaskActivity(
     .filter((a) => a.seconds > 0)
     .sort((a, b) => b.seconds - a.seconds || a.name.localeCompare(b.name));
 
-  return { activities, idleSeconds: Math.round(seconds(idle)) };
+  return { activities, idleSeconds: Math.round(seconds(merge([...idle, ...alsoIdle]))) };
 }

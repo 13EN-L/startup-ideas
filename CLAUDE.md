@@ -20,5 +20,5 @@ FocusGarden is a productivity tracking desktop/web application that gamifies foc
 - **Install Dependencies**: `npm install` (or equivalent)
 - **Run Development Server**: `npm run dev`
 - **Build**: `npm run build`
-- **Run Tests**: `npm test` (unit + integration + property), `npm run test:e2e` (builds, then drives Electron), `npm run test:mutation` (Stryker; needs a green suite)
+- **Run Tests**: `npm test` (unit + integration + property), `npm run test:e2e` (builds, then drives Electron), `npm run test:mutation` (Stryker; needs a green suite), `npm run test:benchmark -- --api-key <key>` (real Haiku calls vs. classification benchmarks)
 - **Typecheck**: `npm run typecheck`
