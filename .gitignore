@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-electron/
+release/
+vendor/
+test-results/
+playwright-report/
+coverage/
+reports/
+.stryker-tmp/
+.env

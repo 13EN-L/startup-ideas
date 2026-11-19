@@ -1,0 +1,79 @@
+# Builds and checks the macOS version on a GitHub-hosted Mac (Apple silicon),
+# since the .dmg can only be built and run on macOS.
+#
+# 1. Typecheck, unit/integration/property tests, and the e2e suite driving the real app.
+# 2. Builds both .dmg files (Apple silicon and Intel) with ActivityWatch bundled.
+# 3. Checks the bundled ActivityWatch is intact and actually starts, and that the
+#    sign-in LaunchAgent FocusGarden writes is a valid plist.
+# The .dmg files are attached to the run as a downloadable artifact.
+name: macOS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit, integration and property tests
+        run: npm test
+
+      - name: End-to-end tests (real app, fake ActivityWatch and Claude)
+        run: npm run test:e2e
+
+      - name: Build the .dmg files
+        run: npm run dist:mac
+        env:
+          # The build is unsigned for now; don't pick up a certificate by accident.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: Bundled ActivityWatch is present and its signature intact
+        run: |
+          for arch in arm64 x64; do
+            app="release/mac-$arch/FocusGarden.app"
+            [ "$arch" = x64 ] && app="release/mac/FocusGarden.app"
+            aw="$app/Contents/Resources/activitywatch/ActivityWatch.app"
+            echo "== $arch: $aw"
+            test -d "$aw"
+            test -f "$app/Contents/Resources/activitywatch/LICENSE.txt"
+            codesign --verify --deep --strict --verbose=2 "$aw"
+            # Report only: shows whether Gatekeeper accepts it (notarized) on users' Macs.
+            spctl --assess --type execute --verbose=4 "$aw" || echo "::warning::Gatekeeper did not accept the bundled ActivityWatch ($arch)"
+          done
+
+      - name: Bundled ActivityWatch starts (Apple silicon build)
+        run: |
+          open -g "release/mac-arm64/FocusGarden.app/Contents/Resources/activitywatch/ActivityWatch.app"
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:5600/api/0/info; then echo; echo "ActivityWatch is up"; exit 0; fi
+            sleep 2
+          done
+          echo "::error::The bundled ActivityWatch did not answer on port 5600 within 2 minutes"
+          exit 1
+
+      - name: Sign-in LaunchAgent is a valid plist
+        run: |
+          node -e "process.stdout.write(require('./dist-electron/main/activitywatch/autostart.js').macLaunchAgentPlist('/Applications/FocusGarden.app/Contents/Resources/activitywatch/ActivityWatch.app'))" > agent.plist
+          plutil -lint agent.plist
+          cat agent.plist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FocusGarden-macOS
+          path: release/*.dmg
+          if-no-files-found: error
