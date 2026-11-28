@@ -9,10 +9,11 @@ import {
   resolveLaunchRoute,
   saveState,
   serializeState,
-  tasksInCategory,
+  tasksForPlant,
   type StateStore,
 } from '../../src/core/persistence';
-import { makeActiveTask, makeCompletedTask, makeState, MINUTE, T0 } from '../fixtures';
+import { defaultCategories } from '../../src/core/categories';
+import { inCategory, makeActiveTask, makeCompletedTask, makeState, MINUTE, T0 } from '../fixtures';
 
 function memoryStore(initial: string | null = null) {
   const store = {
@@ -28,12 +29,18 @@ function memoryStore(initial: string | null = null) {
 describe('#20 createInitialState', () => {
   it('starts on the main page with nothing active, completed or planted', () => {
     expect(createInitialState()).toEqual({
-      version: 1,
+      version: 2,
       route: 'main',
+      categories: defaultCategories(),
       activeTasks: [],
       completedTasks: [],
       plants: {},
     });
+  });
+
+  it('can keep existing categories (resetting only tasks and plants)', () => {
+    const categories = [{ id: 'c1', label: 'Mine', plant: null }];
+    expect(createInitialState(categories)).toMatchObject({ categories, plants: {}, completedTasks: [] });
   });
 });
 
@@ -44,11 +51,47 @@ describe('#20 serialize / deserialize', () => {
       activeTasks: [makeActiveTask({ slot: 2, animal: 'goat' })],
       completedTasks: [makeCompletedTask()],
       plants: {
-        school: { category: 'school', totalMinutes: 47.5 },
-        work: { category: 'work', totalMinutes: 50, viewedMinutes: 12 },
+        tomato: { plant: 'tomato', totalMinutes: 47.5 },
+        pine: { plant: 'pine', totalMinutes: 50, viewedMinutes: 12 },
       },
     });
     expect(deserializeState(serializeState(state))).toEqual(state);
+  });
+
+  it('round-trips edited categories, the categories page and tasks with no plant', () => {
+    const state = makeState({
+      route: 'categories',
+      categories: [
+        { id: 'a', label: 'Deep work', plant: 'pine' },
+        { id: 'b', label: 'Reading', plant: null },
+      ],
+      completedTasks: [makeCompletedTask({ category: 'b', categoryLabel: 'Reading', plant: null })],
+    });
+    expect(deserializeState(serializeState(state))).toEqual(state);
+  });
+
+  it('repairs a bad category list instead of discarding the garden', () => {
+    const plants = { pine: { plant: 'pine' as const, totalMinutes: 12 } };
+    const raw = (categories: unknown) => JSON.stringify({ ...makeState({ plants }), categories });
+    expect(deserializeState(raw([])).categories).toEqual(defaultCategories());
+    expect(deserializeState(raw('nope'))).toMatchObject({ categories: defaultCategories(), plants });
+    expect(
+      deserializeState(
+        raw([
+          { id: 'a', label: 'Fine', plant: 'pine' },
+          { id: 'b', label: 'x'.repeat(21), plant: 'pine' },
+          { id: 'c', label: 'FINE', plant: null },
+          { id: 'a', label: 'Same id', plant: null },
+          { id: 'd', label: 'Odd plant', plant: 'banana' },
+          { id: 'e', label: '  Spaced  ', plant: null },
+        ]),
+      ).categories,
+    ).toEqual([
+      { id: 'a', label: 'Fine', plant: 'pine' },
+      { id: 'e', label: 'Spaced', plant: null },
+    ]);
+    const many = Array.from({ length: 25 }, (_, i) => ({ id: 'c' + i, label: 'Cat ' + i, plant: null }));
+    expect(deserializeState(raw(many)).categories).toHaveLength(20);
   });
 
   it.each([
@@ -78,7 +121,7 @@ describe('#20 resolveLaunchRoute', () => {
     expect(resolveLaunchRoute(makeState({ route: 'garden', activeTasks: [makeActiveTask()] }))).toBe('task');
   });
 
-  it.each(['main', 'task', 'garden'] as const)('reopens the saved %s page when nothing is active', (route) => {
+  it.each(['main', 'task', 'garden', 'categories'] as const)('reopens the saved %s page when nothing is active', (route) => {
     expect(resolveLaunchRoute(makeState({ route }))).toBe(route);
   });
 });
@@ -119,14 +162,14 @@ describe('#20 recentTasks', () => {
   });
 });
 
-describe('tasksInCategory', () => {
-  it('returns every task in the category, not just the 5 recent ones, newest first', () => {
+describe('tasksForPlant', () => {
+  it('returns every task that grew the plant, not just the 5 recent ones, newest first', () => {
     const work = Array.from({ length: 7 }, (_, i) =>
-      makeCompletedTask({ name: `Work ${i}`, category: 'work', endedAt: T0 + i * MINUTE }),
+      makeCompletedTask({ name: 'Work ' + i, ...inCategory('programming'), endedAt: T0 + i * MINUTE }),
     );
-    const other = makeCompletedTask({ name: 'Gym', category: 'health', endedAt: T0 + 99 * MINUTE });
+    const other = makeCompletedTask({ name: 'Gym', ...inCategory('leisure'), endedAt: T0 + 99 * MINUTE });
     const stored = [work[2], other, work[6], work[0], work[4], work[1], work[5], work[3]];
-    expect(tasksInCategory(stored, 'work').map((t) => t.name)).toEqual([
+    expect(tasksForPlant(stored, 'pine').map((t) => t.name)).toEqual([
       'Work 6',
       'Work 5',
       'Work 4',
@@ -137,8 +180,79 @@ describe('tasksInCategory', () => {
     ]);
   });
 
-  it('is empty for a category with no tasks', () => {
-    expect(tasksInCategory([makeCompletedTask({ category: 'work' })], 'finance')).toEqual([]);
+  it('goes by the plant each task grew, so remapping keeps old tasks with their plant', () => {
+    const before = makeCompletedTask({ name: 'Before', category: 'media', plant: 'tomato' });
+    const after = makeCompletedTask({ name: 'After', category: 'media', plant: 'carrot' });
+    const none = makeCompletedTask({ name: 'None', category: 'media', plant: null });
+    expect(tasksForPlant([before, after, none], 'tomato').map((t) => t.name)).toEqual(['Before']);
+    expect(tasksForPlant([before, after, none], 'carrot').map((t) => t.name)).toEqual(['After']);
+  });
+
+  it('is empty for a plant with no tasks', () => {
+    expect(tasksForPlant([makeCompletedTask(inCategory('programming'))], 'lilac')).toEqual([]);
+  });
+});
+
+describe('version 1 saves (fixed categories) migrate to editable categories', () => {
+  const v1Task = {
+    id: 't1',
+    name: 'Budget',
+    category: 'finance',
+    startedAt: T0,
+    endedAt: T0 + 30 * MINUTE,
+    metrics: { productiveSeconds: 600, unproductiveSeconds: 0, idleSeconds: 0 },
+    activities: [],
+  };
+  const v1 = {
+    version: 1,
+    route: 'garden',
+    activeTasks: [{ id: 'a1', name: 'Run', category: 'health', animal: 'cow', slot: 1, startedAt: T0 }],
+    completedTasks: [v1Task],
+    plants: {
+      finance: { category: 'finance', totalMinutes: 40, viewedMinutes: 30 },
+      work: { category: 'work', totalMinutes: 7 },
+    },
+  };
+
+  it('keeps every plant with its growth, now keyed by plant', () => {
+    expect(deserializeState(JSON.stringify(v1)).plants).toEqual({
+      lilac: { plant: 'lilac', totalMinutes: 40, viewedMinutes: 30 },
+      pine: { plant: 'pine', totalMinutes: 7 },
+    });
+  });
+
+  it('keeps past tasks with their old category name and the plant they grew', () => {
+    expect(deserializeState(JSON.stringify(v1)).completedTasks).toEqual([
+      { ...v1Task, categoryLabel: 'Finance', plant: 'lilac' },
+    ]);
+  });
+
+  it('lets running tasks finish into their old plant', () => {
+    expect(deserializeState(JSON.stringify(v1)).activeTasks).toEqual([
+      {
+        id: 'a1',
+        name: 'Run',
+        category: 'health',
+        categoryLabel: 'Health & Fitness',
+        plant: 'apple',
+        animal: 'cow',
+        slot: 1,
+        startedAt: T0,
+      },
+    ]);
+  });
+
+  it('switches to the new default categories and keeps the page', () => {
+    expect(deserializeState(JSON.stringify(v1))).toMatchObject({
+      version: 2,
+      route: 'garden',
+      categories: defaultCategories(),
+    });
+  });
+
+  it('migrates an empty version 1 save to a fresh version 2 garden', () => {
+    const empty = { version: 1, route: 'main', activeTasks: [], completedTasks: [], plants: {} };
+    expect(deserializeState(JSON.stringify(empty))).toEqual(createInitialState());
   });
 });
 

@@ -1,4 +1,4 @@
-import type { ActiveTask, AppState, CategoryId, CompletedTask } from './types';
+import type { ActiveTask, AppState, CompletedTask, PlantId } from './types';
 
 /** Where the Anthropic API key comes from; a key saved in the app wins. */
 export type ApiKeySource = 'saved' | 'environment' | 'missing';
@@ -41,7 +41,7 @@ export interface FocusGardenBridge {
   clearApiKey(): Promise<void>;
   openExternal(link: ExternalLink): Promise<void>;
   /** The plant's description from assets/plants/<plant>/about.txt, or null if there is none. */
-  getPlantAbout(category: CategoryId): Promise<string | null>;
+  getPlantAbout(plant: PlantId): Promise<string | null>;
   /** Turns starting ActivityWatch at sign-in on or off. */
   setActivityWatchAutostart(enabled: boolean): Promise<void>;
 }

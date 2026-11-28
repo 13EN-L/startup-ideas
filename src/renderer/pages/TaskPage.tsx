@@ -2,7 +2,7 @@
 // animal pen (bottom 1/3) and the Home sign.
 import { useState } from 'react';
 import { canStartTask, type StartTaskInput } from '../../core/tasks';
-import type { ActiveTask, CompletedTask } from '../../shared/types';
+import type { ActiveTask, Category, CompletedTask } from '../../shared/types';
 import { AnimalPen } from '../components/AnimalPen';
 import { Clouds } from '../components/Clouds';
 import { HomeButton } from '../components/HomeButton';
@@ -11,6 +11,7 @@ import { TaskResultPopup } from '../components/TaskResultPopup';
 
 export interface TaskPageProps {
   activeTasks: ActiveTask[];
+  categories: Category[];
   recentTasks: CompletedTask[];
   now: number;
   /** Result popup to show on arrival (set when a Main page cloud was clicked). */
@@ -22,6 +23,7 @@ export interface TaskPageProps {
 
 export function TaskPage({
   activeTasks,
+  categories,
   recentTasks,
   now,
   initialResultTaskId,
@@ -37,7 +39,7 @@ export function TaskPage({
       <section className="sky sky--task">
         <Clouds tasks={recentTasks} onSelect={setResultTaskId} />
         <div className="window">
-          <TaskForm disabled={!canStartTask(activeTasks)} onStart={onStartTask} />
+          <TaskForm categories={categories} disabled={!canStartTask(activeTasks)} onStart={onStartTask} />
         </div>
         <HomeButton activeTasks={activeTasks} onClick={onNavigateHome} />
       </section>

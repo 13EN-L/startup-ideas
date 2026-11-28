@@ -10,17 +10,21 @@
 - **Light Grey (`#b7b7b7`)**: Sign post (deactivated/grayed out).
 - **Dark Grey (`#666666`)**: Sign (deactivated/grayed out).
 
-## Task Categories (Mapped to Plant Types)
-1. **Work** $\rightarrow$ Pine
-2. **School / Study** $\rightarrow$ Tomato
-3. **Health & Fitness** $\rightarrow$ Apple
-4. **Finance** $\rightarrow$ Lilac
-5. **Home** $\rightarrow$ Corn
-6. **Relationships** $\rightarrow$ Sunflower
-7. **Personal Growth** $\rightarrow$ Carrot
-8. **Creative** $\rightarrow$ Basil
-9. **Career Development** $\rightarrow$ Succulent
-10. **Self-Care** $\rightarrow$ Monkeygrass
+## Plants (garden plot order)
+Pine, Tomato, Apple, Lilac, Corn, Sunflower, Carrot, Basil, Succulent, Monkeygrass.
+
+## Default Task Categories (Mapped to Plant Types)
+Users can rename, add and remove categories (1–20, names up to 20 characters) and remap them on the Categories & plants page; these are the defaults for a fresh garden.
+1. **Creative writing** $\rightarrow$ Basil
+2. **Professional writing** $\rightarrow$ Lilac
+3. **Leisure** $\rightarrow$ Sunflower
+4. **Programming** $\rightarrow$ Pine
+5. **Career development** $\rightarrow$ Succulent
+6. **Communication** $\rightarrow$ Corn
+7. **Media** $\rightarrow$ Tomato
+8. **Geography** $\rightarrow$ Apple
+
+Carrot and Monkeygrass start with no category.
 
 ## Animal Pool (Randomly selected, max 3 in pen)
 1. Cow

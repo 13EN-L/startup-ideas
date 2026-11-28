@@ -8,7 +8,7 @@ import {
   resolveLaunchRoute,
   serializeState,
 } from '../../src/core/persistence';
-import { MAX_ACTIVE_TASKS, RECENT_TASK_COUNT } from '../../src/shared/constants';
+import { MAX_ACTIVE_TASKS, MAX_CATEGORIES, MIN_CATEGORIES, RECENT_TASK_COUNT } from '../../src/shared/constants';
 import { appStateArb, completedTaskArb, metricsArb } from './arbitraries';
 
 describe('#20 serialize / deserialize properties', () => {
@@ -24,8 +24,10 @@ describe('#20 serialize / deserialize properties', () => {
     fc.assert(
       fc.property(fc.oneof(fc.string(), fc.json(), fc.constant(null)), (raw) => {
         const state = deserializeState(raw);
-        expect(state.version).toBe(1);
-        expect(['main', 'task', 'garden']).toContain(state.route);
+        expect(state.version).toBe(2);
+        expect(['main', 'task', 'garden', 'categories']).toContain(state.route);
+        expect(state.categories.length).toBeGreaterThanOrEqual(MIN_CATEGORIES);
+        expect(state.categories.length).toBeLessThanOrEqual(MAX_CATEGORIES);
         expect(Array.isArray(state.activeTasks)).toBe(true);
         expect(state.activeTasks.length).toBeLessThanOrEqual(MAX_ACTIVE_TASKS);
         expect(Array.isArray(state.completedTasks)).toBe(true);

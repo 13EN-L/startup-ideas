@@ -5,10 +5,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { animatedMinutes, viewedMinutes, visiblePlots, type Plants } from '../../core/growth';
 import { GROWTH_ANIMATION_DELAY_MS, GROWTH_STAGES } from '../../shared/constants';
-import type { CategoryId } from '../../shared/types';
+import type { PlantId } from '../../shared/types';
 import { plantImage } from '../assets';
 
-type Minutes = Partial<Record<CategoryId, number>>;
+type Minutes = Partial<Record<PlantId, number>>;
 
 function prefersReducedMotion(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -15,8 +15,8 @@ test.afterEach(async () => {
 test('#20 active tasks reopen on the Task page with Home greyed out', async () => {
   const first = await launchApp(dir);
   await first.page.getByRole('button', { name: 'Tasks' }).click();
-  await startTask(first.page, 'Thesis draft', 'School / Study');
-  await startTask(first.page, 'Gym', 'Health & Fitness');
+  await startTask(first.page, 'Thesis draft', 'Media');
+  await startTask(first.page, 'Gym', 'Leisure');
   await expect(first.page.getByRole('region', { name: 'Animal pen' }).getByRole('button')).toHaveCount(2);
   await first.app.close();
 
@@ -31,7 +31,7 @@ test('#20 active tasks reopen on the Task page with Home greyed out', async () =
 test('#20 completed task clouds survive a restart and open their popup from the Main page', async () => {
   const first = await launchApp(dir);
   await first.page.getByRole('button', { name: 'Tasks' }).click();
-  await startTask(first.page, 'Inbox zero', 'Work');
+  await startTask(first.page, 'Inbox zero', 'Programming');
   await first.page.getByRole('button', { name: /^Inbox zero \(/ }).click();
   await first.page.getByRole('button', { name: 'Stop' }).click();
   await expect(first.page.getByRole('button', { name: 'Home' })).toBeEnabled();

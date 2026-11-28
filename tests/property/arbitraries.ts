@@ -1,22 +1,50 @@
 // fast-check generators for valid FocusGarden domain values.
 import fc from 'fast-check';
-import { ANIMALS, CATEGORIES, MINUTES_PER_CYCLE } from '../../src/shared/constants';
+import {
+  ANIMALS,
+  DEFAULT_CATEGORIES,
+  MAX_CATEGORIES,
+  MAX_CATEGORY_LABEL_LENGTH,
+  MINUTES_PER_CYCLE,
+  PLANTS,
+} from '../../src/shared/constants';
 import type {
   ActiveTask,
   ActivityItem,
   AppState,
+  Category,
   CategoryId,
   ClassifiedActivity,
   CompletedTask,
   PenSlot,
+  PlantId,
   PlantState,
   TaskMetrics,
 } from '../../src/shared/types';
 import { ACTIVITY_SOURCES } from '../../src/shared/types';
 
-export const categoryIds = CATEGORIES.map((c) => c.id) as CategoryId[];
+export const categoryIds = DEFAULT_CATEGORIES.map((c) => c.id) as CategoryId[];
+export const plantIds = PLANTS.map((p) => p.id) as PlantId[];
 
+/** A default category's id. */
 export const categoryArb = fc.constantFrom(...categoryIds);
+export const plantArb = fc.constantFrom(...plantIds);
+export const optionalPlantArb = fc.option(plantArb, { nil: null });
+
+/** A valid category name: 1-20 characters, no surrounding or doubled whitespace. */
+export const categoryLabelArb = fc
+  .string({ minLength: 1, maxLength: MAX_CATEGORY_LABEL_LENGTH })
+  .map((s) => s.trim().replace(/\s+/g, ' '))
+  .filter((s) => s.length > 0);
+
+/** 1-20 categories with unique ids and names (ignoring case), as the editor allows. */
+export const categoriesArb: fc.Arbitrary<Category[]> = fc
+  .uniqueArray(fc.record({ id: fc.uuid(), label: categoryLabelArb, plant: optionalPlantArb }), {
+    minLength: 1,
+    maxLength: MAX_CATEGORIES,
+    selector: (c) => c.label.toLowerCase(),
+  })
+  .filter((cs) => new Set(cs.map((c) => c.id)).size === cs.length);
 export const animalArb = fc.constantFrom(...ANIMALS);
 
 /** Like Math.random(): [0, 1). */
@@ -59,6 +87,8 @@ export const activeTaskArb = (slot: PenSlot): fc.Arbitrary<ActiveTask> =>
     id: fc.uuid(),
     name: taskNameArb.map((s) => s.trim()),
     category: categoryArb,
+    categoryLabel: categoryLabelArb,
+    plant: optionalPlantArb,
     animal: animalArb,
     slot: fc.constant(slot),
     startedAt: epochArb,
@@ -69,6 +99,8 @@ export const completedTaskArb: fc.Arbitrary<CompletedTask> = fc
     id: fc.uuid(),
     name: taskNameArb,
     category: categoryArb,
+    categoryLabel: categoryLabelArb,
+    plant: optionalPlantArb,
     startedAt: epochArb,
     durationMs: fc.integer({ min: 0, max: 8 * 3_600_000 }),
     metrics: metricsArb,
@@ -76,8 +108,8 @@ export const completedTaskArb: fc.Arbitrary<CompletedTask> = fc
   })
   .map(({ durationMs, ...task }) => ({ ...task, endedAt: task.startedAt + durationMs }));
 
-export const plantsArb: fc.Arbitrary<Partial<Record<CategoryId, PlantState>>> = fc
-  .subarray(categoryIds)
+export const plantsArb: fc.Arbitrary<Partial<Record<PlantId, PlantState>>> = fc
+  .subarray(plantIds)
   .chain((ids) =>
     fc
       .tuple(...ids.map(() => fc.tuple(minutesArb, fc.option(fc.double({ min: 0, max: 1, noNaN: true }), { nil: undefined }))))
@@ -88,7 +120,7 @@ export const plantsArb: fc.Arbitrary<Partial<Record<CategoryId, PlantState>>> = 
       ids.map((id, i) => {
         const [totalMinutes, viewedShare] = growth[i];
         // Optionally part-way unviewed; older saves have no viewedMinutes at all.
-        const plant: PlantState = { category: id, totalMinutes };
+        const plant: PlantState = { plant: id, totalMinutes };
         if (viewedShare !== undefined) plant.viewedMinutes = totalMinutes * viewedShare;
         return [id, plant];
       }),
@@ -100,8 +132,9 @@ export const appStateArb: fc.Arbitrary<AppState> = fc
   .shuffledSubarray([0, 1, 2] as PenSlot[], { maxLength: 3 })
   .chain((slots) =>
     fc.record({
-      version: fc.constant(1 as const),
-      route: fc.constantFrom('main' as const, 'task' as const, 'garden' as const),
+      version: fc.constant(2 as const),
+      route: fc.constantFrom('main' as const, 'task' as const, 'garden' as const, 'categories' as const),
+      categories: categoriesArb,
       activeTasks: fc.tuple(...slots.map(activeTaskArb)),
       completedTasks: fc.array(completedTaskArb, { maxLength: 12 }),
       plants: plantsArb,

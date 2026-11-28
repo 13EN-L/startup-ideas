@@ -25,6 +25,9 @@ export async function processCompletedTask(
     id: task.id,
     name: task.name,
     category: task.category,
+    // Provisional: the renderer re-resolves these from the current mapping.
+    categoryLabel: task.categoryLabel,
+    plant: task.plant,
     startedAt: task.startedAt,
     endedAt,
     metrics: computeMetrics(classified, idleSeconds),

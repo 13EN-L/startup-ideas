@@ -11,17 +11,55 @@ export const COLORS = {
   darkGrey: '#666666',
 } as const;
 
-export const CATEGORIES = [
-  { id: 'work', label: 'Work', plant: 'pine', plantLabel: 'Pine' },
-  { id: 'school', label: 'School / Study', plant: 'tomato', plantLabel: 'Tomato' },
-  { id: 'health', label: 'Health & Fitness', plant: 'apple', plantLabel: 'Apple' },
-  { id: 'finance', label: 'Finance', plant: 'lilac', plantLabel: 'Lilac' },
-  { id: 'home', label: 'Home', plant: 'corn', plantLabel: 'Corn' },
-  { id: 'relationships', label: 'Relationships', plant: 'sunflower', plantLabel: 'Sunflower' },
-  { id: 'personal-growth', label: 'Personal Growth', plant: 'carrot', plantLabel: 'Carrot' },
-  { id: 'creative', label: 'Creative', plant: 'basil', plantLabel: 'Basil' },
-  { id: 'career', label: 'Career Development', plant: 'succulent', plantLabel: 'Succulent' },
-  { id: 'self-care', label: 'Self-Care', plant: 'monkeygrass', plantLabel: 'Monkeygrass' },
+/** Every plant the garden can grow, in garden plot order. */
+export const PLANTS = [
+  { id: 'pine', label: 'Pine' },
+  { id: 'tomato', label: 'Tomato' },
+  { id: 'apple', label: 'Apple' },
+  { id: 'lilac', label: 'Lilac' },
+  { id: 'corn', label: 'Corn' },
+  { id: 'sunflower', label: 'Sunflower' },
+  { id: 'carrot', label: 'Carrot' },
+  { id: 'basil', label: 'Basil' },
+  { id: 'succulent', label: 'Succulent' },
+  { id: 'monkeygrass', label: 'Monkeygrass' },
+] as const;
+
+/**
+ * The categories a fresh garden starts with. Users can rename, remove and add
+ * categories and change which plant each one grows (several categories may
+ * share a plant, and a category may grow none).
+ */
+export const DEFAULT_CATEGORIES = [
+  { id: 'creative-writing', label: 'Creative writing', plant: 'basil' },
+  { id: 'professional-writing', label: 'Professional writing', plant: 'lilac' },
+  { id: 'leisure', label: 'Leisure', plant: 'sunflower' },
+  { id: 'programming', label: 'Programming', plant: 'pine' },
+  { id: 'career-development', label: 'Career development', plant: 'succulent' },
+  { id: 'communication', label: 'Communication', plant: 'corn' },
+  { id: 'media', label: 'Media', plant: 'tomato' },
+  { id: 'geography', label: 'Geography', plant: 'apple' },
+] as const;
+
+export const MIN_CATEGORIES = 1;
+export const MAX_CATEGORIES = 20;
+export const MAX_CATEGORY_LABEL_LENGTH = 20;
+
+/**
+ * The fixed categories of version 1 saves, each with the plant it grew. Only
+ * used to migrate those saves; they are not offered to users any more.
+ */
+export const LEGACY_CATEGORIES = [
+  { id: 'work', label: 'Work', plant: 'pine' },
+  { id: 'school', label: 'School / Study', plant: 'tomato' },
+  { id: 'health', label: 'Health & Fitness', plant: 'apple' },
+  { id: 'finance', label: 'Finance', plant: 'lilac' },
+  { id: 'home', label: 'Home', plant: 'corn' },
+  { id: 'relationships', label: 'Relationships', plant: 'sunflower' },
+  { id: 'personal-growth', label: 'Personal Growth', plant: 'carrot' },
+  { id: 'creative', label: 'Creative', plant: 'basil' },
+  { id: 'career', label: 'Career Development', plant: 'succulent' },
+  { id: 'self-care', label: 'Self-Care', plant: 'monkeygrass' },
 ] as const;
 
 export const ANIMALS = [

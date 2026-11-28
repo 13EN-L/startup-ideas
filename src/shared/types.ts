@@ -1,10 +1,19 @@
-import type { ANIMALS, CATEGORIES } from './constants';
+import type { ANIMALS, PLANTS } from './constants';
 
-export type CategoryId = (typeof CATEGORIES)[number]['id'];
-export type PlantId = (typeof CATEGORIES)[number]['plant'];
+/** Stable id of a user-editable category; renaming keeps the id. */
+export type CategoryId = string;
+export type PlantId = (typeof PLANTS)[number]['id'];
 export type AnimalId = (typeof ANIMALS)[number];
 
-export type Route = 'main' | 'task' | 'garden';
+export interface Category {
+  id: CategoryId;
+  /** 1-20 characters, unique ignoring case. */
+  label: string;
+  /** The plant this category's tasks grow from now on; null grows nothing. */
+  plant: PlantId | null;
+}
+
+export type Route = 'main' | 'task' | 'garden' | 'categories';
 
 export type PenSlot = 0 | 1 | 2;
 
@@ -12,6 +21,14 @@ export interface ActiveTask {
   id: string;
   name: string;
   category: CategoryId;
+  /** The category's name when the task started (also what Claude is told). */
+  categoryLabel: string;
+  /**
+   * The category's plant when the task started. Only used if the category is
+   * removed before the task finishes; otherwise the category's plant at
+   * completion is grown.
+   */
+  plant: PlantId | null;
   animal: AnimalId;
   /** Which third of the pen the animal occupies. */
   slot: PenSlot;
@@ -46,6 +63,13 @@ export interface CompletedTask {
   id: string;
   name: string;
   category: CategoryId;
+  /** The category's name when the task finished, shown if it is later removed. */
+  categoryLabel: string;
+  /**
+   * The plant this task grew, fixed when it completed. Remapping its category
+   * later never moves this growth.
+   */
+  plant: PlantId | null;
   startedAt: number;
   endedAt: number;
   metrics: TaskMetrics;
@@ -54,7 +78,7 @@ export interface CompletedTask {
 
 /** Persisted plant data; everything visual is derived from totalMinutes. */
 export interface PlantState {
-  category: CategoryId;
+  plant: PlantId;
   totalMinutes: number;
   /**
    * totalMinutes as of the last time the Garden page showed this plant; the
@@ -83,9 +107,12 @@ export interface BreakdownPercentages {
 }
 
 export interface AppState {
-  version: 1;
+  /** 2 added editable categories; version 1 saves are migrated on load. */
+  version: 2;
   route: Route;
+  /** In the order the category dropdown lists them; 1-20 entries. */
+  categories: Category[];
   activeTasks: ActiveTask[];
   completedTasks: CompletedTask[];
-  plants: Partial<Record<CategoryId, PlantState>>;
+  plants: Partial<Record<PlantId, PlantState>>;
 }

@@ -13,10 +13,18 @@ export interface SetupDialogProps {
   onOpenLink: (link: ExternalLink) => void;
   /** Turns starting ActivityWatch at sign-in on or off. Omit to hide the option. */
   onSetActivityWatchAutostart?: (enabled: boolean) => Promise<void>;
-  /** Erases tasks and the garden (not the API key). Omit to hide the option. */
-  onResetData?: () => Promise<void>;
+  /** Opens the page for editing categories and their plants. Omit to hide the option. */
+  onOpenCategories?: () => void;
+  /**
+   * Erases tasks and the garden (never the API key); 'everything' also resets
+   * categories and plant mappings to the defaults. Omit to hide the option.
+   */
+  onResetData?: (scope: ResetScope) => Promise<void>;
   onClose: () => void;
 }
+
+/** 'progress': tasks and plants only. 'everything': categories as well. */
+export type ResetScope = 'progress' | 'everything';
 
 export function isSetupComplete(status: SetupStatus | null): boolean {
   return !!status && status.activityWatchRunning && status.apiKey !== 'missing';
@@ -29,6 +37,7 @@ export function SetupDialog({
   onClearApiKey,
   onOpenLink,
   onSetActivityWatchAutostart,
+  onOpenCategories,
   onResetData,
   onClose,
 }: SetupDialogProps) {
@@ -235,6 +244,18 @@ export function SetupDialog({
               )}
             </section>
 
+            {onOpenCategories && (
+              <section className="setup-step">
+                <h3 className="setup-step__title">Categories &amp; plants</h3>
+                <p>Rename, add or remove task categories, and choose which plant each category grows.</p>
+                <div className="setup-step__actions">
+                  <button type="button" className="btn btn--secondary" onClick={onOpenCategories}>
+                    Modify categories and plant mappings
+                  </button>
+                </div>
+              </section>
+            )}
+
             {onResetData && <ResetDataStep onReset={onResetData} />}
           </>
         )}
@@ -247,16 +268,36 @@ export function SetupDialog({
   );
 }
 
-/** "Reset all data", behind a confirmation because it can't be undone. */
-function ResetDataStep({ onReset }: { onReset: () => Promise<void> }) {
+const RESET_OPTIONS: Record<ResetScope, { button: string; question: string; done: string }> = {
+  progress: {
+    button: 'Reset only tasks and plants',
+    question: 'Erase all your tasks and your garden? Your categories and plant mappings stay as they are.',
+    done: 'Your tasks and plants were reset.',
+  },
+  everything: {
+    button: 'Reset categories, tasks, and plants',
+    question: 'Erase all your tasks and your garden, and put the categories and plant mappings back to the defaults?',
+    done: 'All data was reset.',
+  },
+};
+
+/** The two reset options, each behind a confirmation because it can't be undone. */
+function ResetDataStep({ onReset }: { onReset: (scope: ResetScope) => Promise<void> }) {
   const [phase, setPhase] = useState<'idle' | 'confirming' | 'resetting' | 'done'>('idle');
+  const [scope, setScope] = useState<ResetScope>('progress');
   const [error, setError] = useState<string | null>(null);
+
+  const confirm = (next: ResetScope) => {
+    setScope(next);
+    setError(null);
+    setPhase('confirming');
+  };
 
   const reset = async () => {
     setPhase('resetting');
     setError(null);
     try {
-      await onReset();
+      await onReset(scope);
       setPhase('done');
     } catch (e) {
       setError(`Could not reset your data: ${(e as Error).message}`);
@@ -269,22 +310,28 @@ function ResetDataStep({ onReset }: { onReset: () => Promise<void> }) {
       <h3 className="setup-step__title">Your data</h3>
       {phase === 'idle' || phase === 'done' ? (
         <>
-          <p>Reset all data erases every task, plant, prestige and trophy. Your saved API key is kept.</p>
+          <p>
+            Resetting erases every task, plant, prestige and trophy. You can keep your categories and plant mappings
+            or reset them too. Your saved API key is always kept.
+          </p>
           <div className="setup-step__actions">
-            <button type="button" className="btn btn--secondary" onClick={() => setPhase('confirming')}>
-              Reset all data
+            <button type="button" className="btn btn--secondary" onClick={() => confirm('progress')}>
+              {RESET_OPTIONS.progress.button}
+            </button>
+            <button type="button" className="btn btn--secondary" onClick={() => confirm('everything')}>
+              {RESET_OPTIONS.everything.button}
             </button>
           </div>
           {phase === 'done' && (
             <p className="setup-message setup-message--info" role="status">
-              All data was reset.
+              {RESET_OPTIONS[scope].done}
             </p>
           )}
         </>
       ) : (
         <>
           <p>
-            <strong>This can't be undone.</strong> Erase all your tasks and your garden?
+            <strong>This can't be undone.</strong> {RESET_OPTIONS[scope].question}
           </p>
           <div className="setup-step__actions">
             <button type="button" className="btn btn--danger" onClick={reset} disabled={phase === 'resetting'}>

@@ -68,7 +68,7 @@ describe('#20 restart round trip', () => {
       route: 'task',
       activeTasks: [makeActiveTask({ slot: 0 }), makeActiveTask({ slot: 1, animal: 'duck' })],
       completedTasks: [makeCompletedTask()],
-      plants: { school: { category: 'school', totalMinutes: 20 } },
+      plants: { tomato: { plant: 'tomato', totalMinutes: 20 } },
     });
 
     await saveState(createFileStore(file), state);

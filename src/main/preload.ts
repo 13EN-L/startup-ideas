@@ -23,7 +23,7 @@ const bridge: FocusGardenBridge = {
   saveApiKey: (key) => ipcRenderer.invoke(IPC.saveApiKey, key),
   clearApiKey: () => ipcRenderer.invoke(IPC.clearApiKey),
   openExternal: (link) => ipcRenderer.invoke(IPC.openExternal, link),
-  getPlantAbout: (category) => ipcRenderer.invoke(IPC.getPlantAbout, category),
+  getPlantAbout: (plant) => ipcRenderer.invoke(IPC.getPlantAbout, plant),
   setActivityWatchAutostart: (enabled) => ipcRenderer.invoke(IPC.setActivityWatchAutostart, enabled),
 };
 

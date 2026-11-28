@@ -1,16 +1,19 @@
 // Garden plot click: the plant's growth (focus time, stage, growth, prestige),
 // a short description of the plant, then a scrollable history of every
-// completed task in its category, newest first. Picking a task opens its
-// result popup on top.
+// completed task that grew it, newest first. Picking a task opens its result
+// popup on top.
 import { useId } from 'react';
+import { categoriesForPlant, plantLabel } from '../../core/categories';
 import { getPlantGrowth } from '../../core/growth';
-import { formatDuration, formatFocusTime } from '../../core/tasks';
-import { CATEGORIES, GROWTH_STAGES } from '../../shared/constants';
-import type { CategoryId, CompletedTask } from '../../shared/types';
+import { formatDuration, formatFocusTime, taskCategoryLabel } from '../../core/tasks';
+import { GROWTH_STAGES } from '../../shared/constants';
+import type { Category, CompletedTask, PlantId } from '../../shared/types';
 import { useEscape } from './useEscape';
 
 export interface PlantTasksPopupProps {
-  category: CategoryId;
+  plant: PlantId;
+  /** The current category -> plant mappings. */
+  categories: Category[];
   /** The plant's accumulated productive minutes. */
   totalMinutes: number;
   /** From assets/plants/<plant>/about.txt; null when there is none, undefined while loading. */
@@ -27,7 +30,8 @@ const formatDate = (epochMs: number) =>
   new Date(epochMs).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
 export function PlantTasksPopup({
-  category,
+  plant,
+  categories,
   totalMinutes,
   about,
   tasks,
@@ -37,7 +41,8 @@ export function PlantTasksPopup({
 }: PlantTasksPopupProps) {
   const titleId = useId();
   useEscape(onClose, active);
-  const plant = CATEGORIES.find((c) => c.id === category)!;
+  const name = plantLabel(plant);
+  const growing = categoriesForPlant(categories, plant);
   const growth = getPlantGrowth(totalMinutes);
   const growthPercent = Math.floor(growth.cycleProgress * 100);
 
@@ -45,13 +50,16 @@ export function PlantTasksPopup({
     <div className="overlay">
       <div className="popup popup--plant-tasks" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId} className="popup__title">
-          {plant.label} tasks
+          {name} tasks
         </h2>
         <p className="popup__meta">
-          {plant.plantLabel} · {tasks.length} completed
+          {growing.length > 0
+            ? `Grown by ${growing.map((c) => c.label).join(', ')}`
+            : 'No category grows this plant right now'}{' '}
+          · {tasks.length} completed
         </p>
 
-        <dl className="plant-stats" aria-label={`${plant.plantLabel} growth`}>
+        <dl className="plant-stats" aria-label={`${name} growth`}>
           <div className="plant-stats__item">
             <dt>Focus time</dt>
             <dd>{formatFocusTime(totalMinutes)}</dd>
@@ -85,12 +93,14 @@ export function PlantTasksPopup({
         {about && <p className="plant-about">{about}</p>}
 
         {tasks.length > 0 ? (
-          <ul className="task-history" aria-label={`${plant.label} tasks`}>
+          <ul className="task-history" aria-label={`${name} tasks`}>
             {tasks.map((task) => (
               <li key={task.id}>
                 <button type="button" className="task-history__item" onClick={() => onSelectTask(task.id)}>
                   <span className="task-history__name">{task.name}</span>
-                  <span className="task-history__date">{formatDate(task.endedAt)}</span>
+                  <span className="task-history__date">
+                    {taskCategoryLabel(task, categories)} · {formatDate(task.endedAt)}
+                  </span>
                   <span className="task-history__focus">{formatDuration(task.metrics.productiveSeconds)} on task</span>
                 </button>
               </li>

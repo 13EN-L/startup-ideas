@@ -131,7 +131,7 @@ function registerIpc() {
   const assetsRoot = process.env.VITE_DEV_SERVER_URL
     ? path.join(app.getAppPath(), 'public', 'assets')
     : path.join(__dirname, '../../dist/assets');
-  ipcMain.handle(IPC.getPlantAbout, (_event, category: string) => readPlantAbout(assetsRoot, String(category)));
+  ipcMain.handle(IPC.getPlantAbout, (_event, plant: string) => readPlantAbout(assetsRoot, String(plant)));
 
   ipcMain.handle(IPC.finishTask, async (_event, task: ActiveTask, endedAt: number) => {
     if (useFakeServices) return fakeProcessCompletedTask(task, endedAt);

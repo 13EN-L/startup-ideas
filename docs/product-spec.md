@@ -18,13 +18,13 @@
   - Top 3/4ths: Blue sky background (`#c9ecf9`) with a rectangular window in the center. Title `"FocusGarden"` in top center of the window. A `"Tasks"` button inside takes the user to the Task Page.
   - Outside the window: 5 clouds displaying the names of the 5 most recently completed tasks. Clicking a cloud opens the Task Page and automatically triggers that task's result popup.
   - Bottom 1/4th: Simplified garden representation.
-  - A `"Settings"` button opens the setup window (ActivityWatch status with the start-at-sign-in toggle, Claude API key, optional website-tracking extension status), closed with `"Close"` (or `"Skip for now"` while a required step is missing). It also offers `"Reset all data"`, which after a confirmation (`"Yes, erase everything"` / `"Cancel"`) erases all tasks, plants, prestige and trophies. The saved API key is kept.
+  - A `"Settings"` button opens the setup window (ActivityWatch status with the start-at-sign-in toggle, Claude API key, optional website-tracking extension status), closed with `"Close"` (or `"Skip for now"` while a required step is missing). A `"Modify categories and plant mappings"` button opens the Categories & plants page (section D). It also offers two resets, each after a confirmation (`"Yes, erase everything"` / `"Cancel"`): `"Reset only tasks and plants"` erases all tasks, plants, prestige and trophies but keeps the categories and their plant mappings; `"Reset categories, tasks, and plants"` also returns the categories and mappings to the defaults. The saved API key is always kept.
 
 ### B. Task Page
 - **Layout & State**:
   - Top 2/3rds: Blue sky. Central rectangular window containing:
     1. Text box: `"enter task"`
-    2. Dropdown: `"category"` (Lists the 10 categories).
+    2. Dropdown: `"category"` (Lists the user's categories; 8 by default). Once one is picked, a hint below says which plant it grows (`"Grows your Pine"`) or `"This category doesn't grow a plant"`.
     3. Button: `"start task"` (Spawns an animal in the pen).
   - Outside the window: 5 clouds showing recent completed tasks. Clicking a cloud opens a vertical rectangular popup containing:
     - Task Title at top.
@@ -42,13 +42,13 @@
   - Top 1/3rd: Blue sky with 5 clouds with conveyor belt movement. These clouds are purely decorative: no task labels, not clickable.
   - Bottom 2/3rds: Green grass (`#7ab85f`) containing brown rectangular plant plots (90% height of the grass).
 - **Plots & Layout**:
-  - 10 total plots mapped to the 10 task categories. Plots only appear once a task in that category has been completed.
+  - Up to 10 plots, one per plant. A plot only appears once a completed task has grown that plant. Each plot is labelled with the categories that grow it now (or the plant name if none do).
   - If < 5 plants, centered and symmetric. If > 5 plants, plots 1–5 are in the upper half, and plots 6–10 are in the lower half.
 - **Task History (plant click)**:
   - Every completed task is stored, not only the 5 shown as clouds.
-  - Clicking a plot opens a vertical popup titled `"<Category> tasks"` (e.g. `"Work tasks"` for the Pine). Above the list it shows the plant's total productive (focus) time, growth stage (`"N of 6"`), growth percentage through the current 36-minute cycle (number and bar), the plant's own prestige, and a sentence or two about the plant.
+  - Clicking a plot opens a vertical popup titled `"<Plant> tasks"` (e.g. `"Pine tasks"`), noting which categories grow it now (`"Grown by Programming"`). Above the list it shows the plant's total productive (focus) time, growth stage (`"N of 6"`), growth percentage through the current 36-minute cycle (number and bar), the plant's own prestige, and a sentence or two about the plant.
   - The plant description is plain text in `public/assets/plants/<plant>/about.txt`, beside the stage images, so developers edit it the same way they swap art. A missing or empty file just hides the description.
-  - Below that, a scrollable list of **all** completed tasks in that category, newest first. Each row shows the task name, completion date and on-task time.
+  - Below that, a scrollable list of **all** completed tasks that grew this plant, newest first (by the plant each task grew when it completed, not by today's mappings). Each row shows the task name, its category (current name, or the saved name if the category was removed), completion date and on-task time.
   - Clicking a row opens that task's result popup (same as clicking a cloud: title, breakdown bar, `"What you did:"`) on top of the list. Closing it (Close or Esc) returns to the list.
 - **Trophy & Prestige System**:
   - Global prestige counter sums up all individual plant prestiges.
@@ -63,3 +63,10 @@
   - **Prestige Wrapping**: When a plant reaches 100% growth and receives excess minutes, the cycle wraps around to stage 1 with the remainder, and plant **prestige increments by 1**.
   - **Stage art**: each plant has one still image per stage (`public/assets/plants/<plant>/stage-1.png` … `stage-6.png`). The garden never loops through the stages on its own. A 6-frame GIF (one frame per stage, on the 1920×1439 plant canvas) is split into these images with `npm run assets:plant -- <file.gif> <plant>`.
   - **Growth Replay**: The garden remembers the growth it last showed for each plant (saved, so it survives restarts). When the garden opens with new growth, each plant starts at what was last seen and animates up to its current growth. It scales up within a stage, switches to the next stage image, and after stage 6 wraps to stage 1 with prestige +1 (the plot's prestige badge, the total prestige and the trophies update as it goes). The replay plays 60 ms per productive minute after a 0.5 s pause, capped at 5 s (e.g. 40 minutes from a fresh seed: stages 1→6, then stage 1 plus 4 minutes of growth, Prestige 1). Growth that arrives while the garden is open animates the same way. Each growth plays only once. With the system's reduced-motion setting on, the new growth shows immediately.
+
+### D. Categories & Plants Page
+- **Reached from** Settings -> `"Modify categories and plant mappings"`; `"Back to settings"` returns to the Main page with Settings open. Like the other pages it is restored after a restart.
+- **Layout**: Sky with a central framed panel (scrolling inside when it doesn't fit) above a strip of grass. Left: `"Your categories"` with a count (`"8 / 20"`); right: `"Your plants"`, one card per plant showing the categories that grow it (or `"No categories"`) and its current stage and prestige (or `"Not planted yet"`). Below 1000 px wide the two columns stack.
+- **Categories**: 1-20 categories. Each row shows a miniature plot with its plant, a name box (max 20 characters, with a live character count), a plant dropdown (the 10 plants or `"No plant"`) and a remove button. Names are trimmed and must be unique ignoring case; an invalid name shows why and is reverted when the box is left. A rename is saved on Enter or when leaving the box (Escape cancels); plant changes, additions and removals save immediately. Removing is disabled at 1 category and can be undone; adding is replaced by a note at 20. A new category's plant defaults to the first plant no category grows.
+- **Mapping rules**: A category grows at most one plant; several categories may share one; a category may grow none (its tasks are recorded but grow nothing). The plant a task grows is fixed when it completes, using the mapping at that moment (if its category was removed while it ran, the plant it had when it started). Remapping never moves or removes existing growth.
+- **Saved data**: Version 2 saves hold the categories; plants are stored by plant. Version 1 saves (fixed categories) are migrated on load: plants and past tasks are kept with their old category names, running tasks finish into their old plant, and the category list becomes the new defaults.

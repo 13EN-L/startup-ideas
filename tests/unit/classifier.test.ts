@@ -17,7 +17,7 @@ const activities: ActivityItem[] = [
   { id: 'web:stackoverflow.com', name: 'stackoverflow.com', source: 'web', seconds: 300 },
   { id: 'web:youtube.com', name: 'youtube.com', source: 'web', seconds: 200 },
 ];
-const task = { name: 'Fix login bug', category: 'work' as const };
+const task = { name: 'Fix login bug', categoryLabel: 'Work' };
 
 const validOutput = {
   classifications: [
@@ -51,7 +51,7 @@ describe('#17 buildClassificationPrompt', () => {
 
   it('has a stable system prompt that explains on-task vs off-task', () => {
     const a = buildClassificationPrompt(task, activities).system;
-    const b = buildClassificationPrompt({ name: 'Other', category: 'home' }, activities.slice(0, 1)).system;
+    const b = buildClassificationPrompt({ name: 'Other', categoryLabel: 'Home' }, activities.slice(0, 1)).system;
     expect(a).toBe(b); // stable prefix for prompt caching
     expect(a).toMatch(/on-task/);
     expect(a).toMatch(/off-task/);

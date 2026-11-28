@@ -1,8 +1,12 @@
+import { DEFAULT_CATEGORIES } from '../src/shared/constants';
+import { defaultCategories } from '../src/core/categories';
 import type {
   ActiveTask,
   AppState,
+  CategoryId,
   ClassifiedActivity,
   CompletedTask,
+  PlantId,
 } from '../src/shared/types';
 
 export const T0 = Date.UTC(2026, 10, 2, 9, 0, 0);
@@ -11,11 +15,22 @@ export const MINUTE = 60_000;
 let seq = 0;
 const nextId = () => `task-${++seq}`;
 
+type DefaultCategoryId = (typeof DEFAULT_CATEGORIES)[number]['id'];
+
+/**
+ * The category fields of a task in one of the default categories, e.g.
+ * inCategory('programming') -> { category: 'programming', categoryLabel: 'Programming', plant: 'pine' }.
+ */
+export function inCategory(id: DefaultCategoryId): { category: CategoryId; categoryLabel: string; plant: PlantId | null } {
+  const category = DEFAULT_CATEGORIES.find((c) => c.id === id)!;
+  return { category: category.id, categoryLabel: category.label, plant: category.plant };
+}
+
 export function makeActiveTask(overrides: Partial<ActiveTask> = {}): ActiveTask {
   return {
     id: nextId(),
     name: 'Write essay',
-    category: 'school',
+    ...inCategory('media'),
     animal: 'cow',
     slot: 0,
     startedAt: T0,
@@ -40,7 +55,7 @@ export function makeCompletedTask(overrides: Partial<CompletedTask> = {}): Compl
   return {
     id: nextId(),
     name: 'Write essay',
-    category: 'school',
+    ...inCategory('media'),
     startedAt: T0,
     endedAt: T0 + 30 * MINUTE,
     metrics: { productiveSeconds: 1200, unproductiveSeconds: 420, idleSeconds: 180 },
@@ -54,8 +69,9 @@ export function makeCompletedTask(overrides: Partial<CompletedTask> = {}): Compl
 
 export function makeState(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: 1,
+    version: 2,
     route: 'main',
+    categories: defaultCategories(),
     activeTasks: [],
     completedTasks: [],
     plants: {},

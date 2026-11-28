@@ -317,6 +317,15 @@ button.cloud__body:hover {
   font-size: 18px;
 }
 
+/* Which plant the picked category grows. */
+.task-form__hint {
+  margin: -6px 0 0;
+  color: var(--dark-grey);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* Home sign: a board on a post, standing on the pen's edge. */
 .home-sign {
   position: absolute;
@@ -845,7 +854,11 @@ button.cloud__body:hover {
 }
 
 .plot__label {
+  max-width: 100%;
   margin-top: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--beige);
   font-size: 13px;
   font-weight: 700;
@@ -989,6 +1002,412 @@ button.cloud__body:hover {
 
 .setup-message--error { background: var(--light-brown); color: var(--beige); }
 .setup-message--info { background: var(--input-white); border: 2px solid var(--light-grey); }
+
+/* ---------- Categories & plants ---------- */
+
+/* One fixed-height cell, so the panel shrinks to fit and scrolls inside. */
+.sky--categories {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-items: center;
+  min-height: 0;
+  padding: 24px 16px;
+}
+
+/* Same double-ruled frame as the central windows, sized for editing. */
+.categories-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(1080px, 100%);
+  max-height: 100%;
+  padding: 24px 28px 20px;
+  background: var(--beige);
+  border: var(--outline);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 6px var(--sky), inset 0 0 0 10px var(--dark-brown);
+}
+
+.categories-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 4px 4px 0;
+}
+
+.categories-panel__back {
+  flex: none;
+  padding: 8px 14px;
+  white-space: nowrap;
+}
+
+.categories-panel__title {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 800;
+}
+
+.categories-panel__intro {
+  margin: 4px 0 0;
+  line-height: 1.4;
+}
+
+.categories-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 0 4px;
+  overflow-y: auto;
+}
+
+/* Below this the name boxes get too narrow for 20 characters side by side. */
+@media (max-width: 1000px) {
+  .categories-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.categories-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 16px;
+  border: 3px solid var(--dark-brown);
+  border-radius: var(--radius);
+  background: var(--input-white);
+}
+
+.categories-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.categories-card__heading h2 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.count-badge {
+  padding: 3px 11px;
+  border-radius: 999px;
+  background: var(--dark-brown);
+  color: var(--beige);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.category-row,
+.category-add__row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(110px, 150px) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-row {
+  padding: 6px 8px;
+  border: 2px solid rgba(76, 40, 2, 0.18);
+  border-radius: var(--radius);
+  background: var(--beige);
+  transition: border-color 0.15s ease;
+}
+
+.category-row:focus-within {
+  border-color: var(--dark-brown);
+}
+
+.category-row--invalid,
+.category-row--invalid:focus-within {
+  border-color: var(--light-brown);
+}
+
+/* A miniature garden plot holding the plant the category grows. */
+.plant-thumb {
+  position: relative;
+  flex: none;
+  display: block;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--dark-brown);
+}
+
+.plant-thumb img {
+  position: absolute;
+  inset: 4px 4px 2px;
+  width: calc(100% - 8px);
+  height: calc(100% - 6px);
+  object-fit: contain;
+  object-position: bottom center;
+}
+
+.plant-thumb--empty {
+  background: transparent;
+  border: 2px dashed var(--light-grey);
+}
+
+.category-row__name {
+  position: relative;
+  min-width: 0;
+}
+
+.category-row__input,
+.category-row__plant {
+  width: 100%;
+  padding: 8px 10px;
+  border: 2px solid var(--dark-brown);
+  border-radius: 8px;
+  background: var(--input-white);
+  color: var(--dark-brown);
+  font: inherit;
+  font-size: 15px;
+}
+
+.category-row__input {
+  padding-right: 52px;
+  font-weight: 700;
+}
+
+.category-row__input::placeholder {
+  color: var(--dark-grey);
+  font-weight: 400;
+}
+
+.category-row__input[aria-invalid='true'] {
+  border-color: var(--light-brown);
+}
+
+.category-row__input:focus-visible,
+.category-row__plant:focus-visible {
+  outline: 3px solid var(--light-brown);
+  outline-offset: 1px;
+}
+
+.category-row__plant {
+  cursor: pointer;
+}
+
+.char-count {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--dark-grey);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid var(--dark-brown);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dark-brown);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--light-brown);
+  border-color: var(--light-brown);
+  color: var(--beige);
+}
+
+.icon-button:focus-visible {
+  outline: 3px solid var(--light-brown);
+  outline-offset: 2px;
+}
+
+.icon-button:disabled {
+  border-color: var(--light-grey);
+  color: var(--light-grey);
+  cursor: not-allowed;
+}
+
+.category-row__error {
+  grid-column: 2 / -1;
+  margin: -2px 0 2px;
+  color: var(--light-brown);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.categories-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--beige);
+  border: 2px solid var(--light-grey);
+  font-weight: 600;
+}
+
+.categories-notice .link-button {
+  align-self: auto;
+}
+
+.category-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px 8px 4px;
+  border-top: 2px dashed rgba(76, 40, 2, 0.25);
+}
+
+.category-add__title {
+  font-weight: 800;
+}
+
+.category-add__submit {
+  padding: 9px 18px;
+}
+
+.category-add__full {
+  margin: 0;
+  color: var(--dark-grey);
+  font-weight: 600;
+}
+
+.plant-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plant-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 2px solid rgba(76, 40, 2, 0.18);
+  border-radius: var(--radius);
+  background: var(--beige);
+}
+
+.plant-card--unused {
+  background: transparent;
+  border-style: dashed;
+}
+
+.plant-card--unused .plant-thumb {
+  opacity: 0.55;
+}
+
+.plant-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.plant-card__top {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.plant-card__name {
+  font-size: 15px;
+}
+
+.plant-card__growth {
+  color: var(--dark-grey);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plant-card__unused {
+  color: var(--dark-grey);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  max-width: 100%;
+  padding: 2px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: var(--grass);
+  color: var(--dark-brown);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.categories-panel__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 4px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(122, 184, 95, 0.22);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.categories-panel__note-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--dark-brown);
+  color: var(--beige);
+  font-size: 13px;
+  font-weight: 800;
+  font-style: italic;
+}
+
+/* A strip of the garden below the sky, as on the Main page. */
+.categories-grass {
+  flex: 0 0 9%;
+  border-top: 6px solid var(--dark-brown);
+  background: var(--grass);
+}
 
 /* ---------- Toast ---------- */
 

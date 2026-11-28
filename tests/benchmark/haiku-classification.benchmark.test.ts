@@ -18,7 +18,7 @@ import { activityFromUrl } from '../../src/main/activitywatch/web';
 import { createAnthropicClassifierModel } from '../../src/main/classifier/anthropicModel';
 import type { ClassifierModel } from '../../src/main/classifier/classify';
 import { processCompletedTask } from '../../src/main/pipeline';
-import type { ActivityStatus, CategoryId } from '../../src/shared/types';
+import type { ActivityStatus } from '../../src/shared/types';
 import { makeActiveTask, MINUTE, T0 } from '../fixtures';
 import { fakeActivityWatchFetch } from '../integration/fakeActivityWatch';
 
@@ -30,7 +30,8 @@ type Visit =
 
 interface Scenario {
   task: string;
-  category: CategoryId;
+  /** Kept from the original fixed categories so the prompts stay comparable. */
+  categoryLabel: string;
   visits: Visit[];
   onTaskMinutes: number;
   offTaskMinutes: number;
@@ -69,7 +70,7 @@ function history(visits: Visit[]) {
 const SCENARIOS: Scenario[] = [
   {
     task: 'study chemistry',
-    category: 'school', // "School / Study"
+    categoryLabel: 'School / Study',
     visits: [
       // youtu.be links; page titles as YouTube reports them.
       { kind: 'web', url: 'https://youtu.be/-KfG8kH-r3Y?si=XcKrEpTS1a-BJt0Y', title: 'Chemistry - YouTube', minutes: 10, expected: 'on-task' },
@@ -81,7 +82,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     task: 'play Wordle',
-    category: 'self-care', // "Self-Care"
+    categoryLabel: 'Self-Care',
     visits: [
       { kind: 'web', url: 'https://www.nytimes.com/games/wordle/index.html', title: 'Wordle — The New York Times', minutes: 4, expected: 'on-task' },
       { kind: 'web', url: 'https://loldle.net/', title: 'LoLdle', minutes: 4, expected: 'off-task' },
@@ -93,7 +94,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     task: 'make money',
-    category: 'finance', // "Finance"
+    categoryLabel: 'Finance',
     visits: [
       {
         kind: 'web',
@@ -127,7 +128,7 @@ describe('Haiku classification benchmark', () => {
     it(`"${scenario.task}" → ${scenario.onTaskMinutes} on-task min, ${scenario.offTaskMinutes} off-task min`, async () => {
       const { events, endedAt } = history(scenario.visits);
       const activityWatch = new ActivityWatchClient({ fetch: fakeActivityWatchFetch(BUCKETS, events) });
-      const task = makeActiveTask({ name: scenario.task, category: scenario.category, startedAt: T0 });
+      const task = makeActiveTask({ name: scenario.task, categoryLabel: scenario.categoryLabel, startedAt: T0 });
 
       const result = await processCompletedTask({ activityWatch, classifier }, task, endedAt);
 

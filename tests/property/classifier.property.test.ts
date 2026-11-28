@@ -6,7 +6,7 @@ import { ClassificationError, classifyActivities } from '../../src/main/classifi
 import { buildClassificationPrompt } from '../../src/main/classifier/prompt';
 import { validateClassification } from '../../src/main/classifier/schema';
 import type { ActivityItem, ActivityStatus } from '../../src/shared/types';
-import { activityListArb, categoryArb, classifiedActivityArb, taskNameArb } from './arbitraries';
+import { activityListArb, categoryLabelArb, classifiedActivityArb, taskNameArb } from './arbitraries';
 
 const statusArb = fc.constantFrom<ActivityStatus>('on-task', 'off-task');
 
@@ -84,25 +84,25 @@ describe('#17 validateClassification properties', () => {
 describe('#17 buildClassificationPrompt properties', () => {
   it('includes every activity id, whatever the names contain', () => {
     fc.assert(
-      fc.property(taskNameArb, categoryArb, activityListArb(), (name, category, activities) => {
-        const { user } = buildClassificationPrompt({ name, category }, activities);
+      fc.property(taskNameArb, categoryLabelArb, activityListArb(), (name, categoryLabel, activities) => {
+        const { user } = buildClassificationPrompt({ name, categoryLabel }, activities);
         for (const a of activities) expect(user).toContain(a.id);
       }),
     );
   });
 
   it('keeps the system prompt identical for every input (cacheable prefix)', () => {
-    const reference = buildClassificationPrompt({ name: 'x', category: 'work' }, []).system;
+    const reference = buildClassificationPrompt({ name: 'x', categoryLabel: 'Work' }, []).system;
     fc.assert(
-      fc.property(taskNameArb, categoryArb, activityListArb(), (name, category, activities) => {
-        expect(buildClassificationPrompt({ name, category }, activities).system).toBe(reference);
+      fc.property(taskNameArb, categoryLabelArb, activityListArb(), (name, categoryLabel, activities) => {
+        expect(buildClassificationPrompt({ name, categoryLabel }, activities).system).toBe(reference);
       }),
     );
   });
 });
 
 describe('#17 classifyActivities retry properties', () => {
-  const task = { name: 'Study', category: 'school' as const };
+  const task = { name: 'Study', categoryLabel: 'Media' };
 
   it('succeeds after k invalid answers when k < maxAttempts, using exactly k + 1 calls', async () => {
     await fc.assert(

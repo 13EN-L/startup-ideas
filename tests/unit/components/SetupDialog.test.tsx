@@ -122,36 +122,66 @@ describe('SetupDialog: website tracking', () => {
   });
 });
 
-describe('SetupDialog: reset all data', () => {
+describe('SetupDialog: categories and plant mappings', () => {
   const READY = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' as const, websiteTracking: 'page-titles' as const, activityWatchAutostart: 'unavailable' as const };
+
+  it('is hidden unless a handler is given', () => {
+    setup({ status: READY });
+    expect(screen.queryByRole('button', { name: 'Modify categories and plant mappings' })).not.toBeInTheDocument();
+  });
+
+  it('opens the categories page', async () => {
+    const onOpenCategories = vi.fn();
+    setup({ status: READY, onOpenCategories });
+    await userEvent.click(screen.getByRole('button', { name: 'Modify categories and plant mappings' }));
+    expect(onOpenCategories).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SetupDialog: reset data', () => {
+  const READY = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved' as const, websiteTracking: 'page-titles' as const, activityWatchAutostart: 'unavailable' as const };
+  const ONLY_PROGRESS = 'Reset only tasks and plants';
+  const EVERYTHING = 'Reset categories, tasks, and plants';
 
   it('is hidden unless a reset handler is given', () => {
     setup({ status: READY });
-    expect(screen.queryByRole('button', { name: 'Reset all data' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ONLY_PROGRESS })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: EVERYTHING })).not.toBeInTheDocument();
   });
 
-  it('asks for confirmation, and Cancel erases nothing', async () => {
+  it.each([ONLY_PROGRESS, EVERYTHING])('asks for confirmation before "%s", and Cancel erases nothing', async (button) => {
     const onResetData = vi.fn(async () => {});
     setup({ status: READY, onResetData });
-    await userEvent.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await userEvent.click(screen.getByRole('button', { name: button }));
     expect(screen.getByText(/can't be undone/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onResetData).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Reset all data' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: button })).toBeInTheDocument();
   });
 
-  it('resets once confirmed and says so', async () => {
+  it('resets only tasks and plants once confirmed, and says the categories are kept', async () => {
     const onResetData = vi.fn(async () => {});
     setup({ status: READY, onResetData });
-    await userEvent.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await userEvent.click(screen.getByRole('button', { name: ONLY_PROGRESS }));
+    expect(screen.getByText(/categories and plant mappings stay as they are/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
-    expect(onResetData).toHaveBeenCalledTimes(1);
+    expect(onResetData).toHaveBeenCalledWith('progress');
+    expect(await screen.findByText('Your tasks and plants were reset.')).toBeInTheDocument();
+  });
+
+  it('resets categories as well once confirmed, and says so', async () => {
+    const onResetData = vi.fn(async () => {});
+    setup({ status: READY, onResetData });
+    await userEvent.click(screen.getByRole('button', { name: EVERYTHING }));
+    expect(screen.getByText(/back to the defaults/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
+    expect(onResetData).toHaveBeenCalledWith('everything');
     expect(await screen.findByText('All data was reset.')).toBeInTheDocument();
   });
 
   it('shows why a reset failed', async () => {
     setup({ status: READY, onResetData: vi.fn(async () => Promise.reject(new Error('disk full'))) });
-    await userEvent.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await userEvent.click(screen.getByRole('button', { name: EVERYTHING }));
     await userEvent.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not reset your data: disk full');
   });

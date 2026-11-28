@@ -1,8 +1,9 @@
-// Issue #18: decorative conveyor-belt clouds (top 1/3), grass with category
-// plots (bottom 2/3), trophies and global prestige under the logo. Clicking a
-// plot lists that category's completed tasks; clicking one shows its results.
+// Issue #18: decorative conveyor-belt clouds (top 1/3), grass with plant plots
+// (bottom 2/3), trophies and global prestige under the logo. Clicking a plot
+// lists the tasks that grew that plant; clicking one shows its results.
 // Opening the garden replays the growth earned since it was last opened.
 import { useEffect, useState } from 'react';
+import { categoriesForPlant, plantLabel } from '../../core/categories';
 import {
   earnedTrophies,
   getPlantGrowth,
@@ -13,9 +14,8 @@ import {
   visiblePlots,
   type Plants,
 } from '../../core/growth';
-import { tasksInCategory } from '../../core/persistence';
-import { CATEGORIES } from '../../shared/constants';
-import type { CategoryId, CompletedTask, Trophy } from '../../shared/types';
+import { tasksForPlant } from '../../core/persistence';
+import type { Category, CompletedTask, PlantId, Trophy } from '../../shared/types';
 import { plantImage, trophyImage } from '../assets';
 import { DecorativeClouds } from '../components/Clouds';
 import { HomeButton } from '../components/HomeButton';
@@ -25,10 +25,12 @@ import { useGrowthReplay } from '../components/useGrowthReplay';
 
 export interface GardenPageProps {
   plants: Plants;
+  /** The current category -> plant mappings, for plot labels. */
+  categories: Category[];
   /** Every completed task, in any order. */
   completedTasks: CompletedTask[];
   /** Reads assets/plants/<plant>/about.txt; resolves null when there is none. */
-  loadPlantAbout: (category: CategoryId) => Promise<string | null>;
+  loadPlantAbout: (plant: PlantId) => Promise<string | null>;
   onNavigateHome: () => void;
   /** Called once the garden has started showing growth the user hadn't seen. */
   onPlantsViewed?: () => void;
@@ -40,24 +42,31 @@ const TROPHY_LABELS: Record<Trophy, string> = {
   gold: 'Gold trophy',
 };
 
-export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateHome, onPlantsViewed }: GardenPageProps) {
-  const [openCategory, setOpenCategory] = useState<CategoryId>();
+export function GardenPage({
+  plants,
+  categories,
+  completedTasks,
+  loadPlantAbout,
+  onNavigateHome,
+  onPlantsViewed,
+}: GardenPageProps) {
+  const [openPlant, setOpenPlant] = useState<PlantId>();
   const [resultTaskId, setResultTaskId] = useState<string>();
-  const [about, setAbout] = useState<{ category: CategoryId; text: string | null }>();
+  const [about, setAbout] = useState<{ plant: PlantId; text: string | null }>();
 
   useEffect(() => {
-    if (!openCategory) return;
+    if (!openPlant) return;
     let cancelled = false;
-    loadPlantAbout(openCategory)
+    loadPlantAbout(openPlant)
       // A missing description just leaves the popup without one.
       .catch(() => null)
       .then((text) => {
-        if (!cancelled) setAbout({ category: openCategory, text });
+        if (!cancelled) setAbout({ plant: openPlant, text });
       });
     return () => {
       cancelled = true;
     };
-  }, [openCategory, loadPlantAbout]);
+  }, [openPlant, loadPlantAbout]);
 
   // What the plots and trophies draw; catches up with `plants` as growth replays.
   const shownPlants = useGrowthReplay(plants);
@@ -69,8 +78,8 @@ export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateH
 
   const prestige = globalPrestige(shownPlants);
   const rows = plotRows(visiblePlots(shownPlants));
-  const categoryTasks = openCategory ? tasksInCategory(completedTasks, openCategory) : [];
-  const resultTask = categoryTasks.find((t) => t.id === resultTaskId);
+  const plantTasks = openPlant ? tasksForPlant(completedTasks, openPlant) : [];
+  const resultTask = plantTasks.find((t) => t.id === resultTaskId);
 
   return (
     <div className="page page--garden">
@@ -92,27 +101,29 @@ export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateH
         {rows.length === 0 && <p className="grass__empty">Complete a task to plant your first seed.</p>}
         {rows.map((row, index) => (
           <div key={index} className={`plot-row plot-row--of-${rows.length}`} data-testid={`plot-row-${index}`}>
-            {row.map((category) => (
+            {row.map((plant) => (
               <Plot
-                key={category}
-                category={category}
-                totalMinutes={shownPlants[category]!.totalMinutes}
-                onOpen={() => setOpenCategory(category)}
+                key={plant}
+                plant={plant}
+                categories={categoriesForPlant(categories, plant)}
+                totalMinutes={shownPlants[plant]!.totalMinutes}
+                onOpen={() => setOpenPlant(plant)}
               />
             ))}
           </div>
         ))}
       </section>
 
-      {openCategory && (
+      {openPlant && (
         <PlantTasksPopup
-          category={openCategory}
-          totalMinutes={plants[openCategory]?.totalMinutes ?? 0}
-          about={about?.category === openCategory ? about.text : undefined}
-          tasks={categoryTasks}
+          plant={openPlant}
+          categories={categories}
+          totalMinutes={plants[openPlant]?.totalMinutes ?? 0}
+          about={about?.plant === openPlant ? about.text : undefined}
+          tasks={plantTasks}
           onSelectTask={setResultTaskId}
           onClose={() => {
-            setOpenCategory(undefined);
+            setOpenPlant(undefined);
             setResultTaskId(undefined);
           }}
           active={!resultTask}
@@ -123,21 +134,35 @@ export function GardenPage({ plants, completedTasks, loadPlantAbout, onNavigateH
   );
 }
 
-function Plot({ category, totalMinutes, onOpen }: { category: CategoryId; totalMinutes: number; onOpen: () => void }) {
+function Plot({
+  plant,
+  categories,
+  totalMinutes,
+  onOpen,
+}: {
+  plant: PlantId;
+  /** The categories growing this plant now; may be empty. */
+  categories: Category[];
+  totalMinutes: number;
+  onOpen: () => void;
+}) {
   const growth = getPlantGrowth(totalMinutes);
-  const plant = CATEGORIES.find((c) => c.id === category)!;
+  const name = plantLabel(plant);
+  const label = categories.length > 0 ? categories.map((c) => c.label).join(', ') : name;
   return (
-    <div className="plot" data-testid={`plot-${category}`}>
+    <div className="plot" data-testid={`plot-${plant}`}>
       <img
         className="plot__plant"
-        src={plantImage(category, growth.stage)}
-        alt={`${plant.plantLabel}, stage ${growth.stage}`}
+        src={plantImage(plant, growth.stage)}
+        alt={`${name}, stage ${growth.stage}`}
         style={{ transform: `scale(${plantScale(growth)})` }}
       />
-      <span className="plot__label">{plant.label}</span>
+      <span className="plot__label" title={label}>
+        {label}
+      </span>
       {growth.prestige > 0 && <span className="plot__prestige">Prestige {growth.prestige}</span>}
       {/* Covers the whole plot so the plant, label and dirt are all clickable. */}
-      <button type="button" className="plot__open" aria-label={`${plant.plantLabel}: ${plant.label} tasks`} onClick={onOpen} />
+      <button type="button" className="plot__open" aria-label={`${name} tasks`} onClick={onOpen} />
     </div>
   );
 }

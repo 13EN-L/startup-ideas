@@ -9,7 +9,7 @@ import { makeCompletedTask } from '../../fixtures';
 function setup(overrides: Partial<MainPageProps> = {}) {
   const props: MainPageProps = {
     recentTasks: [makeCompletedTask({ id: 'c1', name: 'Essay' }), makeCompletedTask({ id: 'c2', name: 'Gym' })],
-    plants: { work: { category: 'work', totalMinutes: 13 } },
+    plants: { pine: { plant: 'pine', totalMinutes: 13 } },
     onOpenTasks: vi.fn(),
     onOpenTaskResult: vi.fn(),
     onOpenGarden: vi.fn(),
@@ -40,7 +40,7 @@ describe('MainPage', () => {
   it('shows a simplified garden that opens the Garden page', async () => {
     const props = setup();
     const garden = screen.getByRole('button', { name: 'Open garden' });
-    expect(garden.querySelector('img')).toHaveAttribute('src', plantImage('work', 3));
+    expect(garden.querySelector('img')).toHaveAttribute('src', plantImage('pine', 3));
     await userEvent.click(garden);
     expect(props.onOpenGarden).toHaveBeenCalled();
   });

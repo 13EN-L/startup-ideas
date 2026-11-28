@@ -1,25 +1,19 @@
 // Issue #18: plant growth, prestige wrapping, trophies and plot layout.
 import {
-  CATEGORIES,
   GROWTH_ANIMATION_MAX_MS,
   GROWTH_ANIMATION_MS_PER_MINUTE,
   GROWTH_STAGES,
   MID_STAGE_MAX_SCALE,
   MINUTES_PER_CYCLE,
   MINUTES_PER_STAGE,
+  PLANTS,
   PLOTS_PER_ROW,
   TROPHY_THRESHOLDS,
 } from '../shared/constants';
-import type {
-  CategoryId,
-  CompletedTask,
-  PlantGrowth,
-  PlantState,
-  Trophy,
-} from '../shared/types';
+import type { CompletedTask, PlantGrowth, PlantId, PlantState, Trophy } from '../shared/types';
 import { productiveMinutes } from './metrics';
 
-export type Plants = Partial<Record<CategoryId, PlantState>>;
+export type Plants = Partial<Record<PlantId, PlantState>>;
 
 /**
  * Derive stage, progress and prestige from accumulated productive minutes.
@@ -55,15 +49,17 @@ export function addProductiveMinutes(plant: PlantState, minutes: number): PlantS
 }
 
 /**
- * Grows the plant for the task's category, creating its plot if it is the
- * first task. The growth stays unviewed until the Garden page shows it.
+ * Grows the plant the task was completed into (task.plant), creating its plot
+ * if it is that plant's first task. A task whose category grows no plant
+ * changes nothing. The growth stays unviewed until the Garden page shows it.
  */
 export function applyCompletedTask(plants: Plants, task: CompletedTask): Plants {
-  const plant = plants[task.category] ?? { category: task.category, totalMinutes: 0 };
+  if (task.plant === null) return plants;
+  const plant = plants[task.plant] ?? { plant: task.plant, totalMinutes: 0 };
   const viewed = { ...plant, viewedMinutes: viewedMinutes(plant) };
   return {
     ...plants,
-    [task.category]: addProductiveMinutes(viewed, productiveMinutes(task.metrics)),
+    [task.plant]: addProductiveMinutes(viewed, productiveMinutes(task.metrics)),
   };
 }
 
@@ -74,11 +70,9 @@ export function viewedMinutes(plant: PlantState): number {
 
 /** Marks every plant as seen at its current growth (the same object if nothing changed). */
 export function markPlantsViewed(plants: Plants): Plants {
-  const entries = Object.entries(plants) as [CategoryId, PlantState][];
+  const entries = Object.entries(plants) as [PlantId, PlantState][];
   if (entries.every(([, plant]) => viewedMinutes(plant) === plant.totalMinutes)) return plants;
-  return Object.fromEntries(
-    entries.map(([category, plant]) => [category, { ...plant, viewedMinutes: plant.totalMinutes }]),
-  );
+  return Object.fromEntries(entries.map(([id, plant]) => [id, { ...plant, viewedMinutes: plant.totalMinutes }]));
 }
 
 /** How long the Garden takes to replay growth from one total to another. */
@@ -117,16 +111,16 @@ export function earnedTrophies(totalPrestige: number): Trophy[] {
   return TROPHY_ORDER.filter((trophy) => totalPrestige >= TROPHY_THRESHOLDS[trophy]);
 }
 
-/** Categories with a plot, in design-token category order. */
-export function visiblePlots(plants: Plants): CategoryId[] {
-  return CATEGORIES.map((c) => c.id).filter((id) => plants[id] !== undefined);
+/** Plants with a plot, in PLANTS order. */
+export function visiblePlots(plants: Plants): PlantId[] {
+  return PLANTS.map((p) => p.id).filter((id) => plants[id] !== undefined);
 }
 
 /** Up to 5 plots in one row; plots 6-10 go in a second row. */
-export function plotRows(categories: CategoryId[]): CategoryId[][] {
-  const rows: CategoryId[][] = [];
-  for (let i = 0; i < categories.length; i += PLOTS_PER_ROW) {
-    rows.push(categories.slice(i, i + PLOTS_PER_ROW));
+export function plotRows(plots: PlantId[]): PlantId[][] {
+  const rows: PlantId[][] = [];
+  for (let i = 0; i < plots.length; i += PLOTS_PER_ROW) {
+    rows.push(plots.slice(i, i + PLOTS_PER_ROW));
   }
   return rows;
 }

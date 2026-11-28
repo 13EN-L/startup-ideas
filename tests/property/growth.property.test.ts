@@ -21,7 +21,7 @@ import {
   MINUTES_PER_STAGE,
   PLOTS_PER_ROW,
 } from '../../src/shared/constants';
-import { categoryArb, categoryIds, completedTaskArb, minutesArb, plantsArb } from './arbitraries';
+import { completedTaskArb, minutesArb, plantArb, plantIds, plantsArb } from './arbitraries';
 
 const EPS = 1e-9;
 
@@ -84,8 +84,8 @@ describe('#18 getPlantGrowth properties', () => {
 describe('#18 addProductiveMinutes properties', () => {
   it('is additive: growing by a then b equals growing by a + b', () => {
     fc.assert(
-      fc.property(categoryArb, minutesArb, minutesArb, minutesArb, (category, start, a, b) => {
-        const plant = { category, totalMinutes: start };
+      fc.property(plantArb, minutesArb, minutesArb, minutesArb, (id, start, a, b) => {
+        const plant = { plant: id, totalMinutes: start };
         const stepwise = addProductiveMinutes(addProductiveMinutes(plant, a), b);
         const atOnce = addProductiveMinutes(plant, a + b);
         expect(stepwise).toEqual(atOnce);
@@ -96,23 +96,27 @@ describe('#18 addProductiveMinutes properties', () => {
 
   it('rejects every negative amount', () => {
     fc.assert(
-      fc.property(categoryArb, fc.double({ max: -Number.MIN_VALUE, noNaN: true }), (category, minutes) => {
-        expect(() => addProductiveMinutes({ category, totalMinutes: 0 }, minutes)).toThrow(RangeError);
+      fc.property(plantArb, fc.double({ max: -Number.MIN_VALUE, noNaN: true }), (plant, minutes) => {
+        expect(() => addProductiveMinutes({ plant, totalMinutes: 0 }, minutes)).toThrow(RangeError);
       }),
     );
   });
 });
 
 describe('#18 applyCompletedTask properties', () => {
-  it('grows only the task category, by its productive minutes, and always shows its plot', () => {
+  it("grows only the task's plant, by its productive minutes, and always shows its plot", () => {
     fc.assert(
       fc.property(plantsArb, completedTaskArb, (plants, task) => {
         const after = applyCompletedTask(plants, task);
-        const before = plants[task.category]?.totalMinutes ?? 0;
-        expect(after[task.category]?.totalMinutes).toBeCloseTo(before + task.metrics.productiveSeconds / 60, 9);
-        expect(visiblePlots(after)).toContain(task.category);
-        for (const id of categoryIds) {
-          if (id !== task.category) expect(after[id]).toEqual(plants[id]);
+        if (task.plant === null) {
+          expect(after).toBe(plants);
+          return;
+        }
+        const before = plants[task.plant]?.totalMinutes ?? 0;
+        expect(after[task.plant]?.totalMinutes).toBeCloseTo(before + task.metrics.productiveSeconds / 60, 9);
+        expect(visiblePlots(after)).toContain(task.plant);
+        for (const id of plantIds) {
+          if (id !== task.plant) expect(after[id]).toEqual(plants[id]);
         }
       }),
     );
@@ -181,19 +185,19 @@ describe('#18 prestige and trophy properties', () => {
 });
 
 describe('#18 plot layout properties', () => {
-  it('visible plots are exactly the planted categories, in category order', () => {
+  it('visible plots are exactly the planted plants, in plant order', () => {
     fc.assert(
       fc.property(plantsArb, (plants) => {
         const visible = visiblePlots(plants);
         expect(new Set(visible)).toEqual(new Set(Object.keys(plants)));
-        expect(visible).toEqual(categoryIds.filter((id) => visible.includes(id)));
+        expect(visible).toEqual(plantIds.filter((id) => visible.includes(id)));
       }),
     );
   });
 
   it('rows keep every plot in order, with at most 5 on top and the rest below', () => {
     fc.assert(
-      fc.property(fc.subarray(categoryIds), (plots) => {
+      fc.property(fc.subarray(plantIds), (plots) => {
         const rows = plotRows(plots);
         expect(rows.flat()).toEqual(plots);
         expect(rows.length).toBe(Math.ceil(plots.length / PLOTS_PER_ROW));

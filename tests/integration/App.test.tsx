@@ -5,7 +5,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/renderer/App';
 import type { FocusGardenBridge, SetupStatus } from '../../src/shared/bridge';
 import type { AppState, CompletedTask } from '../../src/shared/types';
-import { makeActiveTask, makeCompletedTask, makeState, T0 } from '../fixtures';
+import { defaultCategories } from '../../src/core/categories';
+import { inCategory, makeActiveTask, makeCompletedTask, makeState, T0 } from '../fixtures';
 
 const NOW = T0 + 20 * 60_000;
 const READY: SetupStatus = { activityWatchRunning: true, activityWatchBundled: false, apiKey: 'saved', websiteTracking: 'page-titles', activityWatchAutostart: 'unavailable' };
@@ -45,8 +46,8 @@ describe('#20 launch restore', () => {
   });
 
   it('reopens the saved page when nothing was active', async () => {
-    renderApp(fakeBridge(makeState({ route: 'garden', plants: { work: { category: 'work', totalMinutes: 5 } } })));
-    expect(await screen.findByTestId('plot-work')).toBeInTheDocument();
+    renderApp(fakeBridge(makeState({ route: 'garden', plants: { pine: { plant: 'pine', totalMinutes: 5 } } })));
+    expect(await screen.findByTestId('plot-pine')).toBeInTheDocument();
   });
 
   it('opens on the Main page on first launch', async () => {
@@ -99,21 +100,40 @@ describe('reset all data', () => {
     const user = userEvent.setup();
     const bridge = fakeBridge(
       makeState({
-        completedTasks: [makeCompletedTask({ name: 'Old essay', category: 'work' })],
-        plants: { work: { category: 'work', totalMinutes: 40 } },
+        completedTasks: [makeCompletedTask({ name: 'Old essay', ...inCategory('programming') })],
+        plants: { pine: { plant: 'pine', totalMinutes: 40 } },
       }),
     );
     renderApp(bridge);
     expect(await screen.findByRole('button', { name: 'Old essay' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Settings' }));
-    await user.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await user.click(screen.getByRole('button', { name: 'Reset categories, tasks, and plants' }));
     await user.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
 
     expect(await screen.findByText('All data was reset.')).toBeInTheDocument();
     expect(lastSaved(bridge)).toEqual(makeState());
     expect(bridge.clearApiKey).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Old essay' })).not.toBeInTheDocument();
+  });
+
+  it('can reset only tasks and plants, keeping the categories and their plants', async () => {
+    const user = userEvent.setup();
+    const categories = [{ id: 'c1', label: 'Gardening', plant: 'carrot' as const }];
+    const bridge = fakeBridge(
+      makeState({
+        categories,
+        completedTasks: [makeCompletedTask({ name: 'Old essay', category: 'c1', categoryLabel: 'Gardening', plant: 'carrot' })],
+        plants: { carrot: { plant: 'carrot', totalMinutes: 40 } },
+      }),
+    );
+    renderApp(bridge);
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Reset only tasks and plants' }));
+    await user.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
+
+    expect(await screen.findByText('Your tasks and plants were reset.')).toBeInTheDocument();
+    expect(lastSaved(bridge)).toEqual(makeState({ categories }));
   });
 
   it('drops a task whose analysis finishes after the reset', async () => {
@@ -128,7 +148,7 @@ describe('reset all data', () => {
     fireEvent.animationEnd(screen.getByRole('button', { name: 'Essay (cow)' }));
     await user.click(await screen.findByRole('button', { name: 'Home' }));
     await user.click(screen.getByRole('button', { name: 'Settings' }));
-    await user.click(screen.getByRole('button', { name: 'Reset all data' }));
+    await user.click(screen.getByRole('button', { name: 'Reset categories, tasks, and plants' }));
     await user.click(screen.getByRole('button', { name: 'Yes, erase everything' }));
     await screen.findByText('All data was reset.');
 
@@ -152,13 +172,22 @@ describe('#20 saving state', () => {
     renderApp(bridge);
 
     await user.type(await screen.findByPlaceholderText('enter task'), 'Read chapter 4');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'category' }), 'School / Study');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'category' }), 'Media');
     await user.click(screen.getByRole('button', { name: 'start task' }));
 
     expect(await screen.findByRole('button', { name: 'Read chapter 4 (sheep)' })).toBeInTheDocument();
     await waitFor(() =>
       expect(lastSaved(bridge)?.activeTasks).toEqual([
-        { id: 'new-1', name: 'Read chapter 4', category: 'school', animal: 'sheep', slot: 0, startedAt: NOW },
+        {
+          id: 'new-1',
+          name: 'Read chapter 4',
+          category: 'media',
+          categoryLabel: 'Media',
+          plant: 'tomato',
+          animal: 'sheep',
+          slot: 0,
+          startedAt: NOW,
+        },
       ]),
     );
   });
@@ -166,7 +195,7 @@ describe('#20 saving state', () => {
 
 describe('#20 Main page cloud -> Task page result popup', () => {
   it('navigates to the Task page and opens that task popup', async () => {
-    const completed = makeCompletedTask({ id: 'c1', name: 'Gym session', category: 'health' });
+    const completed = makeCompletedTask({ id: 'c1', name: 'Gym session', ...inCategory('geography') });
     renderApp(fakeBridge(makeState({ completedTasks: [completed] })));
     await userEvent.click(await screen.findByRole('button', { name: 'Gym session' }));
     expect(screen.getByPlaceholderText('enter task')).toBeInTheDocument();
@@ -177,11 +206,11 @@ describe('#20 Main page cloud -> Task page result popup', () => {
 describe('#19/#17 stopping a task end to end', () => {
   it('runs the pipeline, adds a cloud, grows the plant and re-enables Home', async () => {
     const user = userEvent.setup();
-    const active = makeActiveTask({ id: 'a1', name: 'Essay', animal: 'cow', category: 'school' });
+    const active = makeActiveTask({ id: 'a1', name: 'Essay', animal: 'cow', ...inCategory('media') });
     const finished = makeCompletedTask({
       id: 'a1',
       name: 'Essay',
-      category: 'school',
+      ...inCategory('media'),
       endedAt: NOW,
       metrics: { productiveSeconds: 12 * 60, unproductiveSeconds: 0, idleSeconds: 0 },
     });
@@ -199,7 +228,7 @@ describe('#19/#17 stopping a task end to end', () => {
       const saved = lastSaved(bridge);
       expect(saved?.activeTasks).toEqual([]);
       expect(saved?.completedTasks).toEqual([finished]);
-      expect(saved?.plants.school).toEqual({ category: 'school', totalMinutes: 12, viewedMinutes: 0 });
+      expect(saved?.plants.tomato).toEqual({ plant: 'tomato', totalMinutes: 12, viewedMinutes: 0 });
     });
   });
 
@@ -221,19 +250,95 @@ describe('#19/#17 stopping a task end to end', () => {
 describe('Garden growth replay is saved as seen', () => {
   it('records the growth as viewed when the garden shows it, so a restart does not replay it', async () => {
     const bridge = fakeBridge(
-      makeState({ route: 'garden', plants: { work: { category: 'work', totalMinutes: 40, viewedMinutes: 4 } } }),
+      makeState({ route: 'garden', plants: { pine: { plant: 'pine', totalMinutes: 40, viewedMinutes: 4 } } }),
     );
     renderApp(bridge);
-    expect(await screen.findByTestId('plot-work')).toBeInTheDocument();
+    expect(await screen.findByTestId('plot-pine')).toBeInTheDocument();
     await waitFor(() => {
-      expect(lastSaved(bridge)?.plants.work).toEqual({ category: 'work', totalMinutes: 40, viewedMinutes: 40 });
+      expect(lastSaved(bridge)?.plants.pine).toEqual({ plant: 'pine', totalMinutes: 40, viewedMinutes: 40 });
     });
   });
 
   it('saves nothing extra when the garden has no new growth', async () => {
-    const bridge = fakeBridge(makeState({ route: 'garden', plants: { work: { category: 'work', totalMinutes: 40 } } }));
+    const bridge = fakeBridge(makeState({ route: 'garden', plants: { pine: { plant: 'pine', totalMinutes: 40 } } }));
     renderApp(bridge);
-    expect(await screen.findByTestId('plot-work')).toBeInTheDocument();
+    expect(await screen.findByTestId('plot-pine')).toBeInTheDocument();
     expect(bridge.saveState).not.toHaveBeenCalled();
+  });
+});
+
+describe('categories and plant mappings', () => {
+  async function openCategories(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole('button', { name: 'Settings' }));
+    await user.click(screen.getByRole('button', { name: 'Modify categories and plant mappings' }));
+  }
+
+  it('opens the categories page from Settings and goes back to Settings', async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge(makeState());
+    renderApp(bridge);
+    await openCategories(user);
+
+    expect(screen.getByRole('heading', { name: 'Categories & plants' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(lastSaved(bridge)?.route).toBe('categories'));
+
+    await user.click(screen.getByRole('button', { name: /Back to settings/ }));
+    expect(screen.getByRole('dialog', { name: 'Set up FocusGarden' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tasks' })).toBeInTheDocument();
+  });
+
+  it('reopens the categories page after a restart', async () => {
+    renderApp(fakeBridge(makeState({ route: 'categories' })));
+    expect(await screen.findByRole('heading', { name: 'Categories & plants' })).toBeInTheDocument();
+  });
+
+  it('saves edits, and the task dropdown uses them', async () => {
+    const user = userEvent.setup();
+    const bridge = fakeBridge(makeState());
+    renderApp(bridge);
+    await openCategories(user);
+
+    await user.type(screen.getByLabelText('Add a category'), 'Gardening');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Plant for the new category' }), 'Carrot');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await waitFor(() =>
+      expect(lastSaved(bridge)?.categories.at(-1)).toEqual({ id: 'new-1', label: 'Gardening', plant: 'carrot' }),
+    );
+
+    await user.click(screen.getByRole('button', { name: /Back to settings/ }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await user.click(screen.getByRole('button', { name: 'Tasks' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'category' }), 'Gardening');
+    expect(screen.getByRole('status')).toHaveTextContent('Grows your Carrot');
+  });
+
+  it('grows the newly mapped plant only from tasks finished after the change', async () => {
+    const user = userEvent.setup();
+    const active = makeActiveTask({ id: 'a1', name: 'Essay', animal: 'cow', ...inCategory('media') });
+    const finished = makeCompletedTask({
+      id: 'a1',
+      name: 'Essay',
+      ...inCategory('media'),
+      endedAt: NOW,
+      metrics: { productiveSeconds: 12 * 60, unproductiveSeconds: 0, idleSeconds: 0 },
+    });
+    const categories = defaultCategories().map((c) => (c.id === 'media' ? { ...c, plant: 'carrot' as const } : c));
+    const bridge = fakeBridge(
+      makeState({ route: 'task', categories, activeTasks: [active], plants: { tomato: { plant: 'tomato', totalMinutes: 30 } } }),
+      finished,
+    );
+    renderApp(bridge);
+
+    await user.click(await screen.findByRole('button', { name: 'Essay (cow)' }));
+    await user.click(screen.getByRole('button', { name: 'Stop' }));
+    fireEvent.animationEnd(screen.getByRole('button', { name: 'Essay (cow)' }));
+
+    await waitFor(() => {
+      const saved = lastSaved(bridge);
+      expect(saved?.plants.carrot).toEqual({ plant: 'carrot', totalMinutes: 12, viewedMinutes: 0 });
+      expect(saved?.plants.tomato).toEqual({ plant: 'tomato', totalMinutes: 30 });
+      expect(saved?.completedTasks[0].plant).toBe('carrot');
+    });
   });
 });

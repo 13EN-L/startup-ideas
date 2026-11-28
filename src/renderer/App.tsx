@@ -5,8 +5,9 @@ import { markPlantsViewed } from '../core/growth';
 import { createInitialState, recentTasks, resolveLaunchRoute } from '../core/persistence';
 import { completeTask, startTask, stopTask, type StartTaskInput } from '../core/tasks';
 import type { FocusGardenBridge, SetupStatus } from '../shared/bridge';
-import type { AppState, Route } from '../shared/types';
-import { isSetupComplete, SetupDialog } from './components/SetupDialog';
+import type { AppState, Category, Route } from '../shared/types';
+import { isSetupComplete, SetupDialog, type ResetScope } from './components/SetupDialog';
+import { CategoriesPage } from './pages/CategoriesPage';
 import { GardenPage } from './pages/GardenPage';
 import { MainPage } from './pages/MainPage';
 import { TaskPage } from './pages/TaskPage';
@@ -143,9 +144,24 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
     setState(next);
   }, []);
 
+  // Only future tasks follow the new mappings; plants keep their growth.
+  const handleCategoriesChange = useCallback((categories: Category[]) => {
+    const current = stateRef.current;
+    if (!current) return;
+    const next = { ...current, categories };
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
+  const openSettings = useCallback(() => {
+    setSetupOpen(true);
+    void refreshSetup();
+  }, [refreshSetup]);
+
   // Settings is only reachable from the Main page, where no task is active.
-  const handleReset = useCallback(async () => {
-    const next = createInitialState();
+  const handleReset = useCallback(async (scope: ResetScope) => {
+    const current = stateRef.current;
+    const next = createInitialState(scope === 'progress' && current ? current.categories : undefined);
     resetCount.current++;
     skipNextSave.current = true;
     stateRef.current = next;
@@ -169,15 +185,13 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
           onOpenTasks={() => navigate('task')}
           onOpenTaskResult={(id) => navigate('task', id)}
           onOpenGarden={() => navigate('garden')}
-          onOpenSettings={() => {
-            setSetupOpen(true);
-            void refreshSetup();
-          }}
+          onOpenSettings={openSettings}
         />
       )}
       {state.route === 'task' && (
         <TaskPage
           activeTasks={state.activeTasks}
+          categories={state.categories}
           recentTasks={recent}
           now={now}
           initialResultTaskId={resultTaskId}
@@ -189,10 +203,23 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
       {state.route === 'garden' && (
         <GardenPage
           plants={state.plants}
+          categories={state.categories}
           completedTasks={state.completedTasks}
           loadPlantAbout={bridge.getPlantAbout}
           onNavigateHome={() => navigate('main')}
           onPlantsViewed={handlePlantsViewed}
+        />
+      )}
+      {state.route === 'categories' && (
+        <CategoriesPage
+          categories={state.categories}
+          plants={state.plants}
+          onChange={handleCategoriesChange}
+          onBack={() => {
+            navigate('main');
+            openSettings();
+          }}
+          createId={createId}
         />
       )}
 
@@ -215,6 +242,10 @@ export function App({ bridge, clock = Date.now, random = Math.random, createId =
           onSetActivityWatchAutostart={async (enabled) => {
             await bridge.setActivityWatchAutostart(enabled);
             await refreshSetup();
+          }}
+          onOpenCategories={() => {
+            setSetupOpen(false);
+            navigate('categories');
           }}
           onResetData={handleReset}
           onClose={() => setSetupOpen(false)}

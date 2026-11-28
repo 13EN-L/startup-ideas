@@ -1,10 +1,10 @@
 // Issue #17: bundle a task's activity log into a classification prompt.
-import { CATEGORIES } from '../../shared/constants';
-import type { ActivityItem, CategoryId } from '../../shared/types';
+import type { ActivityItem } from '../../shared/types';
 
 export interface ClassificationTask {
   name: string;
-  category: CategoryId;
+  /** The category's user-chosen name. */
+  categoryLabel: string;
 }
 
 export interface ClassificationPrompt {
@@ -30,7 +30,8 @@ export function buildClassificationPrompt(
   task: ClassificationTask,
   activities: ActivityItem[],
 ): ClassificationPrompt {
-  const category = CATEGORIES.find((c) => c.id === task.category)?.label ?? task.category;
+  // Users name categories themselves; keep the name on one line.
+  const category = task.categoryLabel.replace(/\s+/g, ' ').trim();
   const lines = activities.map(
     (a) =>
       `- id: ${a.id} | name: ${a.name} | type: ${a.source} | time: ${(a.seconds / 60).toFixed(1)} min`,

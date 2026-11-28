@@ -1,9 +1,10 @@
 // Issue #19: task lifecycle, animal pen slots and the 3-task limit.
-import { ANIMALS, CATEGORIES, COLORS, MAX_ACTIVE_TASKS } from '../shared/constants';
+import { ANIMALS, COLORS, MAX_ACTIVE_TASKS } from '../shared/constants';
 import type {
   ActiveTask,
   AnimalId,
   AppState,
+  Category,
   CategoryId,
   CompletedTask,
   PenSlot,
@@ -55,7 +56,8 @@ export function startTask(state: AppState, input: StartTaskInput, deps: TaskDeps
   if (!name) {
     throw new TaskError('empty-name', 'Enter a task name.');
   }
-  if (!CATEGORIES.some((c) => c.id === input.category)) {
+  const category = state.categories.find((c) => c.id === input.category);
+  if (!category) {
     throw new TaskError('unknown-category', `Unknown category: ${input.category}`);
   }
   const slot = PEN_SLOTS.find((s) => !state.activeTasks.some((t) => t.slot === s));
@@ -66,7 +68,9 @@ export function startTask(state: AppState, input: StartTaskInput, deps: TaskDeps
   const task: ActiveTask = {
     id: deps.createId(),
     name,
-    category: input.category,
+    category: category.id,
+    categoryLabel: category.label,
+    plant: category.plant,
     animal: pickAnimal(deps.random),
     slot,
     startedAt: deps.now,
@@ -89,13 +93,32 @@ export function stopTask(
   };
 }
 
-/** Records the processed task and grows the matching plant. */
+/**
+ * Fixes which plant a finished task grows: whatever its category maps to right
+ * now. If the category was removed while the task ran, it keeps the plant and
+ * name it had when the task started (already on the task).
+ */
+export function resolveTaskCategory(categories: Category[], task: CompletedTask): CompletedTask {
+  const category = categories.find((c) => c.id === task.category);
+  return category ? { ...task, categoryLabel: category.label, plant: category.plant } : task;
+}
+
+/**
+ * Records the processed task and grows the plant its category maps to now.
+ * Plants only ever grow from tasks as they complete, never retroactively.
+ */
 export function completeTask(state: AppState, task: CompletedTask): AppState {
+  const resolved = resolveTaskCategory(state.categories, task);
   return {
     ...state,
-    completedTasks: [...state.completedTasks, task],
-    plants: applyCompletedTask(state.plants, task),
+    completedTasks: [...state.completedTasks, resolved],
+    plants: applyCompletedTask(state.plants, resolved),
   };
+}
+
+/** The category's current name if it still exists, else the name the task was saved with. */
+export function taskCategoryLabel(task: CompletedTask, categories: Category[]): string {
+  return categories.find((c) => c.id === task.category)?.label ?? task.categoryLabel;
 }
 
 export function elapsedSeconds(task: ActiveTask, now: number): number {

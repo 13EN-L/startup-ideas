@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActivityWatchClient, ActivityWatchError } from '../../src/main/activitywatch/client';
 import type { ClassifierModel } from '../../src/main/classifier/classify';
 import { processCompletedTask } from '../../src/main/pipeline';
-import { makeActiveTask, MINUTE, T0 } from '../fixtures';
+import { inCategory, makeActiveTask, MINUTE, T0 } from '../fixtures';
 import { fakeActivityWatchFetch, unreachableFetch } from './fakeActivityWatch';
 
 function classifierFrom(statuses: Record<string, 'on-task' | 'off-task'>) {
@@ -13,7 +13,7 @@ function classifierFrom(statuses: Record<string, 'on-task' | 'off-task'>) {
   return { complete } satisfies ClassifierModel;
 }
 
-const task = makeActiveTask({ id: 't1', name: 'Fix login bug', category: 'work', startedAt: T0 });
+const task = makeActiveTask({ id: 't1', name: 'Fix login bug', ...inCategory('programming'), startedAt: T0 });
 const endedAt = T0 + 30 * MINUTE;
 
 describe('#17 processCompletedTask', () => {
@@ -36,7 +36,7 @@ describe('#17 processCompletedTask', () => {
     expect(done).toMatchObject({
       id: 't1',
       name: 'Fix login bug',
-      category: 'work',
+      ...inCategory('programming'),
       startedAt: T0,
       endedAt,
       // 600 + 240 + 240 + 120 on, 180 + 120 + 60 off, 240 idle: exactly the 30 minutes.

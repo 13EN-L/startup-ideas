@@ -1,15 +1,25 @@
 // Issue #20: state persistence, launch restoration and recent task clouds.
 import { z } from 'zod';
-import { ANIMALS, CATEGORIES, MAX_ACTIVE_TASKS, RECENT_TASK_COUNT } from '../shared/constants';
+import {
+  ANIMALS,
+  LEGACY_CATEGORIES,
+  MAX_ACTIVE_TASKS,
+  PLANTS,
+  RECENT_TASK_COUNT,
+} from '../shared/constants';
 import type {
+  ActiveTask,
   AppState,
   BreakdownPercentages,
-  CategoryId,
+  Category,
   CompletedTask,
+  PlantId,
+  PlantState,
   Route,
   TaskMetrics,
 } from '../shared/types';
 import { ACTIVITY_SOURCES } from '../shared/types';
+import { defaultCategories, sanitizeCategories } from './categories';
 
 /** Where the serialized AppState lives (a JSON file in Electron's userData). */
 export interface StateStore {
@@ -17,23 +27,28 @@ export interface StateStore {
   save(serialized: string): Promise<void>;
 }
 
-const categoryIds = CATEGORIES.map((c) => c.id) as [CategoryId, ...CategoryId[]];
+const plantIds = PLANTS.map((p) => p.id) as [PlantId, ...PlantId[]];
+const legacyCategoryIds = LEGACY_CATEGORIES.map((c) => c.id) as [
+  (typeof LEGACY_CATEGORIES)[number]['id'],
+  ...(typeof LEGACY_CATEGORIES)[number]['id'][],
+];
 const seconds = z.number().finite().nonnegative();
+const plantId = z.enum(plantIds);
 
-const ActiveTaskSchema = z.object({
+const taskBase = {
   id: z.string(),
   name: z.string(),
-  category: z.enum(categoryIds),
+  startedAt: z.number().finite(),
+};
+
+const activeTaskBase = {
+  ...taskBase,
   animal: z.enum(ANIMALS),
   slot: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-  startedAt: z.number().finite(),
-});
+};
 
-const CompletedTaskSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  category: z.enum(categoryIds),
-  startedAt: z.number().finite(),
+const completedTaskBase = {
+  ...taskBase,
   endedAt: z.number().finite(),
   metrics: z.object({
     productiveSeconds: seconds,
@@ -49,25 +64,85 @@ const CompletedTaskSchema = z.object({
       status: z.enum(['on-task', 'off-task']),
     }),
   ),
-});
+};
+
+const categorySnapshot = {
+  category: z.string().min(1),
+  categoryLabel: z.string(),
+  plant: plantId.nullable(),
+};
 
 const AppStateSchema = z.object({
-  version: z.literal(1),
-  route: z.enum(['main', 'task', 'garden']),
-  activeTasks: z.array(ActiveTaskSchema),
-  completedTasks: z.array(CompletedTaskSchema),
+  version: z.literal(2),
+  route: z.enum(['main', 'task', 'garden', 'categories']),
+  // Repaired separately, so one bad category doesn't discard the whole garden.
+  categories: z.unknown(),
+  activeTasks: z.array(z.object({ ...activeTaskBase, ...categorySnapshot })),
+  completedTasks: z.array(z.object({ ...completedTaskBase, ...categorySnapshot })),
   plants: z.partialRecord(
-    z.enum(categoryIds),
-    z.object({ category: z.enum(categoryIds), totalMinutes: seconds, viewedMinutes: seconds.optional() }),
+    plantId,
+    z.object({ plant: plantId, totalMinutes: seconds, viewedMinutes: seconds.optional() }),
   ),
 });
 
-export function createInitialState(): AppState {
-  return { version: 1, route: 'main', activeTasks: [], completedTasks: [], plants: {} };
+/** Saves from before categories were editable: ten fixed categories, plants keyed by category. */
+const LegacyAppStateSchema = z.object({
+  version: z.literal(1),
+  route: z.enum(['main', 'task', 'garden']),
+  activeTasks: z.array(z.object({ ...activeTaskBase, category: z.enum(legacyCategoryIds) })),
+  completedTasks: z.array(z.object({ ...completedTaskBase, category: z.enum(legacyCategoryIds) })),
+  plants: z.partialRecord(
+    z.enum(legacyCategoryIds),
+    z.object({ totalMinutes: seconds, viewedMinutes: seconds.optional() }),
+  ),
+});
+
+/** A fresh garden. Pass `categories` to keep the user's categories (resetting only progress). */
+export function createInitialState(categories: Category[] = defaultCategories()): AppState {
+  return { version: 2, route: 'main', categories, activeTasks: [], completedTasks: [], plants: {} };
 }
 
 export function serializeState(state: AppState): string {
   return JSON.stringify(state);
+}
+
+function legacyCategory(id: (typeof LEGACY_CATEGORIES)[number]['id']) {
+  return LEGACY_CATEGORIES.find((c) => c.id === id)!;
+}
+
+/**
+ * Version 1 -> 2: every grown plant and every task is kept. Tasks keep their
+ * old category's name and the plant it grew; the category list becomes the
+ * new defaults. Tasks still running finish into their old plant.
+ */
+function migrateLegacyState(legacy: z.infer<typeof LegacyAppStateSchema>): AppState {
+  const snapshot = (id: (typeof LEGACY_CATEGORIES)[number]['id']) => {
+    const old = legacyCategory(id);
+    return { category: old.id, categoryLabel: old.label, plant: old.plant as PlantId };
+  };
+  const plants: Partial<Record<PlantId, PlantState>> = {};
+  for (const [id, plant] of Object.entries(legacy.plants)) {
+    if (!plant) continue;
+    const plantKey = legacyCategory(id as (typeof LEGACY_CATEGORIES)[number]['id']).plant;
+    plants[plantKey] = { ...plant, plant: plantKey };
+  }
+  return {
+    version: 2,
+    route: legacy.route,
+    categories: defaultCategories(),
+    activeTasks: legacy.activeTasks.map((t): ActiveTask => ({ ...t, ...snapshot(t.category) })),
+    completedTasks: legacy.completedTasks.map((t): CompletedTask => ({ ...t, ...snapshot(t.category) })),
+    plants,
+  };
+}
+
+function parseState(json: unknown): AppState | null {
+  const current = AppStateSchema.safeParse(json);
+  if (current.success) {
+    return { ...current.data, categories: sanitizeCategories(current.data.categories) };
+  }
+  const legacy = LegacyAppStateSchema.safeParse(json);
+  return legacy.success ? migrateLegacyState(legacy.data) : null;
 }
 
 /** Returns the initial state for missing, corrupt or unknown-version data. */
@@ -81,18 +156,18 @@ export function deserializeState(raw: string | null): AppState {
     return createInitialState();
   }
 
-  const parsed = AppStateSchema.safeParse(json);
-  if (!parsed.success) return createInitialState();
+  const parsed = parseState(json);
+  if (!parsed) return createInitialState();
 
   // Tampered saves could hold more tasks than the pen allows, or share a slot.
   const usedSlots = new Set<number>();
-  const activeTasks = parsed.data.activeTasks.filter((task) => {
+  const activeTasks = parsed.activeTasks.filter((task) => {
     if (usedSlots.has(task.slot) || usedSlots.size >= MAX_ACTIVE_TASKS) return false;
     usedSlots.add(task.slot);
     return true;
   });
 
-  return { ...parsed.data, activeTasks };
+  return { ...parsed, activeTasks };
 }
 
 /** Active tasks always force the Task page; otherwise reopen the saved page. */
@@ -117,9 +192,12 @@ export function recentTasks(completed: CompletedTask[]): CompletedTask[] {
   return [...completed].sort((a, b) => b.endedAt - a.endedAt).slice(0, RECENT_TASK_COUNT);
 }
 
-/** Every completed task in one category, newest first (the plant's task history). */
-export function tasksInCategory(completed: CompletedTask[], category: CategoryId): CompletedTask[] {
-  return completed.filter((t) => t.category === category).sort((a, b) => b.endedAt - a.endedAt);
+/**
+ * Every completed task that grew this plant, newest first (the plant's task
+ * history). Based on the plant each task grew, not on today's mappings.
+ */
+export function tasksForPlant(completed: CompletedTask[], plant: PlantId): CompletedTask[] {
+  return completed.filter((t) => t.plant === plant).sort((a, b) => b.endedAt - a.endedAt);
 }
 
 /** Whole-number percentages that sum to 100, or all zero for an empty task. */

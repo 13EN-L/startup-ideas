@@ -11,6 +11,8 @@ export function fakeProcessCompletedTask(task: ActiveTask, endedAt: number): Com
     id: task.id,
     name: task.name,
     category: task.category,
+    categoryLabel: task.categoryLabel,
+    plant: task.plant,
     startedAt: task.startedAt,
     endedAt,
     metrics: {

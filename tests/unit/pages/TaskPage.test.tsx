@@ -2,12 +2,14 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { defaultCategories } from '../../../src/core/categories';
 import { TaskPage, type TaskPageProps } from '../../../src/renderer/pages/TaskPage';
 import { makeActiveTask, makeCompletedTask, T0 } from '../../fixtures';
 
 function setup(overrides: Partial<TaskPageProps> = {}) {
   const props: TaskPageProps = {
     activeTasks: [],
+    categories: defaultCategories(),
     recentTasks: [makeCompletedTask({ id: 'c1', name: 'Essay' })],
     now: T0,
     onStartTask: vi.fn(),
@@ -37,9 +39,9 @@ describe('#19 TaskPage', () => {
     const user = userEvent.setup();
     const props = setup();
     await user.type(screen.getByPlaceholderText('enter task'), 'Budget');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'category' }), 'Finance');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'category' }), 'Professional writing');
     await user.click(screen.getByRole('button', { name: 'start task' }));
-    expect(props.onStartTask).toHaveBeenCalledWith({ name: 'Budget', category: 'finance' });
+    expect(props.onStartTask).toHaveBeenCalledWith({ name: 'Budget', category: 'professional-writing' });
   });
 
   it('greys out "start task" with 3 animals in the pen', () => {

@@ -41,9 +41,9 @@ export function MainPage({
       </section>
 
       <button type="button" className="garden-strip" aria-label="Open garden" onClick={onOpenGarden}>
-        {visiblePlots(plants).map((category) => (
-          <span key={category} className="garden-strip__plot">
-            <img src={plantImage(category, getPlantGrowth(plants[category]!.totalMinutes).stage)} alt="" />
+        {visiblePlots(plants).map((plant) => (
+          <span key={plant} className="garden-strip__plot">
+            <img src={plantImage(plant, getPlantGrowth(plants[plant]!.totalMinutes).stage)} alt="" />
           </span>
         ))}
       </button>

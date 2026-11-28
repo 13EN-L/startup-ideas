@@ -18,7 +18,7 @@ test.afterEach(async () => {
 test('#19 a started task spawns an animal with a nametag in the pen', async () => {
   const { page } = launched;
   await page.getByRole('button', { name: 'Tasks' }).click();
-  await startTask(page, 'Write essay', 'School / Study');
+  await startTask(page, 'Write essay', 'Media');
 
   const pen = page.getByRole('region', { name: 'Animal pen' });
   await expect(pen.getByRole('button', { name: /^Write essay \(/ })).toBeVisible();
@@ -28,9 +28,9 @@ test('#19 a started task spawns an animal with a nametag in the pen', async () =
 test('#19 the start button greys out at 3 animals', async () => {
   const { page } = launched;
   await page.getByRole('button', { name: 'Tasks' }).click();
-  await startTask(page, 'One', 'Work');
-  await startTask(page, 'Two', 'Home');
-  await startTask(page, 'Three', 'Creative');
+  await startTask(page, 'One', 'Programming');
+  await startTask(page, 'Two', 'Communication');
+  await startTask(page, 'Three', 'Creative writing');
 
   await expect(page.getByRole('region', { name: 'Animal pen' }).getByRole('button')).toHaveCount(3);
   await page.getByPlaceholder('enter task').fill('Four');
@@ -40,7 +40,7 @@ test('#19 the start button greys out at 3 animals', async () => {
 test('#19 stopping a task walks the animal out and creates a result cloud', async () => {
   const { page } = launched;
   await page.getByRole('button', { name: 'Tasks' }).click();
-  await startTask(page, 'Budget review', 'Finance');
+  await startTask(page, 'Budget review', 'Professional writing');
 
   await page.getByRole('button', { name: /^Budget review \(/ }).click();
   await page.getByRole('dialog', { name: 'Budget review' }).getByRole('button', { name: 'Stop' }).click();
@@ -57,7 +57,7 @@ test('#19 stopping a task walks the animal out and creates a result cloud', asyn
 test('#19 the gate and walk-out take 4 seconds in total', async () => {
   const { page } = launched;
   await page.getByRole('button', { name: 'Tasks' }).click();
-  await startTask(page, 'Slow exit', 'Home');
+  await startTask(page, 'Slow exit', 'Communication');
 
   const animal = page.getByRole('button', { name: /^Slow exit \(/ });
   const gate = page.getByTestId('pen-gate');

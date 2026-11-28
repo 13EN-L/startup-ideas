@@ -4,18 +4,18 @@
 // from disk can't fetch local files.
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { CATEGORIES } from '../shared/constants';
+import { PLANTS } from '../shared/constants';
 
-/** Path of a category's about.txt under assetsRoot, or null for an unknown category. */
-export function plantAboutPath(assetsRoot: string, category: string): string | null {
+/** Path of a plant's about.txt under assetsRoot, or null for an unknown plant. */
+export function plantAboutPath(assetsRoot: string, plant: string): string | null {
   // Only the ten known plants, so the renderer can't read arbitrary files.
-  const plant = CATEGORIES.find((c) => c.id === category)?.plant;
-  return plant ? path.join(assetsRoot, 'plants', plant, 'about.txt') : null;
+  const known = PLANTS.find((p) => p.id === plant)?.id;
+  return known ? path.join(assetsRoot, 'plants', known, 'about.txt') : null;
 }
 
-/** The trimmed description, or null when the category is unknown or the file is missing or empty. */
-export async function readPlantAbout(assetsRoot: string, category: string): Promise<string | null> {
-  const file = plantAboutPath(assetsRoot, category);
+/** The trimmed description, or null when the plant is unknown or the file is missing or empty. */
+export async function readPlantAbout(assetsRoot: string, plant: string): Promise<string | null> {
+  const file = plantAboutPath(assetsRoot, plant);
   if (!file) return null;
   try {
     const text = (await readFile(file, 'utf8')).trim();
